@@ -1,11 +1,33 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target, BarChart3 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+
+const campaignSchema = z.object({
+  name: z.string().min(1, "Campaign name is required"),
+  message: z.string().min(1, "Message is required").max(160, "Message must be 160 characters or less"),
+  audience: z.string().min(1, "Audience is required"),
+});
+
+type CampaignForm = z.infer<typeof campaignSchema>;
 
 export default function Campaigns() {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const { toast } = useToast();
+
   const { data: campaignStats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/campaigns/stats"],
   });
@@ -13,6 +35,40 @@ export default function Campaigns() {
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
     queryKey: ["/api/campaigns"],
   });
+
+  const form = useForm<CampaignForm>({
+    resolver: zodResolver(campaignSchema),
+    defaultValues: {
+      name: "",
+      message: "",
+      audience: "all",
+    },
+  });
+
+  const createCampaignMutation = useMutation({
+    mutationFn: (data: CampaignForm) => apiRequest("/api/campaigns", "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
+      setIsCreateOpen(false);
+      form.reset();
+      toast({
+        title: "Campaign Created",
+        description: "Your SMS campaign has been created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (data: CampaignForm) => {
+    createCampaignMutation.mutate(data);
+  };
 
   const stats = [
     {
@@ -49,10 +105,87 @@ export default function Campaigns() {
               Create and manage your SMS campaigns.
             </p>
           </div>
-          <Button className="flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>Create Campaign</span>
-          </Button>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center space-x-2">
+                <Plus className="w-4 h-4" />
+                <span>Create Campaign</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create New Campaign</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Campaign Name</Label>
+                  <Input
+                    id="name"
+                    {...form.register("name")}
+                    placeholder="Enter campaign name"
+                  />
+                  {form.formState.errors.name && (
+                    <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <Label htmlFor="audience">Audience</Label>
+                  <Select onValueChange={(value) => form.setValue("audience", value)} defaultValue="all">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select audience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Customers</SelectItem>
+                      <SelectItem value="vip">VIP Customers</SelectItem>
+                      <SelectItem value="new_leads">New Leads</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.audience && (
+                    <p className="text-sm text-red-600 mt-1">{form.formState.errors.audience.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="message">Message</Label>
+                  <Textarea
+                    id="message"
+                    {...form.register("message")}
+                    placeholder="Enter your SMS message (max 160 characters)"
+                    className="resize-none"
+                    rows={3}
+                  />
+                  <div className="flex justify-between mt-1">
+                    {form.formState.errors.message && (
+                      <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
+                    )}
+                    <p className="text-sm text-gray-500 ml-auto">
+                      {form.watch("message")?.length || 0}/160
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsCreateOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createCampaignMutation.isPending}
+                    className="flex-1"
+                  >
+                    {createCampaignMutation.isPending ? "Creating..." : "Create Campaign"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
 

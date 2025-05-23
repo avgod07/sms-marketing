@@ -176,6 +176,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send campaign
+  app.post("/api/campaigns/:id/send", async (req, res) => {
+    try {
+      const campaignId = parseInt(req.params.id);
+      const campaign = await storage.getCampaign(campaignId);
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+
+      // Get contacts based on campaign audience
+      const contacts = await storage.getContactsBySegment(campaign.audience);
+      
+      if (contacts.length === 0) {
+        return res.status(400).json({ message: "No contacts found for selected audience" });
+      }
+
+      // Import Twilio service
+      const { TwilioService } = await import("./services/twilio.js");
+      
+      // Prepare SMS messages
+      const smsMessages = contacts.map(contact => ({
+        to: contact.phoneNumber,
+        message: campaign.message,
+        campaignId: campaign.id,
+        contactId: contact.id,
+      }));
+
+      // Send SMS messages
+      const results = await TwilioService.sendBulkSMS(smsMessages);
+      
+      // Create message records and update campaign stats
+      let sentCount = 0;
+      let deliveredCount = 0;
+      
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const contact = contacts[i];
+        
+        const messageData = {
+          phoneNumber: contact.phoneNumber,
+          contactId: contact.id,
+          content: campaign.message,
+          status: result.success ? 'sent' : 'failed',
+          campaignId: campaign.id,
+        };
+        
+        await storage.createMessage(messageData);
+        
+        if (result.success) {
+          sentCount++;
+          deliveredCount++; // Assume delivered for now, will be updated by webhooks
+        }
+      }
+      
+      // Update campaign status (note: sentCount and deliveredCount are handled in the database layer)
+      await storage.updateCampaign(campaignId, {
+        status: 'completed',
+      });
+
+      res.json({ 
+        message: "Campaign sent successfully",
+        sentCount,
+        totalContacts: contacts.length,
+      });
+    } catch (error) {
+      console.error("Error sending campaign:", error);
+      res.status(500).json({ message: "Failed to send campaign" });
+    }
+  });
+
   // Message routes
   app.get("/api/messages", async (req, res) => {
     try {
