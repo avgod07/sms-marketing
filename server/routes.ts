@@ -40,6 +40,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Return current authenticated user or null
+  app.get("/api/me", (req, res) => {
+    res.json(req.user || null);
+  });
+
   app.post("/api/logout", (req, res, next) => {
     req.logout(err => {
       if (err) return next(err);

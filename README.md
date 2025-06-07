@@ -50,8 +50,8 @@ This project relies on Node.js and Docker for local development. Follow these st
 ## Authentication
 
 The API uses session-based authentication with Passport's `passport-local` strategy.
-Create a user by sending a `POST` request to `/api/signup` with `username` and `password` fields.
-Log in via `POST /api/login` using the same credentials. Once logged in, all other `/api` routes require an authenticated session. Call `POST /api/logout` to end the session.
+You can create an account and log in directly from the web interface. The application now includes `/login` and `/signup` pages that integrate with the `/api/signup` and `/api/login` endpoints.
+Once logged in, all other `/api` routes require an authenticated session. You can sign out via the UI or by calling `POST /api/logout`.
 
 ## Twilio Webhook Configuration
 
