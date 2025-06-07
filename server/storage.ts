@@ -3,13 +3,16 @@ import {
   campaigns, 
   messages, 
   analytics,
-  type Contact, 
+  users,
+  type Contact,
   type InsertContact,
   type Campaign,
   type InsertCampaign,
   type Message,
   type InsertMessage,
   type Analytics
+  , type User,
+  type InsertUser
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count, sql } from "drizzle-orm";
@@ -55,6 +58,11 @@ export interface IStorage {
     messagesThisMonth: number;
     avgClickRate: number;
   }>;
+
+  // Users
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -249,6 +257,22 @@ export class DatabaseStorage implements IStorage {
       messagesThisMonth: messagesThisMonth.count,
       avgClickRate: Math.round(avgClickRate * 100) / 100,
     };
+  }
+
+  // Users
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
   }
 }
 

@@ -1,11 +1,86 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactSchema, insertCampaignSchema, insertMessageSchema } from "@shared/schema";
+import { insertContactSchema, insertCampaignSchema, insertMessageSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import twilio from "twilio";
+import passport from "passport";
+import bcrypt from "bcryptjs";
+import { ensureAuthenticated } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/signup", async (req, res) => {
+    try {
+      const { username, password } = insertUserSchema.parse(req.body);
+      const existing = await storage.getUserByUsername(username);
+      if (existing) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+      const passwordHash = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({ username, passwordHash });
+      req.login(user, err => {
+        if (err) throw err;
+        res.status(201).json({ message: "Signed up" });
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error signing up:", error);
+      res.status(500).json({ message: "Failed to sign up" });
+    }
+  });
+
+  app.post(
+    "/api/login",
+    passport.authenticate("local"),
+    (_req, res) => {
+      res.json({ message: "Logged in" });
+    },
+  );
+
+  app.post("/api/logout", (req, res, next) => {
+    req.logout(err => {
+      if (err) return next(err);
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  // Twilio webhook endpoint (unauthenticated)
+  app.post("/api/twilio/webhook", async (req, res) => {
+    try {
+      const signature = req.get("x-twilio-signature") || "";
+      const authToken = process.env.TWILIO_AUTH_TOKEN || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+
+      const isValid = twilio.validateRequest(authToken, signature, url, req.body);
+      if (!isValid) {
+        return res.status(403).json({ message: "Invalid Twilio signature" });
+      }
+
+      const { MessageStatus, To } = req.body;
+
+      let status = "sent";
+      if (MessageStatus === "delivered") status = "delivered";
+      else if (MessageStatus === "failed" || MessageStatus === "undelivered") status = "failed";
+
+      const messages = await storage.getMessages();
+      const message = messages.find(m => m.phoneNumber === To && m.status !== "delivered" && m.status !== "failed");
+      if (message) {
+        await storage.updateMessageStatus(message.id, status, status === "delivered" ? new Date() : undefined);
+      }
+
+      res.status(200).send("OK");
+    } catch (error) {
+      console.error("Error processing Twilio webhook:", error);
+      res.status(500).json({ message: "Failed to process webhook" });
+    }
+  });
+
+  // Require authentication for subsequent API routes
+  app.use("/api", ensureAuthenticated);
+
   // Dashboard routes
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
@@ -290,40 +365,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating message status:", error);
       res.status(500).json({ message: "Failed to update message status" });
-    }
-  });
-
-  // Twilio webhook endpoint
-  app.post("/api/twilio/webhook", async (req, res) => {
-    try {
-      const signature = req.get("x-twilio-signature") || "";
-      const authToken = process.env.TWILIO_AUTH_TOKEN || "";
-      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-
-      // verify signature
-      const isValid = twilio.validateRequest(authToken, signature, url, req.body);
-      if (!isValid) {
-        return res.status(403).json({ message: "Invalid Twilio signature" });
-      }
-
-      const { MessageStatus, To } = req.body;
-
-      // Normalize status values
-      let status = "sent";
-      if (MessageStatus === "delivered") status = "delivered";
-      else if (MessageStatus === "failed" || MessageStatus === "undelivered") status = "failed";
-
-      // Find latest message for the phone number
-      const messages = await storage.getMessages();
-      const message = messages.find(m => m.phoneNumber === To && m.status !== "delivered" && m.status !== "failed");
-      if (message) {
-        await storage.updateMessageStatus(message.id, status, status === "delivered" ? new Date() : undefined);
-      }
-
-      res.status(200).send("OK");
-    } catch (error) {
-      console.error("Error processing Twilio webhook:", error);
-      res.status(500).json({ message: "Failed to process webhook" });
     }
   });
 
