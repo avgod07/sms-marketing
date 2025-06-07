@@ -28,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await storage.createUser({ username, passwordHash });
-      req.login(user, err => {
+      req.login(user, (err: any) => {
         if (err) throw err;
         res.status(201).json({ message: "Signed up" });
       });
@@ -55,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/logout", (req, res, next) => {
-    req.logout(err => {
+    req.logout((err: any) => {
       if (err) return next(err);
       res.json({ message: "Logged out" });
     });
