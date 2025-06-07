@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import StatsCard from "@/components/dashboard/stats-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import { Users, MessageSquare, Send, TrendingUp, Plus } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { DashboardStats } from "@shared/api-types";
@@ -38,9 +39,11 @@ export default function Dashboard() {
               Welcome back! Here's an overview of your messaging platform.
             </p>
           </div>
-          <Button className="flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>Create Campaign</span>
+          <Button asChild className="flex items-center space-x-2">
+            <Link href="/campaigns">
+              <Plus className="w-4 h-4" />
+              <span>Create Campaign</span>
+            </Link>
           </Button>
         </div>
       </header>
@@ -100,9 +103,11 @@ export default function Dashboard() {
                   Create engaging SMS campaigns that convert
                 </p>
               </div>
-              <Button variant="secondary" className="flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>Create Campaign</span>
+              <Button asChild variant="secondary" className="flex items-center space-x-2">
+                <Link href="/campaigns">
+                  <Plus className="w-4 h-4" />
+                  <span>Create Campaign</span>
+                </Link>
               </Button>
             </div>
           </CardContent>

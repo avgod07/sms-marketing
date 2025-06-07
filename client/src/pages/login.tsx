@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation, Link } from "wouter";
 
 export default function Login() {
@@ -16,6 +16,7 @@ export default function Login() {
   const loginMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/login", { username, password }),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       toast({ title: "Logged in" });
       navigate("/");
     },
