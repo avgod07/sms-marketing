@@ -31,7 +31,7 @@ export interface IStorage {
   getCampaigns(): Promise<Campaign[]>;
   getCampaign(id: number): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
-  updateCampaign(id: number, campaign: Partial<InsertCampaign>): Promise<Campaign>;
+  updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign>;
   deleteCampaign(id: number): Promise<void>;
 
   // Messages
@@ -139,7 +139,7 @@ export class DatabaseStorage implements IStorage {
     return newCampaign;
   }
 
-  async updateCampaign(id: number, campaign: Partial<InsertCampaign>): Promise<Campaign> {
+  async updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign> {
     const [updatedCampaign] = await db
       .update(campaigns)
       .set({
