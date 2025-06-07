@@ -43,9 +43,19 @@ This project relies on Node.js and Docker for local development. Follow these st
    To create a production build and start it locally:
 
    ```bash
-   npm run build
-   npm start
-   ```
+  npm run build
+  npm start
+  ```
+
+## Twilio Webhook Configuration
+
+To receive delivery status updates from Twilio you need to configure a Status Callback URL.
+
+1. Open the Twilio Console and edit your phone number or Messaging Service.
+2. Set the **Status Callback URL** to `http://localhost:5001/api/twilio/webhook` when running locally (replace the host when deploying).
+3. Choose **HTTP POST** as the request method.
+
+Twilio signs webhook requests using your `TWILIO_AUTH_TOKEN`. Ensure this environment variable is set so the server can verify incoming callbacks.
 
 ## Devcontainer
 
