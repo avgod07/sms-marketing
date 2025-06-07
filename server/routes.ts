@@ -321,9 +321,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Update campaign status (note: sentCount and deliveredCount are handled in the database layer)
+      // Update campaign with new status and message counts
       await storage.updateCampaign(campaignId, {
         status: 'completed',
+        sentCount: (campaign.sentCount || 0) + sentCount,
+        deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
       });
 
       res.json({ 
