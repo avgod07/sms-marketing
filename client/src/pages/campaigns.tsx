@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target, BarChart3 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import type { Campaign } from "@shared/schema";
+import type { CampaignStats } from "@shared/api-types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,11 +30,11 @@ export default function Campaigns() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: campaignStats, isLoading: statsLoading } = useQuery({
+  const { data: campaignStats, isLoading: statsLoading } = useQuery<CampaignStats>({
     queryKey: ["/api/campaigns/stats"],
   });
 
-  const { data: campaigns, isLoading: campaignsLoading } = useQuery({
+  const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
   });
 

@@ -20,7 +20,7 @@ export function setupAuth(app: Express) {
 }
 
 passport.use(
-  new LocalStrategy(async (username, password, done) => {
+  new LocalStrategy(async (username: string, password: string, done: (err: any, user?: User | false, info?: any) => void) => {
     try {
       const user = await storage.getUserByUsername(username);
       if (!user) {
@@ -37,11 +37,11 @@ passport.use(
   }),
 );
 
-passport.serializeUser((user: User, done) => {
+passport.serializeUser((user: User, done: (err: any, id?: number) => void) => {
   done(null, user.id);
 });
 
-passport.deserializeUser(async (id: number, done) => {
+passport.deserializeUser(async (id: number, done: (err: any, user?: User | null) => void) => {
   try {
     const user = await storage.getUserById(id);
     done(null, user || null);

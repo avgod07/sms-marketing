@@ -8,16 +8,18 @@ import ContactTable from "@/components/contacts/contact-table";
 import { Search, Plus, Download, Upload, Filter } from "lucide-react";
 import { formatNumber, getSegmentColor } from "@/lib/utils";
 import { queryClient } from "@/lib/queryClient";
+import type { Contact } from "@shared/schema";
+import type { ContactStats } from "@shared/api-types";
 
 export default function Contacts() {
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: contactStats, isLoading: statsLoading } = useQuery({
+  const { data: contactStats, isLoading: statsLoading } = useQuery<ContactStats>({
     queryKey: ["/api/contacts/stats"],
   });
 
-  const { data: contacts, isLoading: contactsLoading } = useQuery({
+  const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts", { segment: selectedSegment, search: searchQuery }],
   });
 
