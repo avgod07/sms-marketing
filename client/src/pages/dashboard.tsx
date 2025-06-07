@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, MessageSquare, Send, TrendingUp, Plus } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import type { DashboardStats } from "@shared/api-types";
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
 
