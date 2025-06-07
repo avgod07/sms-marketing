@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContactSchema, insertCampaignSchema, insertMessageSchema } from "@shared/schema";
 import { z } from "zod";
+import twilio from "twilio";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard routes
@@ -292,16 +293,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Twilio webhook endpoint (placeholder for future SMS integration)
+  // Twilio webhook endpoint
   app.post("/api/twilio/webhook", async (req, res) => {
     try {
-      // Handle Twilio SMS status updates
-      const { MessageSid, MessageStatus, To } = req.body;
-      
-      // Find message by phone number and update status
-      // This would be implemented when Twilio integration is added
-      console.log("Twilio webhook received:", { MessageSid, MessageStatus, To });
-      
+      const signature = req.get("x-twilio-signature") || "";
+      const authToken = process.env.TWILIO_AUTH_TOKEN || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+
+      // verify signature
+      const isValid = twilio.validateRequest(authToken, signature, url, req.body);
+      if (!isValid) {
+        return res.status(403).json({ message: "Invalid Twilio signature" });
+      }
+
+      const { MessageStatus, To } = req.body;
+
+      // Normalize status values
+      let status = "sent";
+      if (MessageStatus === "delivered") status = "delivered";
+      else if (MessageStatus === "failed" || MessageStatus === "undelivered") status = "failed";
+
+      // Find latest message for the phone number
+      const messages = await storage.getMessages();
+      const message = messages.find(m => m.phoneNumber === To && m.status !== "delivered" && m.status !== "failed");
+      if (message) {
+        await storage.updateMessageStatus(message.id, status, status === "delivered" ? new Date() : undefined);
+      }
+
       res.status(200).send("OK");
     } catch (error) {
       console.error("Error processing Twilio webhook:", error);
