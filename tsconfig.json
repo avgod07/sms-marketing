@@ -12,9 +12,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "baseUrl": ".",
-    "typeRoots": ["./types"],
+    "typeRoots": ["./types", "./node_modules/@types"],
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
