@@ -50,6 +50,13 @@ export const analytics = pgTable("analytics", {
   clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -93,6 +100,11 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   deliveredAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
@@ -102,5 +114,8 @@ export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Analytics = typeof analytics.$inferSelect;
