@@ -7,10 +7,21 @@ import { storage } from "./storage";
 import type { User } from "@shared/schema";
 
 export function setupAuth(app: Express) {
-  const secret = process.env.SESSION_SECRET || "secret";
+  const envSecret = process.env.SESSION_SECRET;
+
+  if (!envSecret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET must be set in production");
+    } else {
+      console.warn(
+        "SESSION_SECRET is not set. Using fallback secret for development.",
+      );
+    }
+  }
+
   app.use(
     session({
-      secret,
+      secret: envSecret || "secret",
       resave: false,
       saveUninitialized: false,
     }),
