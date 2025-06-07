@@ -13,7 +13,13 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm install
    ```
 
-2. **Database migration**
+2. **Configure environment variables**
+
+   Copy `.env.example` to `.env` and fill in the values for your local setup. The file defines `DATABASE_URL` along with the Twilio credentials used for sending SMS.
+
+   You can create a free account at [Twilio](https://www.twilio.com/). After verifying your phone number, retrieve the **Account SID**, **Auth Token**, and a phone number from the Twilio Console. Add these values to your `.env` file.
+
+3. **Database migration**
 
    The project uses Drizzle ORM. To apply the schema to the local Postgres container, run:
 
@@ -21,7 +27,7 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm run db:push
    ```
 
-3. **Development server**
+4. **Development server**
 
    Start the dev server with:
 
@@ -32,7 +38,7 @@ This project relies on Node.js and Docker for local development. Follow these st
    The Vite dev server runs inside the container and forwards port `5001` on your host to port `5000` in the container.
    Open `http://localhost:5001` in your browser to view the app.
 
-4. **Production build**
+5. **Production build**
 
    To create a production build and start it locally:
 
