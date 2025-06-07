@@ -1,8 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactSchema, insertCampaignSchema, insertMessageSchema, insertUserSchema } from "@shared/schema";
+import {
+  insertContactSchema,
+  insertCampaignSchema,
+  insertMessageSchema,
+} from "@shared/schema";
 import { z } from "zod";
+
+const userCredentialsSchema = z.object({
+  username: z.string(),
+  password: z.string(),
+});
 import twilio from "twilio";
 import passport from "passport";
 import bcrypt from "bcryptjs";
@@ -12,7 +21,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/signup", async (req, res) => {
     try {
-      const { username, password } = insertUserSchema.parse(req.body);
+      const { username, password } = userCredentialsSchema.parse(req.body);
       const existing = await storage.getUserByUsername(username);
       if (existing) {
         return res.status(400).json({ message: "User already exists" });
