@@ -55,7 +55,7 @@ export default function Dashboard() {
           <StatsCard
             title="Total Contacts"
             value={stats?.totalContacts || 0}
-            change={12}
+            change={stats?.contactsChange ?? 0}
             changeLabel="from last month"
             icon={Users}
             iconColor="text-primary"
@@ -64,7 +64,7 @@ export default function Dashboard() {
           <StatsCard
             title="Messages Sent"
             value={stats?.messagesSent || 0}
-            change={8}
+            change={stats?.messagesChange ?? 0}
             changeLabel="from last week"
             icon={MessageSquare}
             iconColor="text-green-600"
@@ -73,7 +73,7 @@ export default function Dashboard() {
           <StatsCard
             title="Campaigns"
             value={stats?.activeCampaigns || 0}
-            change={3}
+            change={stats?.campaignsChange ?? 0}
             changeLabel="active campaigns"
             icon={Send}
             iconColor="text-purple-600"
@@ -82,7 +82,7 @@ export default function Dashboard() {
           <StatsCard
             title="Delivery Rate"
             value={stats?.deliveryRate || 0}
-            change={0.2}
+            change={stats?.deliveryRateChange ?? 0}
             changeLabel="improvement"
             icon={TrendingUp}
             iconColor="text-blue-600"
@@ -103,7 +103,11 @@ export default function Dashboard() {
                   Create engaging SMS campaigns that convert
                 </p>
               </div>
-              <Button asChild variant="secondary" className="flex items-center space-x-2">
+              <Button
+                asChild
+                variant="secondary"
+                className="flex items-center space-x-2"
+              >
                 <Link href="/campaigns">
                   <Plus className="w-4 h-4" />
                   <span>Create Campaign</span>
@@ -123,7 +127,9 @@ export default function Dashboard() {
               <div className="text-center py-8 text-gray-500">
                 <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>No recent activity to display</p>
-                <p className="text-sm">Start by creating a campaign or adding contacts</p>
+                <p className="text-sm">
+                  Start by creating a campaign or adding contacts
+                </p>
               </div>
             </div>
           </CardContent>
