@@ -47,6 +47,12 @@ This project relies on Node.js and Docker for local development. Follow these st
   npm start
   ```
 
+## Authentication
+
+The API uses session-based authentication with Passport's `passport-local` strategy.
+Create a user by sending a `POST` request to `/api/signup` with `username` and `password` fields.
+Log in via `POST /api/login` using the same credentials. Once logged in, all other `/api` routes require an authenticated session. Call `POST /api/logout` to end the session.
+
 ## Twilio Webhook Configuration
 
 To receive delivery status updates from Twilio you need to configure a Status Callback URL.
