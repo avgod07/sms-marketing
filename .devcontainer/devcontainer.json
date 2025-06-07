@@ -4,7 +4,8 @@
     "service": "app",
     "workspaceFolder": "/workspace",
     "remoteUser": "node",
-    "forwardPorts": [5000, 5432],
+    // forward host port 5001 to container port 5000
+    "forwardPorts": [5001, 5432],
     "customizations": {
         "vscode": {
             "extensions": [
