@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,13 @@ export const couponSchema = z.object({
     .number({ invalid_type_error: "Enter a numeric value" })
     .positive("Value must be greater than 0"),
   expirationDate: z.string().optional(),
+  usageLimit: z
+    .preprocess(
+      (v) => (v === "" || v === undefined ? undefined : Number(v)),
+      z.number().int().positive(),
+    )
+    .optional(),
+  reusable: z.boolean().optional(),
 });
 
 export type CouponFormValues = z.infer<typeof couponSchema>;
@@ -47,6 +55,8 @@ export default function CouponForm({
       type: "percent",
       value: 0,
       expirationDate: "",
+      usageLimit: undefined,
+      reusable: true,
       ...initialValues,
     },
   });
@@ -97,6 +107,21 @@ export default function CouponForm({
         {form.formState.errors.expirationDate && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.expirationDate.message}</p>
         )}
+      </div>
+      <div>
+        <Label htmlFor="usageLimit">Usage Limit (optional)</Label>
+        <Input id="usageLimit" type="number" {...form.register("usageLimit")} />
+        {form.formState.errors.usageLimit && (
+          <p className="text-sm text-red-600 mt-1">{form.formState.errors.usageLimit.message}</p>
+        )}
+      </div>
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="reusable"
+          checked={form.watch("reusable")}
+          onCheckedChange={(val) => form.setValue("reusable", val)}
+        />
+        <Label htmlFor="reusable">Reusable</Label>
       </div>
       <div className="flex space-x-2">
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">

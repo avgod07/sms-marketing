@@ -402,7 +402,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ) {
         return res.status(400).json({ message: "Coupon is not redeemable" });
       }
-      const currentCount = coupon.usageCount || 0;
+      if (!coupon.reusable && (coupon.usageCount ?? 0) >= 1) {
+        return res.status(400).json({ message: "Coupon already redeemed" });
+      }
+      if (
+        coupon.usageLimit !== null &&
+        coupon.usageLimit !== undefined &&
+        (coupon.usageCount ?? 0) >= coupon.usageLimit
+      ) {
+        return res.status(400).json({ message: "Coupon usage limit reached" });
+      }
+      const currentCount = coupon.usageCount ?? 0;
       await storage.updateCoupon(id, { usageCount: currentCount + 1 });
       await storage.createCouponRedemption({
         couponId: id,
