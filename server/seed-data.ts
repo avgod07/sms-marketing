@@ -108,6 +108,13 @@ export async function seedData() {
         value: "50",
         status: "disabled",
       },
+      {
+        code: "DAY30",
+        type: "percent",
+        value: "15",
+        status: "active",
+        validDays: 30,
+      },
     ];
 
     for (const coupon of sampleCoupons) {
