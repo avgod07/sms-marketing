@@ -220,7 +220,7 @@ export default function Campaigns() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>All Campaigns</CardTitle>
-              <Button>
+              <Button onClick={() => setIsCreateOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Campaign
               </Button>
