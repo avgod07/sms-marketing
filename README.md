@@ -57,6 +57,16 @@ This project relies on Node.js and Docker for local development. Follow these st
   npm start
   ```
 
+7. **Reset the database**
+
+   To remove any existing Postgres data and recreate the schema, run:
+
+   ```bash
+   ./scripts/reset-db.sh [--seed]
+   ```
+
+   Pass `--seed` to automatically populate the database with the sample data.
+
 ## Authentication
 
 The API uses session-based authentication with Passport's `passport-local` strategy.
