@@ -4,7 +4,6 @@ import {
   messages,
   analytics,
   users,
-  coupons,
   type Contact,
   type InsertContact,
   type Campaign,
@@ -14,8 +13,6 @@ import {
   type Analytics,
   type User,
   type InsertUser,
-  type Coupon,
-  type InsertCoupon,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count, sql } from "drizzle-orm";
@@ -37,13 +34,6 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign>;
   deleteCampaign(id: number): Promise<void>;
-
-  // Coupons
-  getCoupons(): Promise<Coupon[]>;
-  getCoupon(id: number): Promise<Coupon | undefined>;
-  createCoupon(coupon: InsertCoupon): Promise<Coupon>;
-  updateCoupon(id: number, coupon: Partial<Coupon>): Promise<Coupon>;
-  deleteCoupon(id: number): Promise<void>;
 
   // Messages
   getMessages(): Promise<Message[]>;
@@ -210,49 +200,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCampaign(id: number): Promise<void> {
     await db.delete(campaigns).where(eq(campaigns.id, id));
-  }
-
-  // Coupons
-  async getCoupons(): Promise<Coupon[]> {
-    return await db.select().from(coupons).orderBy(desc(coupons.createdAt));
-  }
-
-  async getCoupon(id: number): Promise<Coupon | undefined> {
-    const [coupon] = await db
-      .select()
-      .from(coupons)
-      .where(eq(coupons.id, id));
-    return coupon || undefined;
-  }
-
-  async createCoupon(coupon: InsertCoupon): Promise<Coupon> {
-    const [newCoupon] = await db
-      .insert(coupons)
-      .values({
-        ...coupon,
-        updatedAt: new Date(),
-      })
-      .returning();
-    return newCoupon;
-  }
-
-  async updateCoupon(
-    id: number,
-    coupon: Partial<Coupon>,
-  ): Promise<Coupon> {
-    const [updatedCoupon] = await db
-      .update(coupons)
-      .set({
-        ...coupon,
-        updatedAt: new Date(),
-      })
-      .where(eq(coupons.id, id))
-      .returning();
-    return updatedCoupon;
-  }
-
-  async deleteCoupon(id: number): Promise<void> {
-    await db.delete(coupons).where(eq(coupons.id, id));
   }
 
   // Messages
