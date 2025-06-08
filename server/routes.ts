@@ -165,6 +165,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/contacts/:id/redemptions", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const contact = await storage.getContact(id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      const redemptions = await storage.getContactRedemptions(id);
+      res.json(redemptions);
+    } catch (error) {
+      logError("Error fetching contact redemptions:", error);
+      res.status(500).json({ message: "Failed to fetch contact redemptions" });
+    }
+  });
+
   app.post("/api/contacts", async (req, res) => {
     try {
       const validatedData = insertContactSchema.parse(req.body);
