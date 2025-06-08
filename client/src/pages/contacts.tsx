@@ -31,9 +31,11 @@ import ContactForm, { type ContactFormValues } from "@/components/contacts/conta
 import { Search, Plus, Download, Upload, Filter } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Contact } from "@shared/schema";
-import type { ContactStats } from "@shared/api-types";
+import type { ContactStats, ContactRedemption } from "@shared/api-types";
+import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
 
 export default function Contacts() {
   const [selectedSegment, setSelectedSegment] = useState("all");
@@ -44,6 +46,8 @@ export default function Contacts() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyContact, setHistoryContact] = useState<Contact | null>(null);
   const { toast } = useToast();
 
   // Persist filter choice during the session
@@ -61,6 +65,17 @@ export default function Contacts() {
       "/api/contacts",
       { segment: selectedSegment, search: searchQuery, status: statusFilter },
     ],
+  });
+
+  const {
+    data: redemptions,
+    isLoading: redemptionsLoading,
+  } = useQuery<ContactRedemption[]>({
+    queryKey: historyContact
+      ? [`/api/contacts/${historyContact.id}/redemptions`]
+      : [],
+    enabled: !!historyContact,
+    queryFn: getQueryFn({ on401: "throw" }),
   });
 
   const segments = [
@@ -214,6 +229,25 @@ export default function Contacts() {
                   />
                 </DialogContent>
               </Dialog>
+              <Dialog
+                open={isHistoryOpen}
+                onOpenChange={(open) => {
+                  setIsHistoryOpen(open);
+                  if (!open) setHistoryContact(null);
+                }}
+              >
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>
+                      Redemption History for {historyContact?.firstName} {historyContact?.lastName}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <ContactRedemptionTable
+                    redemptions={redemptions || []}
+                    isLoading={redemptionsLoading}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardHeader>
@@ -260,6 +294,10 @@ export default function Contacts() {
               contacts={contacts || []}
               isLoading={contactsLoading}
               onEdit={handleEdit}
+              onViewRedemptions={(c) => {
+                setHistoryContact(c);
+                setIsHistoryOpen(true);
+              }}
             />
           </CardContent>
         </Card>

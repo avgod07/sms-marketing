@@ -20,3 +20,11 @@ export interface CampaignStats {
   messagesThisMonth: number;
   avgClickRate: number;
 }
+
+export interface ContactRedemption {
+  id: number;
+  couponId: number;
+  code: string;
+  note: string | null;
+  createdAt: string | Date;
+}
