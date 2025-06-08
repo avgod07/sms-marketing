@@ -1,4 +1,4 @@
-import type { User } from "@shared/schema";
+import type { User, Coupon } from "@shared/schema";
 
 declare global {
   namespace Express {
@@ -7,6 +7,7 @@ declare global {
       logout(done: (err?: any) => void): void;
       isAuthenticated(): boolean;
       user?: User;
+      coupon?: Coupon;
     }
   }
 }
