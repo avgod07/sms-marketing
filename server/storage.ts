@@ -21,11 +21,12 @@ export interface IStorage {
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContactsBySegment(segment: string): Promise<Contact[]>;
+  getContactsByStatus(status: string): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
-  searchContacts(query: string): Promise<Contact[]>;
+  searchContacts(query: string, status?: string): Promise<Contact[]>;
 
   // Campaigns
   getCampaigns(): Promise<Campaign[]>;
@@ -55,7 +56,7 @@ export interface IStorage {
     campaignsChange: number;
     deliveryRateChange: number;
   }>;
-  getContactStats(): Promise<{
+  getContactStats(status?: string): Promise<{
     allContacts: number;
     inactive: number;
     activeContacts: number;
@@ -93,6 +94,17 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(contacts)
       .where(eq(contacts.segment, segment))
+      .orderBy(desc(contacts.createdAt));
+  }
+
+  async getContactsByStatus(status: string): Promise<Contact[]> {
+    if (status === "all") {
+      return await this.getContacts();
+    }
+    return await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.status, status))
       .orderBy(desc(contacts.createdAt));
   }
 
@@ -134,13 +146,16 @@ export class DatabaseStorage implements IStorage {
     await db.delete(contacts).where(eq(contacts.id, id));
   }
 
-  async searchContacts(query: string): Promise<Contact[]> {
+  async searchContacts(query: string, status?: string): Promise<Contact[]> {
+    const searchSql = sql`${contacts.firstName} ILIKE ${"%" + query + "%"} OR ${contacts.lastName} ILIKE ${"%" + query + "%"} OR ${contacts.phoneNumber} ILIKE ${"%" + query + "%"} OR ${contacts.email} ILIKE ${"%" + query + "%"}`;
+    const whereClause =
+      status && status !== "all"
+        ? sql`(${searchSql}) AND ${contacts.status} = ${status}`
+        : searchSql;
     return await db
       .select()
       .from(contacts)
-      .where(
-        sql`${contacts.firstName} ILIKE ${"%" + query + "%"} OR ${contacts.lastName} ILIKE ${"%" + query + "%"} OR ${contacts.phoneNumber} ILIKE ${"%" + query + "%"} OR ${contacts.email} ILIKE ${"%" + query + "%"}`,
-      )
+      .where(whereClause)
       .orderBy(desc(contacts.createdAt));
   }
 
@@ -371,11 +386,26 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getContactStats(): Promise<{
+  async getContactStats(status?: string): Promise<{
     allContacts: number;
     inactive: number;
     activeContacts: number;
   }> {
+    if (status === "active") {
+      const [active] = await db
+        .select({ count: count() })
+        .from(contacts)
+        .where(eq(contacts.status, "active"));
+      return { allContacts: active.count, inactive: 0, activeContacts: active.count };
+    }
+    if (status === "inactive") {
+      const [inactive] = await db
+        .select({ count: count() })
+        .from(contacts)
+        .where(eq(contacts.status, "inactive"));
+      return { allContacts: inactive.count, inactive: inactive.count, activeContacts: 0 };
+    }
+
     const [allContacts] = await db.select({ count: count() }).from(contacts);
     const [inactiveContacts] = await db
       .select({ count: count() })

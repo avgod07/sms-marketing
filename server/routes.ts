@@ -110,13 +110,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contact routes
   app.get("/api/contacts", async (req, res) => {
     try {
-      const { segment, search } = req.query;
-      
+      const { segment, search, status } = req.query as {
+        segment?: string;
+        search?: string;
+        status?: string;
+      };
+
       let contacts;
       if (search) {
-        contacts = await storage.searchContacts(search as string);
+        contacts = await storage.searchContacts(search, status);
+      } else if (status) {
+        contacts = await storage.getContactsByStatus(status);
       } else if (segment) {
-        contacts = await storage.getContactsBySegment(segment as string);
+        contacts = await storage.getContactsBySegment(segment);
       } else {
         contacts = await storage.getContacts();
       }
@@ -130,7 +136,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contacts/stats", async (req, res) => {
     try {
-      const stats = await storage.getContactStats();
+      const { status } = req.query as { status?: string };
+      const stats = await storage.getContactStats(status);
       res.json(stats);
     } catch (error) {
       logError("Error fetching contact stats:", error);
