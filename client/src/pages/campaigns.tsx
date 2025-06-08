@@ -48,7 +48,7 @@ export default function Campaigns() {
   });
 
   const createCampaignMutation = useMutation({
-    mutationFn: (data: CampaignForm) => apiRequest("/api/campaigns", "POST", data),
+    mutationFn: (data: CampaignForm) => apiRequest("POST", "/api/campaigns", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });

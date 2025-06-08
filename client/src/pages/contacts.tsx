@@ -75,7 +75,7 @@ export default function Contacts() {
   ];
 
   const createContactMutation = useMutation({
-    mutationFn: (data: ContactForm) => apiRequest("/api/contacts", "POST", data),
+    mutationFn: (data: ContactForm) => apiRequest("POST", "/api/contacts", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
