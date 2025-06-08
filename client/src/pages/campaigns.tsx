@@ -40,6 +40,7 @@ export default function Campaigns() {
 
   const form = useForm<CampaignForm>({
     resolver: zodResolver(campaignSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       message: "",
@@ -177,7 +178,7 @@ export default function Campaigns() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={createCampaignMutation.isPending}
+                    disabled={!form.formState.isValid || createCampaignMutation.isPending}
                     className="flex-1"
                   >
                     {createCampaignMutation.isPending ? "Creating..." : "Create Campaign"}
