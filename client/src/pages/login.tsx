@@ -14,7 +14,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const loginMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/login", { username, password }),
+    mutationFn: () =>
+      apiRequest({ method: "POST", url: "/api/login", data: { username, password } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       toast({ title: "Logged in" });
