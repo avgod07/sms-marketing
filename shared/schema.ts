@@ -44,6 +44,7 @@ export const messages = pgTable("messages", {
 export const coupons = pgTable("coupons", {
   id: serial("id").primaryKey(),
   code: text("code").notNull().unique(),
+  label: text("label"),
   type: text("type").notNull(), // percent, amount
   value: decimal("value", { precision: 10, scale: 2 }).notNull(),
   usageCount: integer("usage_count").default(0),

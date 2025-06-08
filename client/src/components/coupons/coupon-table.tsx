@@ -46,6 +46,7 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-medium text-gray-500">Code</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Label</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Type</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Value</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Usage</th>
@@ -58,6 +59,7 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
           {coupons.map((coupon) => (
             <tr key={coupon.id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4 font-medium text-gray-900">{coupon.code}</td>
+              <td className="py-4 px-4 text-gray-900">{coupon.label || "—"}</td>
               <td className="py-4 px-4 capitalize text-gray-900">
                 {coupon.type === "percent"
                   ? "Percent Off"
