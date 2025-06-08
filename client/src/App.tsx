@@ -11,6 +11,7 @@ import Campaigns from "@/pages/campaigns";
 import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
 import Help from "@/pages/help";
+import Coupons from "@/pages/coupons";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import Sidebar from "@/components/layout/sidebar";
@@ -41,6 +42,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/contacts" component={Contacts} />
           <Route path="/campaigns" component={Campaigns} />
+          <Route path="/coupons" component={Coupons} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/settings" component={Settings} />
           <Route path="/help" component={Help} />
