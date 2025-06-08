@@ -16,6 +16,7 @@ import twilio from "twilio";
 import passport from "passport";
 import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "./auth";
+import { logError } from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -36,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
-      console.error("Error signing up:", error);
+      logError("Error signing up:", error);
       res.status(500).json({ message: "Failed to sign up" });
     }
   });
@@ -87,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(200).send("OK");
     } catch (error) {
-      console.error("Error processing Twilio webhook:", error);
+      logError("Error processing Twilio webhook:", error);
       res.status(500).json({ message: "Failed to process webhook" });
     }
   });
@@ -101,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getDashboardStats();
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      logError("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
@@ -122,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(contacts);
     } catch (error) {
-      console.error("Error fetching contacts:", error);
+      logError("Error fetching contacts:", error);
       res.status(500).json({ message: "Failed to fetch contacts" });
     }
   });
@@ -132,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getContactStats();
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching contact stats:", error);
+      logError("Error fetching contact stats:", error);
       res.status(500).json({ message: "Failed to fetch contact stats" });
     }
   });
@@ -146,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(contact);
     } catch (error) {
-      console.error("Error fetching contact:", error);
+      logError("Error fetching contact:", error);
       res.status(500).json({ message: "Failed to fetch contact" });
     }
   });
@@ -160,7 +161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
-      console.error("Error creating contact:", error);
+      logError("Error creating contact:", error);
       res.status(500).json({ message: "Failed to create contact" });
     }
   });
@@ -175,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
-      console.error("Error updating contact:", error);
+      logError("Error updating contact:", error);
       res.status(500).json({ message: "Failed to update contact" });
     }
   });
@@ -186,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteContact(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting contact:", error);
+      logError("Error deleting contact:", error);
       res.status(500).json({ message: "Failed to delete contact" });
     }
   });
@@ -197,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaigns = await storage.getCampaigns();
       res.json(campaigns);
     } catch (error) {
-      console.error("Error fetching campaigns:", error);
+      logError("Error fetching campaigns:", error);
       res.status(500).json({ message: "Failed to fetch campaigns" });
     }
   });
@@ -207,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getCampaignStats();
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching campaign stats:", error);
+      logError("Error fetching campaign stats:", error);
       res.status(500).json({ message: "Failed to fetch campaign stats" });
     }
   });
@@ -221,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(campaign);
     } catch (error) {
-      console.error("Error fetching campaign:", error);
+      logError("Error fetching campaign:", error);
       res.status(500).json({ message: "Failed to fetch campaign" });
     }
   });
@@ -235,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
-      console.error("Error creating campaign:", error);
+      logError("Error creating campaign:", error);
       res.status(500).json({ message: "Failed to create campaign" });
     }
   });
@@ -250,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
-      console.error("Error updating campaign:", error);
+      logError("Error updating campaign:", error);
       res.status(500).json({ message: "Failed to update campaign" });
     }
   });
@@ -261,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteCampaign(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting campaign:", error);
+      logError("Error deleting campaign:", error);
       res.status(500).json({ message: "Failed to delete campaign" });
     }
   });
@@ -334,7 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalContacts: contacts.length,
       });
     } catch (error) {
-      console.error("Error sending campaign:", error);
+      logError("Error sending campaign:", error);
       res.status(500).json({ message: "Failed to send campaign" });
     }
   });
@@ -353,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(messages);
     } catch (error) {
-      console.error("Error fetching messages:", error);
+      logError("Error fetching messages:", error);
       res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
@@ -367,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
-      console.error("Error creating message:", error);
+      logError("Error creating message:", error);
       res.status(500).json({ message: "Failed to create message" });
     }
   });
@@ -379,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const message = await storage.updateMessageStatus(id, status, deliveredAt ? new Date(deliveredAt) : undefined);
       res.json(message);
     } catch (error) {
-      console.error("Error updating message status:", error);
+      logError("Error updating message status:", error);
       res.status(500).json({ message: "Failed to update message status" });
     }
   });

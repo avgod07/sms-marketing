@@ -41,7 +41,7 @@ export default function Contacts() {
     lastName: z.string().min(1, "Last name is required"),
     phoneNumber: z
       .string()
-      .regex(/^\+?[1-9]\d{1,14}$/, "Enter phone in E.164 format e.g. +15551234567"),
+      .regex(/^\+?1?\d{10}$/, "Enter a valid 10-digit US phone number"),
     email: z.string().email().optional().or(z.literal("")),
     segment: z.string().min(1, "Segment is required"),
   });
@@ -50,6 +50,7 @@ export default function Contacts() {
 
   const form = useForm<ContactForm>({
     resolver: zodResolver(contactSchema),
+    mode: "onChange",
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -214,7 +215,11 @@ export default function Contacts() {
                         <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="flex-1">
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createContactMutation.isPending} className="flex-1">
+                        <Button
+                          type="submit"
+                          disabled={!form.formState.isValid || createContactMutation.isPending}
+                          className="flex-1"
+                        >
                           {createContactMutation.isPending ? "Adding..." : "Add Contact"}
                         </Button>
                       </div>

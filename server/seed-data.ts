@@ -1,15 +1,16 @@
 import { storage } from "./storage.js";
+import { logInfo } from "./logger.js";
 
 export async function seedData() {
   try {
     // Check if we already have data
     const existingContacts = await storage.getContacts();
     if (existingContacts.length > 0) {
-      console.log("Sample data already exists, skipping seed");
+      logInfo("Sample data already exists, skipping seed");
       return;
     }
 
-    console.log("Seeding sample data...");
+    logInfo("Seeding sample data...");
 
     // Add sample contacts
     const sampleContacts = [
@@ -85,7 +86,7 @@ export async function seedData() {
       await storage.createCampaign(campaign);
     }
 
-    console.log("Sample data seeded successfully!");
+    logInfo("Sample data seeded successfully!");
   } catch (error) {
     console.error("Error seeding data:", error);
   }
