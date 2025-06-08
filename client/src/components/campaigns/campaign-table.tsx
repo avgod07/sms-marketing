@@ -1,15 +1,32 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatNumber, formatDate, getStatusColor } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
-import { MoreHorizontal, Edit, Play, Pause } from "lucide-react";
+import { MoreHorizontal, Edit, Play, Pause, Copy, Trash2 } from "lucide-react";
 
 interface CampaignTableProps {
   campaigns: Campaign[];
   isLoading: boolean;
+  onEdit: (campaign: Campaign) => void;
+  onDuplicate: (campaign: Campaign) => void;
+  onDelete: (campaign: Campaign) => void;
+  onToggleStatus: (campaign: Campaign) => void;
 }
 
-export default function CampaignTable({ campaigns, isLoading }: CampaignTableProps) {
+export default function CampaignTable({
+  campaigns,
+  isLoading,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  onToggleStatus,
+}: CampaignTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -103,15 +120,35 @@ export default function CampaignTable({ campaigns, isLoading }: CampaignTablePro
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" onClick={() => onEdit(campaign)}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
-                    {campaign.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onToggleStatus(campaign)}
+                  >
+                    {campaign.status === 'active' ? (
+                      <Pause className="w-4 h-4" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
                   </Button>
-                  <Button variant="ghost" size="sm">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onDuplicate(campaign)}>
+                        <Copy className="mr-2 h-4 w-4" /> Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onDelete(campaign)} className="text-red-600 focus:text-red-600">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </td>
             </tr>
