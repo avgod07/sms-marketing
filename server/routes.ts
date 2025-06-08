@@ -19,6 +19,7 @@ import passport from "passport";
 import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "./auth";
 import { logError } from "./logger";
+import { nanoid } from "nanoid";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -354,12 +355,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/coupons", async (req, res) => {
     try {
-      const validatedData = insertCouponSchema.parse(req.body);
+      const data = { ...req.body };
+      if (!data.code) {
+        data.code = nanoid(8).toUpperCase();
+      }
+      const validatedData = insertCouponSchema.parse(data);
       const coupon = await storage.createCoupon(validatedData);
       res.status(201).json(coupon);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      if (error.code === "23505") {
+        return res.status(400).json({ message: "Coupon code already exists" });
       }
       logError("Error creating coupon:", error);
       res.status(500).json({ message: "Failed to create coupon" });
