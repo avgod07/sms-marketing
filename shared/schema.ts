@@ -53,7 +53,6 @@ export const analytics = pgTable("analytics", {
 export const coupons = pgTable("coupons", {
   id: serial("id").primaryKey(),
   code: varchar("code", { length: 255 }).notNull().unique(),
-  label: text("label"),
   discount: integer("discount").notNull(),
   expirationDate: timestamp("expiration_date"),
   validDays: integer("valid_days"),
@@ -113,17 +112,11 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   deliveredAt: true,
 });
 
-export const insertCouponBaseSchema = createInsertSchema(coupons)
-  .omit({
-    id: true,
-    createdAt: true,
-    updatedAt: true,
-  })
-  .omit({ code: true, label: true })
-  .extend({
-    code: z.string().optional(),
-    label: z.string().optional(),
-  });
+export const insertCouponBaseSchema = createInsertSchema(coupons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 export const insertCouponSchema = insertCouponBaseSchema
   .refine(data => !(data.expirationDate && data.validDays), {
