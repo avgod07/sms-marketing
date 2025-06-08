@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { normalizePhoneNumber } from "./phone.js";
 import {
   insertContactSchema,
   insertCampaignSchema,
@@ -456,10 +457,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "EXPIRED" });
       }
 
-      const phoneNumber = req.body.phoneNumber;
-      if (!phoneNumber) {
+      const rawPhone = req.body.phoneNumber;
+      if (!rawPhone) {
         return res.status(400).json({ message: "phoneNumber is required" });
       }
+
+      const phoneNumber = normalizePhoneNumber(rawPhone);
 
       const contact = await storage.getContactByPhoneNumber(phoneNumber);
       if (!contact) {

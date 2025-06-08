@@ -69,8 +69,11 @@ Twilio signs webhook requests using your `TWILIO_AUTH_TOKEN`. Ensure this enviro
 
 Coupons can only be redeemed by contacts who actually received them in a campaign.
 When calling `POST /api/coupons/:code/redeem`, include the customer's `phoneNumber`.
-The server verifies that this contact was part of the original audience and records
-the redemption alongside the contact for auditing purposes.
+The server normalizes this number before looking up the contact so formats like
+`(555) 123-4567` or `+1 555-123-4567` are accepted.
+You may optionally provide a `note` field which will be stored with the
+redemption. The server verifies that the contact was part of the original
+audience and records the redemption alongside the contact for auditing purposes.
 
 ## Devcontainer
 
