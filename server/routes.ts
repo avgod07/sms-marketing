@@ -389,41 +389,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/coupons/:id/redeem", async (req, res) => {
+  app.post("/api/coupons/:code/redeem", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const coupon = await storage.getCoupon(id);
+      const code = req.params.code;
+      const coupon = await storage.getCouponByCode(code);
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
-      if (
-        coupon.status !== "active" ||
-        (coupon.expirationDate && new Date(coupon.expirationDate) < new Date())
-      ) {
-        return res.status(400).json({ message: "Coupon is not redeemable" });
+
+      if (coupon.status !== "active") {
+        return res.status(400).json({ error: "INACTIVE" });
       }
-      if (!coupon.reusable && (coupon.usageCount ?? 0) >= 1) {
-        return res.status(400).json({ message: "Coupon already redeemed" });
+
+      if (coupon.expirationDate && new Date(coupon.expirationDate) < new Date()) {
+        return res.status(400).json({ error: "EXPIRED" });
       }
+
       if (
         coupon.usageLimit !== null &&
         coupon.usageLimit !== undefined &&
         (coupon.usageCount ?? 0) >= coupon.usageLimit
       ) {
-        return res.status(400).json({ message: "Coupon usage limit reached" });
+        return res.status(400).json({ error: "LIMIT_REACHED" });
       }
+
       const currentCount = coupon.usageCount ?? 0;
-      await storage.updateCoupon(id, { usageCount: currentCount + 1 });
+      const updated = await storage.updateCoupon(coupon.id, {
+        usageCount: currentCount + 1,
+      });
       await storage.createCouponRedemption({
-        couponId: id,
+        couponId: coupon.id,
         phoneNumber: req.body.phoneNumber,
         note: req.body.note,
       });
       logInfo("Coupon redeemed", {
-        couponId: id,
+        couponId: coupon.id,
+        userId: (req as any).user?.id,
         phoneNumber: req.body.phoneNumber,
       });
-      res.json({ usageCount: currentCount + 1 });
+      res.json({ usageCount: updated.usageCount });
     } catch (error) {
       logError("Error redeeming coupon:", error);
       res.status(500).json({ message: "Failed to redeem coupon" });
