@@ -50,16 +50,6 @@ export const analytics = pgTable("analytics", {
   clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
 });
 
-export const coupons = pgTable("coupons", {
-  id: serial("id").primaryKey(),
-  code: varchar("code", { length: 255 }).notNull().unique(),
-  discount: integer("discount").notNull(),
-  expirationDate: timestamp("expiration_date"),
-  validDays: integer("valid_days"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -110,12 +100,6 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   deliveredAt: true,
 });
 
-export const insertCouponSchema = createInsertSchema(coupons).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -130,9 +114,6 @@ export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
-
-export type Coupon = typeof coupons.$inferSelect;
-export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
