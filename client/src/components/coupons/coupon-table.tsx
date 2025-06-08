@@ -8,9 +8,10 @@ interface CouponTableProps {
   isLoading: boolean;
   onRedeem: (coupon: Coupon) => void;
   onViewRedemptions: (coupon: Coupon) => void;
+  onDelete: (coupon: Coupon) => void;
 }
 
-export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemptions }: CouponTableProps) {
+export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemptions, onDelete }: CouponTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -99,6 +100,14 @@ export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemp
                 >
                   View Redemptions
                 </button>
+                {coupon.usageCount === 0 && (
+                  <button
+                    className="text-red-600 hover:underline"
+                    onClick={() => onDelete(coupon)}
+                  >
+                    Delete
+                  </button>
+                )}
               </td>
             </tr>
           ))}
