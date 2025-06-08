@@ -120,7 +120,7 @@ export default function Coupons() {
       await apiRequest({
         method: "POST",
         url: `/api/coupons/${selectedCoupon.code}/redeem`,
-        data: { phoneNumber: redeemPhone || undefined, note: redeemNote || undefined },
+        data: { phoneNumber: redeemPhone, note: redeemNote || undefined },
       });
     },
     onSuccess: () => {
@@ -304,11 +304,12 @@ export default function Coupons() {
                 Redeeming {selectedCoupon?.code}
               </p>
               <div>
-                <Label htmlFor="phone">Customer Phone (optional)</Label>
+                <Label htmlFor="phone">Customer Phone</Label>
                 <Input
                   id="phone"
                   value={redeemPhone}
                   onChange={(e) => setRedeemPhone(e.target.value)}
+                  required
                 />
               </div>
               <div>
@@ -331,7 +332,9 @@ export default function Coupons() {
                 <Button
                   type="button"
                   onClick={() => redeemCouponMutation.mutate()}
-                  disabled={redeemCouponMutation.isPending || !selectedCoupon}
+                  disabled={
+                    redeemCouponMutation.isPending || !selectedCoupon || !redeemPhone
+                  }
                   className="flex-1"
                 >
                   {redeemCouponMutation.isPending ? "Redeeming..." : "Redeem"}
