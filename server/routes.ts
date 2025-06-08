@@ -361,6 +361,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!data.code) {
         data.code = nanoid(8).toUpperCase();
       }
+      if (data.expirationDate) {
+        data.expirationDate = new Date(data.expirationDate);
+      }
       const validatedData = insertCouponSchema.parse(data);
       const coupon = await storage.createCoupon(validatedData);
       res.status(201).json(coupon);
@@ -379,7 +382,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/coupons/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertCouponSchema.partial().parse(req.body);
+      const data = { ...req.body };
+      if (data.expirationDate) {
+        data.expirationDate = new Date(data.expirationDate);
+      }
+      const validatedData = insertCouponSchema.partial().parse(data);
       const coupon = await storage.updateCoupon(id, validatedData);
       res.json(coupon);
     } catch (error) {
