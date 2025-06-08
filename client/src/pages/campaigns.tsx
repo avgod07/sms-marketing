@@ -3,31 +3,30 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import CampaignForm, { type CampaignFormValues } from "@/components/campaigns/campaign-form";
 import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target, BarChart3 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { Campaign } from "@shared/schema";
 import type { CampaignStats } from "@shared/api-types";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
-const campaignSchema = z.object({
-  name: z.string().min(1, "Campaign name is required"),
-  message: z.string().min(1, "Message is required").max(160, "Message must be 160 characters or less"),
-  audience: z.string().min(1, "Audience is required"),
-});
-
-type CampaignForm = z.infer<typeof campaignSchema>;
-
 export default function Campaigns() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: campaignStats, isLoading: statsLoading } = useQuery<CampaignStats>({
@@ -38,24 +37,13 @@ export default function Campaigns() {
     queryKey: ["/api/campaigns"],
   });
 
-  const form = useForm<CampaignForm>({
-    resolver: zodResolver(campaignSchema),
-    mode: "onChange",
-    defaultValues: {
-      name: "",
-      message: "",
-      audience: "all",
-    },
-  });
-
   const createCampaignMutation = useMutation({
-    mutationFn: (data: CampaignForm) =>
+    mutationFn: (data: CampaignFormValues) =>
       apiRequest({ method: "POST", url: "/api/campaigns", data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
       setIsCreateOpen(false);
-      form.reset();
       toast({
         title: "Campaign Created",
         description: "Your SMS campaign has been created successfully.",
@@ -70,8 +58,118 @@ export default function Campaigns() {
     },
   });
 
-  const handleSubmit = (data: CampaignForm) => {
+  const handleSubmit = (data: CampaignFormValues) => {
     createCampaignMutation.mutate(data);
+  };
+
+  const updateCampaignMutation = useMutation({
+    mutationFn: (data: CampaignFormValues) =>
+      apiRequest({
+        method: "PATCH",
+        url: `/api/campaigns/${editingCampaign!.id}`,
+        data,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
+      setIsEditOpen(false);
+      setEditingCampaign(null);
+      toast({ title: "Campaign Updated" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: () =>
+      apiRequest({
+        method: "DELETE",
+        url: `/api/campaigns/${deletingCampaign!.id}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
+      setIsDeleteOpen(false);
+      setDeletingCampaign(null);
+      toast({ title: "Campaign Deleted" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const duplicateCampaignMutation = useMutation({
+    mutationFn: (campaign: Campaign) =>
+      apiRequest({ method: "POST", url: `/api/campaigns/${campaign.id}/duplicate` }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
+      toast({ title: "Campaign Duplicated" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to duplicate campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: (campaign: Campaign) => {
+      const status = campaign.status === "active" ? "paused" : "active";
+      return apiRequest({
+        method: "PATCH",
+        url: `/api/campaigns/${campaign.id}`,
+        data: { status },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      toast({ title: "Campaign Updated" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditSubmit = (data: CampaignFormValues) => {
+    updateCampaignMutation.mutate(data);
+  };
+
+  const handleEdit = (campaign: Campaign) => {
+    setEditingCampaign(campaign);
+    setIsEditOpen(true);
+  };
+
+  const handleDuplicate = (campaign: Campaign) => {
+    duplicateCampaignMutation.mutate(campaign);
+  };
+
+  const handleToggleStatus = (campaign: Campaign) => {
+    toggleStatusMutation.mutate(campaign);
+  };
+
+  const handleDelete = (campaign: Campaign) => {
+    setDeletingCampaign(campaign);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    deleteCampaignMutation.mutate();
   };
 
   const stats = [
@@ -120,75 +218,42 @@ export default function Campaigns() {
               <DialogHeader>
                 <DialogTitle>Create New Campaign</DialogTitle>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Campaign Name</Label>
-                  <Input
-                    id="name"
-                    {...form.register("name")}
-                    placeholder="Enter campaign name"
-                  />
-                  {form.formState.errors.name && (
-                    <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="audience">Audience</Label>
-                  <Select onValueChange={(value) => form.setValue("audience", value)} defaultValue="all">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select audience" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Contacts</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="active">Active Contacts</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.audience && (
-                    <p className="text-sm text-red-600 mt-1">{form.formState.errors.audience.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="message">Message</Label>
-                  <Textarea
-                    id="message"
-                    {...form.register("message")}
-                    placeholder="Enter your SMS message (max 160 characters)"
-                    className="resize-none"
-                    rows={3}
-                  />
-                  <div className="flex justify-between mt-1">
-                    {form.formState.errors.message && (
-                      <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
-                    )}
-                    <p className="text-sm text-gray-500 ml-auto">
-                      {form.watch("message")?.length || 0}/160
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCreateOpen(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!form.formState.isValid || createCampaignMutation.isPending}
-                    className="flex-1"
-                  >
-                    {createCampaignMutation.isPending ? "Creating..." : "Create Campaign"}
-                  </Button>
-                </div>
-              </form>
+              <CampaignForm
+                onSubmit={(data: CampaignFormValues) => createCampaignMutation.mutate(data)}
+                onCancel={() => setIsCreateOpen(false)}
+                pending={createCampaignMutation.isPending}
+                submitLabel="Create Campaign"
+              />
             </DialogContent>
           </Dialog>
+          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Campaign</DialogTitle>
+              </DialogHeader>
+              <CampaignForm
+                initialValues={editingCampaign as CampaignFormValues | undefined}
+                onSubmit={handleEditSubmit}
+                onCancel={() => setIsEditOpen(false)}
+                pending={updateCampaignMutation.isPending}
+                submitLabel="Save Changes"
+              />
+            </DialogContent>
+          </Dialog>
+          <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+              </AlertDialogHeader>
+              <p className="text-sm text-muted-foreground mb-4">
+                Are you sure you want to delete {deletingCampaign?.name}? This action cannot be undone.
+              </p>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
 
@@ -230,9 +295,13 @@ export default function Campaigns() {
             </div>
           </CardHeader>
           <CardContent>
-            <CampaignTable 
-              campaigns={campaigns || []} 
+            <CampaignTable
+              campaigns={campaigns || []}
               isLoading={campaignsLoading}
+              onEdit={handleEdit}
+              onDuplicate={handleDuplicate}
+              onDelete={handleDelete}
+              onToggleStatus={handleToggleStatus}
             />
           </CardContent>
         </Card>
