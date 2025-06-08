@@ -29,6 +29,7 @@ export interface IStorage {
   getContactsBySegment(segment: string): Promise<Contact[]>;
   getContactsByStatus(status: string): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
+  getContactByPhoneNumber(phoneNumber: string): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
@@ -51,6 +52,10 @@ export interface IStorage {
   createCouponRedemption(
     redemption: InsertCouponRedemption,
   ): Promise<CouponRedemption>;
+  hasContactReceivedCoupon(
+    contactId: number,
+    couponCode: string,
+  ): Promise<boolean>;
 
   // Messages
   getMessages(): Promise<Message[]>;
@@ -174,6 +179,30 @@ export class DatabaseStorage implements IStorage {
       .from(contacts)
       .where(whereClause)
       .orderBy(desc(contacts.createdAt));
+  }
+
+  async getContactByPhoneNumber(
+    phoneNumber: string,
+  ): Promise<Contact | undefined> {
+    const [contact] = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.phoneNumber, phoneNumber));
+    return contact || undefined;
+  }
+
+  async hasContactReceivedCoupon(
+    contactId: number,
+    couponCode: string,
+  ): Promise<boolean> {
+    const [msg] = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        sql`${messages.contactId} = ${contactId} AND ${messages.content} ILIKE ${"%" + couponCode + "%"}`,
+      )
+      .limit(1);
+    return !!msg;
   }
 
   // Campaigns

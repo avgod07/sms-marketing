@@ -60,6 +60,7 @@ export const couponRedemptions = pgTable("coupon_redemptions", {
   couponId: integer("coupon_id")
     .references(() => coupons.id)
     .notNull(),
+  contactId: integer("contact_id").references(() => contacts.id),
   phoneNumber: varchar("phone_number", { length: 20 }),
   note: text("note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
