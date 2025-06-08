@@ -65,6 +65,13 @@ To receive delivery status updates from Twilio you need to configure a Status Ca
 
 Twilio signs webhook requests using your `TWILIO_AUTH_TOKEN`. Ensure this environment variable is set so the server can verify incoming callbacks.
 
+## Coupon Redemption
+
+Coupons can only be redeemed by contacts who actually received them in a campaign.
+When calling `POST /api/coupons/:code/redeem`, include the customer's `phoneNumber`.
+The server verifies that this contact was part of the original audience and records
+the redemption alongside the contact for auditing purposes.
+
 ## Devcontainer
 
 If you use VS Code with the Dev Containers extension, the provided `.devcontainer` setup will automatically start the app and database services. The compose file maps port `5000` inside the container to `5001` on your host so it doesn't conflict with other services.
