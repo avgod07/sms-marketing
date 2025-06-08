@@ -53,6 +53,13 @@ export interface IStorage {
     redemption: InsertCouponRedemption,
   ): Promise<CouponRedemption>;
   getCouponRedemptions(couponId: number): Promise<CouponRedemption[]>;
+  searchCoupons(filters: {
+    search?: string;
+    status?: string;
+    type?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Coupon[]>;
   hasContactReceivedCoupon(
     contactId: number,
     couponCode: string,
@@ -316,6 +323,47 @@ export class DatabaseStorage implements IStorage {
       .from(couponRedemptions)
       .where(eq(couponRedemptions.couponId, couponId))
       .orderBy(desc(couponRedemptions.createdAt));
+  }
+
+  async searchCoupons(filters: {
+    search?: string;
+    status?: string;
+    type?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Coupon[]> {
+    const clauses = [] as any[];
+    if (filters.search) {
+      clauses.push(sql`${coupons.code} ILIKE ${"%" + filters.search + "%"}`);
+    }
+    if (filters.status && filters.status !== "all") {
+      if (filters.status === "redeemed") {
+        clauses.push(sql`${coupons.usageCount} > 0`);
+      } else {
+        clauses.push(sql`${coupons.status} = ${filters.status}`);
+      }
+    }
+    if (filters.type && filters.type !== "all") {
+      clauses.push(sql`${coupons.type} = ${filters.type}`);
+    }
+    if (filters.startDate) {
+      clauses.push(sql`${coupons.expirationDate} >= ${filters.startDate}`);
+    }
+    if (filters.endDate) {
+      clauses.push(sql`${coupons.expirationDate} <= ${filters.endDate}`);
+    }
+    let whereClause = undefined as any;
+    if (clauses.length === 1) {
+      whereClause = clauses[0];
+    } else if (clauses.length > 1) {
+      const [first, ...rest] = clauses;
+      whereClause = rest.reduce((acc, curr) => sql`${acc} AND ${curr}`, first);
+    }
+
+    const query = db.select().from(coupons);
+    return await (whereClause
+      ? query.where(whereClause).orderBy(desc(coupons.createdAt))
+      : query.orderBy(desc(coupons.createdAt)));
   }
 
   // Messages

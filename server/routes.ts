@@ -331,9 +331,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Coupon routes
-  app.get("/api/coupons", async (_req, res) => {
+  app.get("/api/coupons", async (req, res) => {
     try {
-      const coupons = await storage.getCoupons();
+      const { search, status, type, startDate, endDate } = req.query as {
+        search?: string;
+        status?: string;
+        type?: string;
+        startDate?: string;
+        endDate?: string;
+      };
+
+      const coupons = await storage.searchCoupons({
+        search,
+        status,
+        type,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+      });
       res.json(coupons);
     } catch (error) {
       logError("Error fetching coupons:", error);
