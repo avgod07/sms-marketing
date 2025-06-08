@@ -37,6 +37,7 @@ export default function Coupons() {
         expirationDate: data.expirationDate
           ? new Date(data.expirationDate)
           : undefined,
+        validDays: data.validDays ?? undefined,
       };
       return apiRequest({ method: "POST", url: "/api/coupons", data: payload });
     },
