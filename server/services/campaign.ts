@@ -14,6 +14,21 @@ export async function executeCampaign(campaignId: number) {
     return { sentCount: 0, totalContacts: 0 };
   }
 
+  const allCoupons = await storage.getCoupons();
+  const campaignCoupons = allCoupons.filter(c =>
+    campaign.message.includes(c.code),
+  );
+
+  for (const contact of contacts) {
+    for (const coupon of campaignCoupons) {
+      await storage.createCouponRecipient({
+        campaignId: campaign.id,
+        contactId: contact.id,
+        couponId: coupon.id,
+      });
+    }
+  }
+
   const smsMessages = contacts.map(contact => ({
     to: contact.phoneNumber,
     message: campaign.message,

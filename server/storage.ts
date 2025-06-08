@@ -4,6 +4,7 @@ import {
   messages,
   coupons,
   couponRedemptions,
+  couponRecipients,
   analytics,
   users,
   type Contact,
@@ -16,6 +17,8 @@ import {
   type InsertCoupon,
   type CouponRedemption,
   type InsertCouponRedemption,
+  type CouponRecipient,
+  type InsertCouponRecipient,
   type Analytics,
   type User,
   type InsertUser,
@@ -60,6 +63,9 @@ export interface IStorage {
     startDate?: Date;
     endDate?: Date;
   }): Promise<Coupon[]>;
+  createCouponRecipient(
+    recipient: InsertCouponRecipient,
+  ): Promise<CouponRecipient>;
   hasContactReceivedCoupon(
     contactId: number,
     couponCode: string,
@@ -203,14 +209,18 @@ export class DatabaseStorage implements IStorage {
     contactId: number,
     couponCode: string,
   ): Promise<boolean> {
-    const [msg] = await db
-      .select({ id: messages.id })
-      .from(messages)
+    const [row] = await db
+      .select({ id: couponRecipients.id })
+      .from(couponRecipients)
+      .innerJoin(
+        coupons,
+        eq(couponRecipients.couponId, coupons.id),
+      )
       .where(
-        sql`${messages.contactId} = ${contactId} AND ${messages.content} ILIKE ${"%" + couponCode + "%"}`,
+        sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode}`,
       )
       .limit(1);
-    return !!msg;
+    return !!row;
   }
 
   // Campaigns
@@ -315,6 +325,16 @@ export class DatabaseStorage implements IStorage {
       .values(redemption)
       .returning();
     return newRedemption;
+  }
+
+  async createCouponRecipient(
+    recipient: InsertCouponRecipient,
+  ): Promise<CouponRecipient> {
+    const [record] = await db
+      .insert(couponRecipients)
+      .values(recipient)
+      .returning();
+    return record;
   }
 
   async getCouponRedemptions(couponId: number): Promise<CouponRedemption[]> {
