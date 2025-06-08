@@ -33,7 +33,7 @@ export default function Sidebar() {
   const { toast } = useToast();
 
   const signOutMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/logout"),
+    mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       toast({ title: "Signed out" });
