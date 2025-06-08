@@ -73,6 +73,31 @@ export default function CouponForm({
   const watchReusable = form.watch("reusable");
   const watchUsageLimit = form.watch("usageLimit");
 
+  // Clear mutually exclusive values when their counterpart is set
+  useEffect(() => {
+    if (watchExpiration) {
+      form.setValue("validDays", undefined);
+    }
+  }, [watchExpiration, form]);
+
+  useEffect(() => {
+    if (watchValidDays) {
+      form.setValue("expirationDate", undefined);
+    }
+  }, [watchValidDays, form]);
+
+  useEffect(() => {
+    if (watchReusable) {
+      form.setValue("usageLimit", undefined);
+    }
+  }, [watchReusable, form]);
+
+  useEffect(() => {
+    if (watchUsageLimit) {
+      form.setValue("reusable", false);
+    }
+  }, [watchUsageLimit, form]);
+
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div>
