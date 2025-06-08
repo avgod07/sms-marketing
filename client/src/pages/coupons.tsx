@@ -33,7 +33,7 @@ export default function Coupons() {
     mutationFn: (data: CouponFormValues) => {
       const payload = {
         ...data,
-        value: data.value.toString(),
+        value: data.type === "free" ? "0" : data.value.toString(),
         expirationDate: data.expirationDate
           ? new Date(data.expirationDate)
           : undefined,

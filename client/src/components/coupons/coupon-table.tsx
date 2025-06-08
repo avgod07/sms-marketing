@@ -60,9 +60,19 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
           {coupons.map((coupon) => (
             <tr key={coupon.id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4 font-medium text-gray-900">{coupon.code}</td>
-              <td className="py-4 px-4 capitalize text-gray-900">{coupon.type}</td>
+              <td className="py-4 px-4 capitalize text-gray-900">
+                {coupon.type === "percent"
+                  ? "Percent Off"
+                  : coupon.type === "amount"
+                  ? "Flat Amount Off"
+                  : "Free Item or Service"}
+              </td>
               <td className="py-4 px-4 text-gray-900">
-                {coupon.type === "percent" ? `${coupon.value}%` : `$${coupon.value}`}
+                {coupon.type === "percent"
+                  ? `${coupon.value}%`
+                  : coupon.type === "amount"
+                  ? `$${coupon.value}`
+                  : "Free"}
               </td>
               <td className="py-4 px-4 text-gray-900">{coupon.usageCount}</td>
               <td className="py-4 px-4 text-gray-900">

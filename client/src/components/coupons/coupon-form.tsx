@@ -6,29 +6,33 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-export const couponSchema = z.object({
-  code: z.string().optional(),
-  type: z.enum(["percent", "amount"]),
-  value: z.coerce
-    .number({ invalid_type_error: "Enter a numeric value" })
-    .positive("Value must be greater than 0"),
-  expirationDate: z.string().optional(),
-  usageLimit: z
-    .preprocess(
-      (v) => (v === "" || v === undefined ? undefined : Number(v)),
-      z.number().int().positive(),
-    )
-    .optional(),
-  reusable: z.boolean().optional(),
-});
+export const couponSchema = z
+  .object({
+    code: z.string().optional(),
+    type: z.enum(["percent", "amount", "free"]),
+    value: z.coerce
+      .number({ invalid_type_error: "Enter a numeric value" })
+      .nonnegative(),
+    expirationDate: z.string().optional(),
+    usageLimit: z
+      .preprocess(
+        (v) => (v === "" || v === undefined ? undefined : Number(v)),
+        z.number().int().positive(),
+      )
+      .optional(),
+    reusable: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type !== "free" && data.value <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Value must be greater than 0",
+        path: ["value"],
+      });
+    }
+  });
 
 export type CouponFormValues = z.infer<typeof couponSchema>;
 
@@ -77,30 +81,38 @@ export default function CouponForm({
         )}
       </div>
       <div>
-        <Label htmlFor="type">Type</Label>
-        <Select
-          onValueChange={(value) => form.setValue("type", value as "percent" | "amount")}
+        <Label>Discount Type</Label>
+        <RadioGroup
           value={form.watch("type")}
+          onValueChange={(val) => form.setValue("type", val as "percent" | "amount" | "free")}
+          className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2"
         >
-          <SelectTrigger>
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="amount">Fixed Amount</SelectItem>
-            <SelectItem value="percent">Percent Off</SelectItem>
-          </SelectContent>
-        </Select>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem id="type-percent" value="percent" />
+            <Label htmlFor="type-percent">Percent Off</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem id="type-amount" value="amount" />
+            <Label htmlFor="type-amount">Flat Amount Off</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem id="type-free" value="free" />
+            <Label htmlFor="type-free">Free Item or Service</Label>
+          </div>
+        </RadioGroup>
         {form.formState.errors.type && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.type.message}</p>
         )}
       </div>
-      <div>
-        <Label htmlFor="value">Value</Label>
-        <Input id="value" type="number" step="0.01" {...form.register("value")} />
-        {form.formState.errors.value && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.value.message}</p>
-        )}
-      </div>
+      {form.watch("type") !== "free" && (
+        <div>
+          <Label htmlFor="value">Value</Label>
+          <Input id="value" type="number" step="0.01" {...form.register("value")} />
+          {form.formState.errors.value && (
+            <p className="text-sm text-red-600 mt-1">{form.formState.errors.value.message}</p>
+          )}
+        </div>
+      )}
       <div>
         <Label htmlFor="expirationDate">Expiration Date</Label>
         <Input id="expirationDate" type="date" {...form.register("expirationDate")} />
