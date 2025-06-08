@@ -53,6 +53,16 @@ export const coupons = pgTable("coupons", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const couponRedemptions = pgTable("coupon_redemptions", {
+  id: serial("id").primaryKey(),
+  couponId: integer("coupon_id")
+    .references(() => coupons.id)
+    .notNull(),
+  phoneNumber: varchar("phone_number", { length: 20 }),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const analytics = pgTable("analytics", {
   id: serial("id").primaryKey(),
   date: timestamp("date").defaultNow().notNull(),
@@ -119,6 +129,12 @@ export const insertCouponSchema = createInsertSchema(coupons).omit({
   usageCount: true,
 });
 
+export const insertCouponRedemptionSchema =
+  createInsertSchema(couponRedemptions).omit({
+    id: true,
+    createdAt: true,
+  });
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -136,6 +152,11 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export type Coupon = typeof coupons.$inferSelect;
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+
+export type CouponRedemption = typeof couponRedemptions.$inferSelect;
+export type InsertCouponRedemption = z.infer<
+  typeof insertCouponRedemptionSchema
+>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
