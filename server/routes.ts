@@ -456,12 +456,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "EXPIRED" });
       }
 
-      if ((coupon.usageCount ?? 0) >= 1) {
-        return res
-          .status(400)
-          .json({ error: "ALREADY_REDEEMED", message: "This coupon has already been used and cannot be redeemed again." });
-      }
-
       const phoneNumber = req.body.phoneNumber;
       if (!phoneNumber) {
         return res.status(400).json({ message: "phoneNumber is required" });
@@ -477,6 +471,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({
           message:
             "This contact was not part of the campaign that received this coupon.",
+        });
+      }
+
+      const alreadyRedeemed = await storage.hasContactRedeemedCoupon(
+        contact.id,
+        coupon.id,
+      );
+      if (alreadyRedeemed) {
+        return res.status(400).json({
+          error: "ALREADY_REDEEMED",
+          message: "This contact has already redeemed this coupon.",
         });
       }
       const contactId = contact.id;
