@@ -56,8 +56,6 @@ export const coupons = pgTable("coupons", {
   discount: integer("discount").notNull(),
   expirationDate: timestamp("expiration_date"),
   validDays: integer("valid_days"),
-  usageLimit: integer("usage_limit"),
-  reusable: boolean("reusable").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -112,21 +110,11 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   deliveredAt: true,
 });
 
-export const insertCouponBaseSchema = createInsertSchema(coupons).omit({
+export const insertCouponSchema = createInsertSchema(coupons).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
-
-export const insertCouponSchema = insertCouponBaseSchema
-  .refine(data => !(data.expirationDate && data.validDays), {
-    message: "Choose either expiration date or valid days",
-    path: ["validDays"],
-  })
-  .refine(data => !(data.reusable && data.usageLimit), {
-    message: "Either reusable or usage limit, not both",
-    path: ["usageLimit"],
-  });
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,

@@ -51,16 +51,6 @@ export default function CouponTable({ coupons, isLoading, onEdit, onDelete }: Co
     return "None";
   };
 
-  const formatUsage = (coupon: Coupon) => {
-    if (coupon.reusable) {
-      return "Unlimited";
-    }
-    if (coupon.usageLimit) {
-      return `${coupon.usageLimit} uses`;
-    }
-    return "Single";
-  };
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -69,7 +59,6 @@ export default function CouponTable({ coupons, isLoading, onEdit, onDelete }: Co
             <th className="text-left py-3 px-4 font-medium text-gray-500">Code</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Discount</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Expires</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Usage</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
         </thead>
@@ -79,7 +68,6 @@ export default function CouponTable({ coupons, isLoading, onEdit, onDelete }: Co
               <td className="py-4 px-4">{coupon.code}</td>
               <td className="py-4 px-4">{coupon.discount}%</td>
               <td className="py-4 px-4">{formatExpires(coupon)}</td>
-              <td className="py-4 px-4">{formatUsage(coupon)}</td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
                   <Button variant="ghost" size="sm" onClick={() => onEdit(coupon)}>
