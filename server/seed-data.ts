@@ -19,7 +19,7 @@ export async function seedData() {
         lastName: "Doe",
         phoneNumber: "+15551234567",
         email: "john@example.com",
-        segment: "vip",
+        segment: "all",
         status: "active",
       },
       {
@@ -35,7 +35,7 @@ export async function seedData() {
         lastName: "Smith",
         phoneNumber: "+15551234569",
         email: "mike@example.com",
-        segment: "new_leads",
+        segment: "all",
         status: "active",
       },
       {
@@ -43,7 +43,7 @@ export async function seedData() {
         lastName: "Davis",
         phoneNumber: "+15551234570",
         email: "emily@example.com",
-        segment: "inactive",
+        segment: "all",
         status: "inactive",
       },
       {
@@ -51,7 +51,7 @@ export async function seedData() {
         lastName: "Wilson",
         phoneNumber: "+15551234571",
         email: "david@example.com",
-        segment: "vip",
+        segment: "all",
         status: "active",
       },
     ];
@@ -71,13 +71,13 @@ export async function seedData() {
       {
         name: "Welcome Series",
         message: "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
-        audience: "new_leads",
+        audience: "active",
         status: "active",
       },
       {
         name: "VIP Exclusive",
         message: "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
-        audience: "vip",
+        audience: "active",
         status: "active",
       },
     ];

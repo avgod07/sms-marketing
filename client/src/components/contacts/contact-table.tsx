@@ -85,9 +85,7 @@ export default function ContactTable({ contacts, isLoading }: ContactTableProps)
               </td>
               <td className="py-4 px-4">
                 <Badge className={getSegmentColor(contact.segment)}>
-                  {contact.segment === 'vip' ? 'VIP' : 
-                   contact.segment === 'new_leads' ? 'New Lead' :
-                   contact.segment === 'inactive' ? 'Inactive' : 'Customer'}
+                  {contact.segment === 'inactive' ? 'Inactive' : 'Customer'}
                 </Badge>
               </td>
               <td className="py-4 px-4">

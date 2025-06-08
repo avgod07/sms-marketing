@@ -141,7 +141,8 @@ export default function Campaigns() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Contacts</SelectItem>
-                      <SelectItem value="inactive">Inactive Users</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="active">Active Contacts</SelectItem>
                     </SelectContent>
                   </Select>
                   {form.formState.errors.audience && (
