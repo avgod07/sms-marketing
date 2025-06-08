@@ -427,12 +427,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "EXPIRED" });
       }
 
-      if (
-        coupon.usageLimit !== null &&
-        coupon.usageLimit !== undefined &&
-        (coupon.usageCount ?? 0) >= coupon.usageLimit
-      ) {
-        return res.status(400).json({ error: "LIMIT_REACHED" });
+      if ((coupon.usageCount ?? 0) >= 1) {
+        return res
+          .status(400)
+          .json({ error: "ALREADY_REDEEMED", message: "This coupon has already been used and cannot be redeemed again." });
       }
 
       const currentCount = coupon.usageCount ?? 0;
