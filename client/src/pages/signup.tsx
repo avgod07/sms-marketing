@@ -14,7 +14,8 @@ export default function Signup() {
   const [password, setPassword] = useState("");
 
   const signupMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/signup", { username, password }),
+    mutationFn: () =>
+      apiRequest({ method: "POST", url: "/api/signup", data: { username, password } }),
     onSuccess: async () => {
       toast({ title: "Account Created" });
       navigate("/");
