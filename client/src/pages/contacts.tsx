@@ -70,14 +70,15 @@ export default function Contacts() {
 
   const segments = [
     { key: "all", label: "All Contacts", count: contactStats?.allContacts || 0, color: "bg-blue-100 text-blue-700" },
-    { key: "vip", label: "VIP Customers", count: contactStats?.vipCustomers || 0, color: "bg-purple-100 text-purple-700" },
-    { key: "new_leads", label: "New Leads", count: contactStats?.newLeads || 0, color: "bg-green-100 text-green-700" },
     { key: "inactive", label: "Inactive", count: contactStats?.inactive || 0, color: "bg-gray-100 text-gray-700" },
+    { key: "active", label: "Active Contacts", count: contactStats?.activeContacts || 0, color: "bg-green-100 text-green-700" },
   ];
 
   const createContactMutation = useMutation({
-    mutationFn: (data: ContactForm) =>
-      apiRequest({ method: "POST", url: "/api/contacts", data }),
+    mutationFn: (data: ContactForm) => {
+      const status = data.segment === "inactive" ? "inactive" : "active";
+      return apiRequest({ method: "POST", url: "/api/contacts", data: { ...data, status } });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
@@ -202,10 +203,9 @@ export default function Contacts() {
                             <SelectValue placeholder="Select segment" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Contacts</SelectItem>
-                            <SelectItem value="vip">VIP Customers</SelectItem>
-                            <SelectItem value="new_leads">New Leads</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="all">All Contacts</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="active">Active Contacts</SelectItem>
                           </SelectContent>
                         </Select>
                         {form.formState.errors.segment && (

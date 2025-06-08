@@ -57,9 +57,8 @@ export interface IStorage {
   }>;
   getContactStats(): Promise<{
     allContacts: number;
-    vipCustomers: number;
-    newLeads: number;
     inactive: number;
+    activeContacts: number;
   }>;
   getCampaignStats(): Promise<{
     activeCampaigns: number;
@@ -82,6 +81,13 @@ export class DatabaseStorage implements IStorage {
   async getContactsBySegment(segment: string): Promise<Contact[]> {
     if (segment === "all") {
       return await this.getContacts();
+    }
+    if (segment === "inactive" || segment === "active") {
+      return await db
+        .select()
+        .from(contacts)
+        .where(eq(contacts.status, segment))
+        .orderBy(desc(contacts.createdAt));
     }
     return await db
       .select()
@@ -367,29 +373,23 @@ export class DatabaseStorage implements IStorage {
 
   async getContactStats(): Promise<{
     allContacts: number;
-    vipCustomers: number;
-    newLeads: number;
     inactive: number;
+    activeContacts: number;
   }> {
     const [allContacts] = await db.select({ count: count() }).from(contacts);
-    const [vipContacts] = await db
-      .select({ count: count() })
-      .from(contacts)
-      .where(eq(contacts.segment, "vip"));
-    const [newLeads] = await db
-      .select({ count: count() })
-      .from(contacts)
-      .where(eq(contacts.segment, "new_leads"));
     const [inactiveContacts] = await db
       .select({ count: count() })
       .from(contacts)
       .where(eq(contacts.status, "inactive"));
+    const [activeContacts] = await db
+      .select({ count: count() })
+      .from(contacts)
+      .where(eq(contacts.status, "active"));
 
     return {
       allContacts: allContacts.count,
-      vipCustomers: vipContacts.count,
-      newLeads: newLeads.count,
       inactive: inactiveContacts.count,
+      activeContacts: activeContacts.count,
     };
   }
 
