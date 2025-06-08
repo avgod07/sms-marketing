@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 export type LogLevel = 'info' | 'error' | 'warn' | 'debug';
 
 export interface LogEntry {
@@ -11,7 +13,19 @@ export function log(entry: LogEntry) {
     time: new Date().toISOString(),
     ...entry,
   };
-  console.log(JSON.stringify(output));
+  const line = JSON.stringify(output);
+  console.log(line);
+  try {
+    const logFile = 'logs/app.log';
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    try {
+      const { size } = fs.statSync(logFile);
+      if (size > maxSize) {
+        fs.renameSync(logFile, `${logFile}.1`);
+      }
+    } catch {}
+    fs.appendFileSync(logFile, line + '\n');
+  } catch {}
 }
 
 export const logInfo = (message: string, meta: any = {}) =>

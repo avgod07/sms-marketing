@@ -18,12 +18,17 @@ export async function apiRequest({
   url,
   data,
 }: ApiRequestOptions): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+  } catch (err: any) {
+    throw new Error(`Network error: ${err.message}`);
+  }
 
   await throwIfResNotOk(res);
   return res;
@@ -54,10 +59,10 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      retry: false,
+      retry: 1,
     },
     mutations: {
-      retry: false,
+      retry: 1,
     },
   },
 });
