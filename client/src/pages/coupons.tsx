@@ -8,6 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import CouponForm, { type CouponFormValues } from "@/components/coupons/coupon-form";
@@ -38,6 +47,8 @@ export default function Coupons() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyCoupon, setHistoryCoupon] = useState<Coupon | null>(null);
+  const [deletingCoupon, setDeletingCoupon] = useState<Coupon | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -128,6 +139,33 @@ export default function Coupons() {
       });
     },
   });
+
+  const deleteCouponMutation = useMutation({
+    mutationFn: () =>
+      apiRequest({ method: "DELETE", url: `/api/coupons/${deletingCoupon!.id}` }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      setIsDeleteOpen(false);
+      setDeletingCoupon(null);
+      toast({ title: "Coupon Deleted" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete coupon",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (coupon: Coupon) => {
+    setDeletingCoupon(coupon);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    deleteCouponMutation.mutate();
+  };
 
   return (
     <div className="fade-in">
@@ -239,6 +277,7 @@ export default function Coupons() {
                 setHistoryCoupon(c);
                 setIsHistoryOpen(true);
               }}
+              onDelete={handleDelete}
             />
           </CardContent>
         </Card>
@@ -320,6 +359,21 @@ export default function Coupons() {
             />
           </DialogContent>
         </Dialog>
+        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Coupon</AlertDialogTitle>
+            </AlertDialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to delete this coupon? This action cannot be
+              undone.
+            </p>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
