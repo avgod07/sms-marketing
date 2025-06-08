@@ -13,8 +13,7 @@ import { Switch } from "@/components/ui/switch";
 
 export const couponSchema = z
   .object({
-    code: z.string().optional().or(z.literal("")),
-    label: z.string().optional().or(z.literal("")),
+    code: z.string().min(1, "Code is required"),
     discount: z.coerce.number().min(1, "Discount is required").max(100),
     expirationDate: z.date().optional(),
     validDays: z.coerce.number().positive().int().optional(),
@@ -52,7 +51,6 @@ export default function CouponForm({
     mode: "onChange",
     defaultValues: {
       code: "",
-      label: "",
       discount: 10,
       expirationDate: undefined,
       validDays: undefined,
@@ -80,13 +78,6 @@ export default function CouponForm({
         <Input id="code" {...form.register("code")}/>
         {form.formState.errors.code && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.code.message}</p>
-        )}
-      </div>
-      <div>
-        <Label htmlFor="label">Label / Note</Label>
-        <Input id="label" {...form.register("label")}/>
-        {form.formState.errors.label && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.label.message}</p>
         )}
       </div>
       <div>
