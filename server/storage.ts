@@ -19,7 +19,6 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count, sql } from "drizzle-orm";
-import { nanoid } from "nanoid";
 
 export interface IStorage {
   // Contacts
@@ -227,12 +226,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCoupon(coupon: InsertCoupon): Promise<Coupon> {
-    const code = coupon.code && coupon.code !== "" ? coupon.code : nanoid(8);
     const [newCoupon] = await db
       .insert(coupons)
       .values({
         ...coupon,
-        code,
         updatedAt: new Date(),
       })
       .returning();
@@ -243,14 +240,10 @@ export class DatabaseStorage implements IStorage {
     id: number,
     coupon: Partial<Coupon>,
   ): Promise<Coupon> {
-    const values = { ...coupon } as any;
-    if (values.code === "" || values.code === undefined) {
-      delete values.code;
-    }
     const [updatedCoupon] = await db
       .update(coupons)
       .set({
-        ...values,
+        ...coupon,
         updatedAt: new Date(),
       })
       .where(eq(coupons.id, id))

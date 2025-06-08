@@ -67,7 +67,6 @@ export default function CouponTable({ coupons, isLoading, onEdit, onDelete }: Co
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-medium text-gray-500">Code</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Label</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Discount</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Expires</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Usage</th>
@@ -78,7 +77,6 @@ export default function CouponTable({ coupons, isLoading, onEdit, onDelete }: Co
           {coupons.map(coupon => (
             <tr key={coupon.id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4">{coupon.code}</td>
-              <td className="py-4 px-4">{coupon.label || "-"}</td>
               <td className="py-4 px-4">{coupon.discount}%</td>
               <td className="py-4 px-4">{formatExpires(coupon)}</td>
               <td className="py-4 px-4">{formatUsage(coupon)}</td>
