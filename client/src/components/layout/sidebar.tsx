@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Send,
+  Ticket,
   BarChart3,
   Settings,
   HelpCircle,
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Campaigns", href: "/campaigns", icon: Send },
+  { name: "Coupons", href: "/coupons", icon: Ticket },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 

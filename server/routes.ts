@@ -5,6 +5,7 @@ import {
   insertContactSchema,
   insertCampaignSchema,
   insertMessageSchema,
+  insertCouponSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -323,6 +324,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError("Error sending campaign:", error);
       res.status(500).json({ message: "Failed to send campaign" });
+    }
+  });
+
+  // Coupon routes
+  app.get("/api/coupons", async (_req, res) => {
+    try {
+      const coupons = await storage.getCoupons();
+      res.json(coupons);
+    } catch (error) {
+      logError("Error fetching coupons:", error);
+      res.status(500).json({ message: "Failed to fetch coupons" });
+    }
+  });
+
+  app.get("/api/coupons/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const coupon = await storage.getCoupon(id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      logError("Error fetching coupon:", error);
+      res.status(500).json({ message: "Failed to fetch coupon" });
+    }
+  });
+
+  app.post("/api/coupons", async (req, res) => {
+    try {
+      const validatedData = insertCouponSchema.parse(req.body);
+      const coupon = await storage.createCoupon(validatedData);
+      res.status(201).json(coupon);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error creating coupon:", error);
+      res.status(500).json({ message: "Failed to create coupon" });
+    }
+  });
+
+  app.patch("/api/coupons/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertCouponSchema.partial().parse(req.body);
+      const coupon = await storage.updateCoupon(id, validatedData);
+      res.json(coupon);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error updating coupon:", error);
+      res.status(500).json({ message: "Failed to update coupon" });
+    }
+  });
+
+  app.delete("/api/coupons/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCoupon(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting coupon:", error);
+      res.status(500).json({ message: "Failed to delete coupon" });
     }
   });
 
