@@ -1,15 +1,22 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatPhoneNumber, getSegmentColor, getStatusColor } from "@/lib/utils";
 import { Contact } from "@shared/schema";
-import { MoreHorizontal, Mail, Phone } from "lucide-react";
+import { MoreHorizontal, Mail, Phone, Edit } from "lucide-react";
 
 interface ContactTableProps {
   contacts: Contact[];
   isLoading: boolean;
+  onEdit: (contact: Contact) => void;
 }
 
-export default function ContactTable({ contacts, isLoading }: ContactTableProps) {
+export default function ContactTable({ contacts, isLoading, onEdit }: ContactTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -94,9 +101,18 @@ export default function ContactTable({ contacts, isLoading }: ContactTableProps)
                 </Badge>
               </td>
               <td className="py-4 px-4">
-                <Button variant="ghost" size="sm">
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onEdit(contact)}>
+                      <Edit className="mr-2 h-4 w-4" /> Edit Contact
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </td>
             </tr>
           ))}
