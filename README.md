@@ -82,10 +82,10 @@ If you use VS Code with the Dev Containers extension, the provided `.devcontaine
 
 ## Troubleshooting
 
-If the devcontainer fails to start and Docker reports that port 5000 is already in use, you may have an old container still running with the previous port mapping. Remove it and try again:
+If the devcontainer fails to start and Docker reports that port 5000 is already in use, you may have an old container still running with the previous port mapping. Remove it (and the data volume) and try again:
 
 ```bash
-docker compose -f .devcontainer/docker-compose.yml down
+docker compose -f .devcontainer/docker-compose.yml down -v
 ```
 
-Then reopen the dev container so it can recreate the services with the updated mapping of host port 5001 to container port 5000.
+You can run this command inside the dev container now that the Docker CLI is available, or from your host terminal if preferred. Then reopen the dev container so it can recreate the services with the updated mapping of host port 5001 to container port 5000.
