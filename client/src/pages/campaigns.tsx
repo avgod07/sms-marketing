@@ -138,10 +138,8 @@ export default function Campaigns() {
                       <SelectValue placeholder="Select audience" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Customers</SelectItem>
-                      <SelectItem value="vip">VIP Customers</SelectItem>
-                      <SelectItem value="new_leads">New Leads</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="all">All Contacts</SelectItem>
+                      <SelectItem value="inactive">Inactive Users</SelectItem>
                     </SelectContent>
                   </Select>
                   {form.formState.errors.audience && (

@@ -77,10 +77,11 @@ export default function CampaignTable({ campaigns, isLoading }: CampaignTablePro
               </td>
               <td className="py-4 px-4">
                 <span className="text-gray-900 capitalize">
-                  {campaign.audience === 'all' ? 'All Customers' : 
-                   campaign.audience === 'vip' ? 'VIP Customers' :
-                   campaign.audience === 'new_leads' ? 'New Subscribers' :
-                   campaign.audience}
+                  {campaign.audience === 'all'
+                    ? 'All Contacts'
+                    : campaign.audience === 'inactive'
+                    ? 'Inactive Users'
+                    : campaign.audience}
                 </span>
               </td>
               <td className="py-4 px-4">
