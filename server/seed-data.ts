@@ -90,6 +90,7 @@ export async function seedData() {
     const sampleCoupons = [
       {
         code: "WELCOME10",
+        label: "Welcome Discount",
         type: "percent",
         value: "10",
         status: "active",
@@ -97,6 +98,7 @@ export async function seedData() {
       },
       {
         code: "SPRING20",
+        label: "Spring Sale",
         type: "percent",
         value: "20",
         status: "expired",
@@ -104,12 +106,14 @@ export async function seedData() {
       },
       {
         code: "VIP50",
+        label: "VIP Promo",
         type: "amount",
         value: "50",
         status: "disabled",
       },
       {
         code: "DAY30",
+        label: "30 Day Valid",
         type: "percent",
         value: "15",
         status: "active",
