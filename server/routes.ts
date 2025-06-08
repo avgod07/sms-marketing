@@ -364,6 +364,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (data.expirationDate) {
         data.expirationDate = new Date(data.expirationDate);
       }
+      if (data.validDays !== undefined && data.validDays !== null) {
+        data.validDays = Number(data.validDays);
+      }
       const validatedData = insertCouponSchema.parse(data);
       const coupon = await storage.createCoupon(validatedData);
       res.status(201).json(coupon);
@@ -385,6 +388,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = { ...req.body };
       if (data.expirationDate) {
         data.expirationDate = new Date(data.expirationDate);
+      }
+      if (data.validDays !== undefined && data.validDays !== null) {
+        data.validDays = Number(data.validDays);
       }
       const validatedData = insertCouponSchema.partial().parse(data);
       const coupon = await storage.updateCoupon(id, validatedData);
@@ -411,6 +417,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (coupon.expirationDate && new Date(coupon.expirationDate) < new Date()) {
+        return res.status(400).json({ error: "EXPIRED" });
+      }
+      if (
+        coupon.validDays !== null &&
+        coupon.validDays !== undefined &&
+        new Date(coupon.createdAt).getTime() + coupon.validDays * 24 * 60 * 60 * 1000 < Date.now()
+      ) {
         return res.status(400).json({ error: "EXPIRED" });
       }
 
