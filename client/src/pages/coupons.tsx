@@ -12,7 +12,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import CouponForm, { type CouponFormValues } from "@/components/coupons/coupon-form";
 import CouponTable from "@/components/coupons/coupon-table";
-import { Tag, Plus } from "lucide-react";
+import { Search, Filter, Tag, Plus } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Coupon, CouponRedemption } from "@shared/schema";
@@ -26,10 +38,24 @@ export default function Coupons() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyCoupon, setHistoryCoupon] = useState<Coupon | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const { toast } = useToast();
 
   const { data: coupons, isLoading } = useQuery<Coupon[]>({
-    queryKey: ["/api/coupons"],
+    queryKey: [
+      "/api/coupons",
+      {
+        search: searchQuery,
+        status: statusFilter,
+        type: typeFilter,
+        startDate,
+        endDate,
+      },
+    ],
   });
 
   const {
@@ -133,6 +159,75 @@ export default function Coupons() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Search and Filter */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search coupons..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="p-2 space-y-2 w-64">
+                  <div>
+                    <Label className="mb-1 block text-sm">Status</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                        <SelectItem value="redeemed">Fully Redeemed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="mb-1 block text-sm">Type</Label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="percent">Percent Off</SelectItem>
+                        <SelectItem value="amount">Flat</SelectItem>
+                        <SelectItem value="free">Free</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex space-x-2">
+                    <div className="flex-1">
+                      <Label className="mb-1 block text-sm">Start</Label>
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="mb-1 block text-sm">End</Label>
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
             <CouponTable
               coupons={coupons || []}
               isLoading={isLoading}
