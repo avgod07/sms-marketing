@@ -141,7 +141,7 @@ export default function Contacts() {
       {/* Content */}
       <div className="p-8">
         {/* Segment Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {segments.map((segment) => (
             <Card 
               key={segment.key}
