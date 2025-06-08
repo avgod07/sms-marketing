@@ -50,6 +50,7 @@ export const coupons = pgTable("coupons", {
   usageLimit: integer("usage_limit"),
   reusable: boolean("reusable").default(true),
   expirationDate: timestamp("expiration_date"),
+  validDays: integer("valid_days"),
   status: text("status").notNull().default("active"), // active, expired, disabled
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

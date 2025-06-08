@@ -17,6 +17,12 @@ export const couponSchema = z
       .number({ invalid_type_error: "Enter a numeric value" })
       .nonnegative(),
     expirationDate: z.string().optional(),
+    validDays: z
+      .preprocess(
+        (v) => (v === "" || v === undefined ? undefined : Number(v)),
+        z.number().int().positive(),
+      )
+      .optional(),
     usageLimit: z
       .preprocess(
         (v) => (v === "" || v === undefined ? undefined : Number(v)),
@@ -39,6 +45,19 @@ export const couponSchema = z
         code: z.ZodIssueCode.custom,
         message: "Percent must be between 1 and 100",
         path: ["value"],
+      });
+    }
+
+    if (data.expirationDate && data.validDays) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose date or days, not both",
+        path: ["expirationDate"],
+      });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose date or days, not both",
+        path: ["validDays"],
       });
     }
   });
@@ -68,6 +87,7 @@ export default function CouponForm({
       type: "percent",
       value: 0,
       expirationDate: "",
+      validDays: undefined,
       usageLimit: undefined,
       reusable: true,
       ...initialValues,
@@ -141,9 +161,35 @@ export default function CouponForm({
       )}
       <div>
         <Label htmlFor="expirationDate">Expiration Date</Label>
-        <Input id="expirationDate" type="date" {...form.register("expirationDate")} />
+        <Input
+          id="expirationDate"
+          type="date"
+          disabled={!!form.watch("validDays")}
+          {...form.register("expirationDate", {
+            onChange: (e) => {
+              if (e.target.value) form.setValue("validDays", undefined);
+            },
+          })}
+        />
         {form.formState.errors.expirationDate && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.expirationDate.message}</p>
+        )}
+      </div>
+      <div>
+        <Label htmlFor="validDays">Valid for (days)</Label>
+        <Input
+          id="validDays"
+          type="number"
+          disabled={!!form.watch("expirationDate")}
+          {...form.register("validDays", {
+            valueAsNumber: true,
+            onChange: (e) => {
+              if (e.target.value) form.setValue("expirationDate", "");
+            },
+          })}
+        />
+        {form.formState.errors.validDays && (
+          <p className="text-sm text-red-600 mt-1">{form.formState.errors.validDays.message}</p>
         )}
       </div>
       <div>

@@ -82,7 +82,11 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
                 {coupon.reusable ? 'Yes' : 'No'}
               </td>
               <td className="py-4 px-4 text-gray-900">
-                {coupon.expirationDate ? formatDate(coupon.expirationDate) : "—"}
+                {coupon.expirationDate
+                  ? formatDate(coupon.expirationDate)
+                  : coupon.validDays
+                  ? `${coupon.validDays} days`
+                  : "—"}
               </td>
               <td className="py-4 px-4">
                 <Badge className={getCouponStatusColor(coupon.status)}>{coupon.status}</Badge>
