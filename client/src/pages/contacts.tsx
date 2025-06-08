@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ContactTable from "@/components/contacts/contact-table";
 import ContactForm, { type ContactFormValues } from "@/components/contacts/contact-form";
 import { Search, Plus, Download, Upload, Filter } from "lucide-react";
@@ -31,18 +38,29 @@ import type { ContactStats } from "@shared/api-types";
 export default function Contacts() {
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState(() =>
+    localStorage.getItem("contactStatusFilter") || "all",
+  );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
 
+  // Persist filter choice during the session
+  useEffect(() => {
+    localStorage.setItem("contactStatusFilter", statusFilter);
+  }, [statusFilter]);
+
 
   const { data: contactStats, isLoading: statsLoading } = useQuery<ContactStats>({
-    queryKey: ["/api/contacts/stats"],
+    queryKey: ["/api/contacts/stats", { status: statusFilter }],
   });
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts", { segment: selectedSegment, search: searchQuery }],
+    queryKey: [
+      "/api/contacts",
+      { segment: selectedSegment, search: searchQuery, status: statusFilter },
+    ],
   });
 
   const segments = [
@@ -211,10 +229,30 @@ export default function Contacts() {
                   className="pl-10"
                 />
               </div>
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuRadioGroup
+                    value={statusFilter}
+                    onValueChange={setStatusFilter}
+                  >
+                    <DropdownMenuRadioItem value="all">
+                      All Contacts
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="active">
+                      Active
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="inactive">
+                      Inactive
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Contact Table */}
