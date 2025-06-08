@@ -7,9 +7,10 @@ interface CouponTableProps {
   coupons: Coupon[];
   isLoading: boolean;
   onRedeem: (coupon: Coupon) => void;
+  onViewRedemptions: (coupon: Coupon) => void;
 }
 
-export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTableProps) {
+export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemptions }: CouponTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -85,12 +86,18 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
               <td className="py-4 px-4">
                 <Badge className={getCouponStatusColor(coupon.status)}>{coupon.status}</Badge>
               </td>
-              <td className="py-4 px-4">
+              <td className="py-4 px-4 space-x-2">
                 <button
                   className="text-blue-600 hover:underline"
                   onClick={() => onRedeem(coupon)}
                 >
                   Redeem
+                </button>
+                <button
+                  className="text-blue-600 hover:underline"
+                  onClick={() => onViewRedemptions(coupon)}
+                >
+                  View Redemptions
                 </button>
               </td>
             </tr>

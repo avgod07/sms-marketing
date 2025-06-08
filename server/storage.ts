@@ -52,6 +52,7 @@ export interface IStorage {
   createCouponRedemption(
     redemption: InsertCouponRedemption,
   ): Promise<CouponRedemption>;
+  getCouponRedemptions(couponId: number): Promise<CouponRedemption[]>;
   hasContactReceivedCoupon(
     contactId: number,
     couponCode: string,
@@ -307,6 +308,14 @@ export class DatabaseStorage implements IStorage {
       .values(redemption)
       .returning();
     return newRedemption;
+  }
+
+  async getCouponRedemptions(couponId: number): Promise<CouponRedemption[]> {
+    return await db
+      .select()
+      .from(couponRedemptions)
+      .where(eq(couponRedemptions.couponId, couponId))
+      .orderBy(desc(couponRedemptions.createdAt));
   }
 
   // Messages
