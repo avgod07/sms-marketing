@@ -475,7 +475,8 @@ export class DatabaseStorage implements IStorage {
     campaignsChange: number;
     deliveryRateChange: number;
   }> {
-    const [contactsCount] = await db.select({ count: count() }).from(contacts);
+    const contactStats = await this.getContactStats();
+    const contactsCount = { count: contactStats.allContacts };
     const [messagesCount] = await db
       .select({ count: count() })
       .from(messages)
