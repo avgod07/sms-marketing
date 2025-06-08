@@ -274,6 +274,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/campaigns/:id/duplicate", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const campaign = await storage.getCampaign(id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      const copy = await storage.createCampaign({
+        name: `${campaign.name} (Copy)`,
+        message: campaign.message,
+        audience: campaign.audience,
+        status: "active",
+        scheduledAt: campaign.scheduledAt || null,
+      });
+      res.status(201).json(copy);
+    } catch (error) {
+      logError("Error duplicating campaign:", error);
+      res.status(500).json({ message: "Failed to duplicate campaign" });
+    }
+  });
+
   // Send campaign
   app.post("/api/campaigns/:id/send", async (req, res) => {
     try {
