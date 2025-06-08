@@ -96,6 +96,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public coupon lookup
+  app.get("/api/coupons/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const coupon = await storage.getCouponByCode(code);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      logError("Error fetching coupon:", error);
+      res.status(500).json({ message: "Failed to fetch coupon" });
+    }
+  });
+
   // Require authentication for subsequent API routes
   app.use("/api", ensureAuthenticated);
 
@@ -339,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/coupons/:id", async (req, res) => {
+  app.get("/api/coupons/id/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const coupon = await storage.getCoupon(id);
@@ -374,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/coupons/:id", async (req, res) => {
+  app.patch("/api/coupons/id/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertCouponSchema.partial().parse(req.body);
@@ -389,7 +404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/coupons/:id", async (req, res) => {
+  app.delete("/api/coupons/id/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCoupon(id);
