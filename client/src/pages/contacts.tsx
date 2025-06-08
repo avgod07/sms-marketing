@@ -20,13 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ContactTable from "@/components/contacts/contact-table";
+import ContactForm, { type ContactFormValues } from "@/components/contacts/contact-form";
 import { Search, Plus, Download, Upload, Filter } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
 import type { Contact } from "@shared/schema";
 import type { ContactStats } from "@shared/api-types";
 
@@ -34,31 +32,10 @@ export default function Contacts() {
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
 
-  const contactSchema = z.object({
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
-    phoneNumber: z
-      .string()
-      .regex(/^\+?1?\d{10}$/, "Enter a valid 10-digit US phone number"),
-    email: z.string().email().optional().or(z.literal("")),
-    segment: z.string().min(1, "Segment is required"),
-  });
-
-  type ContactForm = z.infer<typeof contactSchema>;
-
-  const form = useForm<ContactForm>({
-    resolver: zodResolver(contactSchema),
-    mode: "onChange",
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      phoneNumber: "",
-      email: "",
-      segment: "all",
-    },
-  });
 
   const { data: contactStats, isLoading: statsLoading } = useQuery<ContactStats>({
     queryKey: ["/api/contacts/stats"],
@@ -75,7 +52,7 @@ export default function Contacts() {
   ];
 
   const createContactMutation = useMutation({
-    mutationFn: (data: ContactForm) => {
+    mutationFn: (data: ContactFormValues) => {
       const status = data.segment === "inactive" ? "inactive" : "active";
       return apiRequest({ method: "POST", url: "/api/contacts", data: { ...data, status } });
     },
@@ -83,7 +60,6 @@ export default function Contacts() {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
       setIsCreateOpen(false);
-      form.reset();
       toast({ title: "Contact Added" });
     },
     onError: (error: any) => {
@@ -95,8 +71,39 @@ export default function Contacts() {
     },
   });
 
-  const handleSubmit = (data: ContactForm) => {
+  const handleCreateSubmit = (data: ContactFormValues) => {
     createContactMutation.mutate(data);
+  };
+
+  const handleEdit = (contact: Contact) => {
+    setEditingContact(contact);
+    setIsEditOpen(true);
+  };
+
+  const updateContactMutation = useMutation({
+    mutationFn: async (data: ContactFormValues) => {
+      if (!editingContact) return;
+      const status = data.segment === "inactive" ? "inactive" : "active";
+      await apiRequest({ method: "PATCH", url: `/api/contacts/${editingContact.id}`, data: { ...data, status } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
+      setIsEditOpen(false);
+      setEditingContact(null);
+      toast({ title: "Contact Updated" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update contact",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditSubmit = (data: ContactFormValues) => {
+    updateContactMutation.mutate(data);
   };
 
   return (
@@ -163,73 +170,35 @@ export default function Contacts() {
                       Add Contact
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Add New Contact</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                      <div>
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" {...form.register("firstName")} placeholder="First name" />
-                        {form.formState.errors.firstName && (
-                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.firstName.message}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" {...form.register("lastName" )} placeholder="Last name" />
-                        {form.formState.errors.lastName && (
-                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.lastName.message}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label htmlFor="phoneNumber">Phone Number</Label>
-                        <Input id="phoneNumber" {...form.register("phoneNumber")} placeholder="+15551234567" />
-                        {form.formState.errors.phoneNumber && (
-                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.phoneNumber.message}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" {...form.register("email")} placeholder="optional" />
-                        {form.formState.errors.email && (
-                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.email.message}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label htmlFor="segment">Segment</Label>
-                        <Select onValueChange={(value) => form.setValue("segment", value)} defaultValue="all">
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select segment" />
-                          </SelectTrigger>
-                          <SelectContent>
-                        <SelectItem value="all">All Contacts</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="active">Active Contacts</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {form.formState.errors.segment && (
-                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.segment.message}</p>
-                        )}
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="flex-1">
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={!form.formState.isValid || createContactMutation.isPending}
-                          className="flex-1"
-                        >
-                          {createContactMutation.isPending ? "Adding..." : "Add Contact"}
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Add New Contact</DialogTitle>
+                  </DialogHeader>
+                  <ContactForm
+                    onSubmit={handleCreateSubmit}
+                    onCancel={() => setIsCreateOpen(false)}
+                    pending={createContactMutation.isPending}
+                    submitLabel="Add Contact"
+                  />
+                </DialogContent>
+              </Dialog>
+              <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Edit Contact</DialogTitle>
+                  </DialogHeader>
+                  <ContactForm
+                    initialValues={editingContact as ContactFormValues | undefined}
+                    onSubmit={handleEditSubmit}
+                    onCancel={() => setIsEditOpen(false)}
+                    pending={updateContactMutation.isPending}
+                    submitLabel="Save Changes"
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
-          </CardHeader>
+          </div>
+        </CardHeader>
           <CardContent>
             {/* Search and Filter */}
             <div className="flex items-center justify-between mb-6">
@@ -249,9 +218,10 @@ export default function Contacts() {
             </div>
 
             {/* Contact Table */}
-            <ContactTable 
-              contacts={contacts || []} 
+            <ContactTable
+              contacts={contacts || []}
               isLoading={contactsLoading}
+              onEdit={handleEdit}
             />
           </CardContent>
         </Card>
