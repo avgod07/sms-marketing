@@ -51,7 +51,7 @@ export default function Coupons() {
       if (!selectedCoupon) return;
       await apiRequest({
         method: "POST",
-        url: `/api/coupons/${selectedCoupon.id}/redeem`,
+        url: `/api/coupons/${selectedCoupon.code}/redeem`,
         data: { phoneNumber: redeemPhone || undefined, note: redeemNote || undefined },
       });
     },
