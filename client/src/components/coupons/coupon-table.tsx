@@ -49,6 +49,8 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
             <th className="text-left py-3 px-4 font-medium text-gray-500">Type</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Value</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Usage</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Limit</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Reusable</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Expires</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
@@ -63,6 +65,12 @@ export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTabl
                 {coupon.type === "percent" ? `${coupon.value}%` : `$${coupon.value}`}
               </td>
               <td className="py-4 px-4 text-gray-900">{coupon.usageCount}</td>
+              <td className="py-4 px-4 text-gray-900">
+                {coupon.usageLimit ?? '∞'}
+              </td>
+              <td className="py-4 px-4 text-gray-900">
+                {coupon.reusable ? 'Yes' : 'No'}
+              </td>
               <td className="py-4 px-4 text-gray-900">
                 {coupon.expirationDate ? formatDate(coupon.expirationDate) : "—"}
               </td>
