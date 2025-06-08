@@ -1,5 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   LayoutDashboard, 
   Users, 
@@ -26,7 +29,24 @@ const account = [
 ];
 
 export default function Sidebar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { toast } = useToast();
+
+  const signOutMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/logout"),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      toast({ title: "Signed out" });
+      navigate("/login");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sign Out Failed",
+        description: error.message || "Unable to sign out",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <aside className="w-72 bg-white border-r border-gray-200 flex flex-col sidebar-transition">
@@ -77,7 +97,25 @@ export default function Sidebar() {
             {account.map((item) => {
               const isActive = location === item.href;
               const Icon = item.icon;
-              
+
+              if (item.name === "Sign Out") {
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => signOutMutation.mutate()}
+                    className={cn(
+                      "flex w-full items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                      "text-gray-700 hover:bg-gray-100",
+                    )}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>
+                      {signOutMutation.isPending ? "Signing Out..." : item.name}
+                    </span>
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   key={item.name}
@@ -86,7 +124,7 @@ export default function Sidebar() {
                     "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
                     isActive
                       ? "bg-primary text-white"
-                      : "text-gray-700 hover:bg-gray-100"
+                      : "text-gray-700 hover:bg-gray-100",
                   )}
                 >
                   <Icon className="w-5 h-5" />
