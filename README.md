@@ -29,7 +29,15 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm run db:push
    ```
 
-4. **Development server**
+4. **Seed sample data**
+
+   Populate the database with sample contacts, campaigns and coupons:
+
+   ```bash
+   npm run seed
+   ```
+
+5. **Development server**
 
    Start the dev server with:
 
@@ -40,7 +48,7 @@ This project relies on Node.js and Docker for local development. Follow these st
    The Vite dev server runs inside the container and forwards port `5001` on your host to port `5000` in the container.
    Open `http://localhost:5001` in your browser to view the app.
 
-5. **Production build**
+6. **Production build**
 
    To create a production build and start it locally:
 
