@@ -433,18 +433,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .json({ error: "ALREADY_REDEEMED", message: "This coupon has already been used and cannot be redeemed again." });
       }
 
+      let contactId: number | undefined = undefined;
+      if (req.body.phoneNumber) {
+        const contact = await storage.getContactByPhoneNumber(req.body.phoneNumber);
+        if (!contact) {
+          return res.status(404).json({ message: "Contact not found" });
+        }
+        const received = await storage.hasContactReceivedCoupon(contact.id, code);
+        if (!received) {
+          return res.status(400).json({ message: "This contact was not part of the campaign that received this coupon." });
+        }
+        contactId = contact.id;
+      }
+
       const currentCount = coupon.usageCount ?? 0;
       const updated = await storage.updateCoupon(coupon.id, {
         usageCount: currentCount + 1,
       });
       await storage.createCouponRedemption({
         couponId: coupon.id,
+        contactId,
         phoneNumber: req.body.phoneNumber,
         note: req.body.note,
       });
       logInfo("Coupon redeemed", {
         couponId: coupon.id,
         userId: (req as any).user?.id,
+        contactId,
         phoneNumber: req.body.phoneNumber,
       });
       res.json({ usageCount: updated.usageCount });
