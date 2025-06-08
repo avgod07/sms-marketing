@@ -5,13 +5,13 @@ import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 
 export const couponSchema = z
   .object({
     code: z.string().optional(),
+    label: z.string().optional(),
     type: z.enum(["percent", "amount", "free"]),
     value: z.coerce
       .number({ invalid_type_error: "Enter a numeric value" })
@@ -78,6 +78,7 @@ export default function CouponForm({
     mode: "onChange",
     defaultValues: {
       code: "",
+      label: "",
       type: "percent",
       value: 0,
       expirationDate: "",
@@ -99,6 +100,13 @@ export default function CouponForm({
         <Input id="code" {...form.register("code")} placeholder="Leave blank to auto-generate" />
         {form.formState.errors.code && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.code.message}</p>
+        )}
+      </div>
+      <div>
+        <Label htmlFor="label">Label / Note</Label>
+        <Input id="label" {...form.register("label")} placeholder="Optional description" />
+        {form.formState.errors.label && (
+          <p className="text-sm text-red-600 mt-1">{form.formState.errors.label.message}</p>
         )}
       </div>
       <div>
