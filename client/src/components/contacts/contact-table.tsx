@@ -14,9 +14,10 @@ interface ContactTableProps {
   contacts: Contact[];
   isLoading: boolean;
   onEdit: (contact: Contact) => void;
+  onViewRedemptions: (contact: Contact) => void;
 }
 
-export default function ContactTable({ contacts, isLoading, onEdit }: ContactTableProps) {
+export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemptions }: ContactTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -110,6 +111,9 @@ export default function ContactTable({ contacts, isLoading, onEdit }: ContactTab
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => onEdit(contact)}>
                       <Edit className="mr-2 h-4 w-4" /> Edit Contact
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onViewRedemptions(contact)}>
+                      View Redemptions
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

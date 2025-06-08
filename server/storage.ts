@@ -23,6 +23,7 @@ import {
   type User,
   type InsertUser,
 } from "@shared/schema";
+import type { ContactRedemption } from "@shared/api-types";
 import { db } from "./db";
 import { eq, desc, count, sql } from "drizzle-orm";
 import { normalizePhoneNumber } from "./phone";
@@ -57,6 +58,7 @@ export interface IStorage {
     redemption: InsertCouponRedemption,
   ): Promise<CouponRedemption>;
   getCouponRedemptions(couponId: number): Promise<CouponRedemption[]>;
+  getContactRedemptions(contactId: number): Promise<ContactRedemption[]>;
   searchCoupons(filters: {
     search?: string;
     status?: string;
@@ -362,6 +364,23 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(couponRedemptions)
       .where(eq(couponRedemptions.couponId, couponId))
+      .orderBy(desc(couponRedemptions.createdAt));
+  }
+
+  async getContactRedemptions(
+    contactId: number,
+  ): Promise<ContactRedemption[]> {
+    return await db
+      .select({
+        id: couponRedemptions.id,
+        couponId: couponRedemptions.couponId,
+        note: couponRedemptions.note,
+        createdAt: couponRedemptions.createdAt,
+        code: coupons.code,
+      })
+      .from(couponRedemptions)
+      .innerJoin(coupons, eq(couponRedemptions.couponId, coupons.id))
+      .where(eq(couponRedemptions.contactId, contactId))
       .orderBy(desc(couponRedemptions.createdAt));
   }
 
