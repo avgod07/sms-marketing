@@ -112,30 +112,12 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   deliveredAt: true,
 });
 
-export const insertCouponSchema = createInsertSchema(coupons)
-  .omit({
-    id: true,
-    createdAt: true,
-    updatedAt: true,
-    usageCount: true,
-  })
-  .extend({
-    value: z
-      .preprocess((v) => (typeof v === "number" ? v.toString() : v), z.string())
-      .refine((v) => !isNaN(parseFloat(v)), {
-        message: "Enter a numeric value",
-      })
-      .refine((v) => parseFloat(v) > 0, {
-        message: "Value must be greater than 0",
-      }),
-    expirationDate: z
-      .coerce
-      .date()
-      .optional()
-      .refine((d) => !d || d.getTime() > Date.now(), {
-        message: "Expiration date must be in the future",
-      }),
-  });
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  usageCount: true,
+});
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
