@@ -3,6 +3,7 @@ import {
   campaigns,
   messages,
   coupons,
+  couponRedemptions,
   analytics,
   users,
   type Contact,
@@ -13,6 +14,8 @@ import {
   type InsertMessage,
   type Coupon,
   type InsertCoupon,
+  type CouponRedemption,
+  type InsertCouponRedemption,
   type Analytics,
   type User,
   type InsertUser,
@@ -44,6 +47,9 @@ export interface IStorage {
   createCoupon(coupon: InsertCoupon): Promise<Coupon>;
   updateCoupon(id: number, coupon: Partial<Coupon>): Promise<Coupon>;
   deleteCoupon(id: number): Promise<void>;
+  createCouponRedemption(
+    redemption: InsertCouponRedemption,
+  ): Promise<CouponRedemption>;
 
   // Messages
   getMessages(): Promise<Message[]>;
@@ -253,6 +259,16 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCoupon(id: number): Promise<void> {
     await db.delete(coupons).where(eq(coupons.id, id));
+  }
+
+  async createCouponRedemption(
+    redemption: InsertCouponRedemption,
+  ): Promise<CouponRedemption> {
+    const [newRedemption] = await db
+      .insert(couponRedemptions)
+      .values(redemption)
+      .returning();
+    return newRedemption;
   }
 
   // Messages

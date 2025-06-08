@@ -18,7 +18,7 @@ import { executeCampaign } from "./services/campaign.js";
 import passport from "passport";
 import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "./auth";
-import { logError } from "./logger";
+import { logError, logInfo } from "./logger";
 import { nanoid } from "nanoid";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -386,6 +386,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logError("Error updating coupon:", error);
       res.status(500).json({ message: "Failed to update coupon" });
+    }
+  });
+
+  app.post("/api/coupons/:id/redeem", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const coupon = await storage.getCoupon(id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      if (
+        coupon.status !== "active" ||
+        (coupon.expirationDate && new Date(coupon.expirationDate) < new Date())
+      ) {
+        return res.status(400).json({ message: "Coupon is not redeemable" });
+      }
+      const currentCount = coupon.usageCount || 0;
+      await storage.updateCoupon(id, { usageCount: currentCount + 1 });
+      await storage.createCouponRedemption({
+        couponId: id,
+        phoneNumber: req.body.phoneNumber,
+        note: req.body.note,
+      });
+      logInfo("Coupon redeemed", {
+        couponId: id,
+        phoneNumber: req.body.phoneNumber,
+      });
+      res.json({ usageCount: currentCount + 1 });
+    } catch (error) {
+      logError("Error redeeming coupon:", error);
+      res.status(500).json({ message: "Failed to redeem coupon" });
     }
   });
 
