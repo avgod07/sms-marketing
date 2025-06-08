@@ -30,8 +30,16 @@ export default function Coupons() {
   });
 
   const createCouponMutation = useMutation({
-    mutationFn: (data: CouponFormValues) =>
-      apiRequest({ method: "POST", url: "/api/coupons", data }),
+    mutationFn: (data: CouponFormValues) => {
+      const payload = {
+        ...data,
+        value: data.value.toString(),
+        expirationDate: data.expirationDate
+          ? new Date(data.expirationDate)
+          : undefined,
+      };
+      return apiRequest({ method: "POST", url: "/api/coupons", data: payload });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
       setIsCreateOpen(false);
