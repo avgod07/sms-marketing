@@ -25,6 +25,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count, sql } from "drizzle-orm";
+import { normalizePhoneNumber } from "./phone";
 
 export interface IStorage {
   // Contacts
@@ -202,10 +203,11 @@ export class DatabaseStorage implements IStorage {
   async getContactByPhoneNumber(
     phoneNumber: string,
   ): Promise<Contact | undefined> {
+    const normalized = normalizePhoneNumber(phoneNumber);
     const [contact] = await db
       .select()
       .from(contacts)
-      .where(eq(contacts.phoneNumber, phoneNumber));
+      .where(eq(contacts.phoneNumber, normalized));
     return contact || undefined;
   }
 
