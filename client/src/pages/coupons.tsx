@@ -8,6 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import CouponForm, { type CouponFormValues } from "@/components/coupons/coupon-form";
 import CouponTable from "@/components/coupons/coupon-table";
 import { Tag, Plus } from "lucide-react";
@@ -17,6 +19,10 @@ import type { Coupon } from "@shared/schema";
 
 export default function Coupons() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isRedeemOpen, setIsRedeemOpen] = useState(false);
+  const [redeemPhone, setRedeemPhone] = useState("");
+  const [redeemNote, setRedeemNote] = useState("");
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const { toast } = useToast();
 
   const { data: coupons, isLoading } = useQuery<Coupon[]>({
@@ -35,6 +41,32 @@ export default function Coupons() {
       toast({
         title: "Error",
         description: error.message || "Failed to create coupon",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const redeemCouponMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedCoupon) return;
+      await apiRequest({
+        method: "POST",
+        url: `/api/coupons/${selectedCoupon.id}/redeem`,
+        data: { phoneNumber: redeemPhone || undefined, note: redeemNote || undefined },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      setIsRedeemOpen(false);
+      setRedeemPhone("");
+      setRedeemNote("");
+      setSelectedCoupon(null);
+      toast({ title: "Coupon Redeemed" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to redeem coupon",
         variant: "destructive",
       });
     },
@@ -70,7 +102,14 @@ export default function Coupons() {
             </div>
           </CardHeader>
           <CardContent>
-            <CouponTable coupons={coupons || []} isLoading={isLoading} />
+            <CouponTable
+              coupons={coupons || []}
+              isLoading={isLoading}
+              onRedeem={(c) => {
+                setSelectedCoupon(c);
+                setIsRedeemOpen(true);
+              }}
+            />
           </CardContent>
         </Card>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -84,6 +123,52 @@ export default function Coupons() {
               pending={createCouponMutation.isPending}
               submitLabel="Create Coupon"
             />
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isRedeemOpen} onOpenChange={setIsRedeemOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Redeem Coupon</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-700">
+                Redeeming {selectedCoupon?.code}
+              </p>
+              <div>
+                <Label htmlFor="phone">Customer Phone (optional)</Label>
+                <Input
+                  id="phone"
+                  value={redeemPhone}
+                  onChange={(e) => setRedeemPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="note">Note (optional)</Label>
+                <Input
+                  id="note"
+                  value={redeemNote}
+                  onChange={(e) => setRedeemNote(e.target.value)}
+                />
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsRedeemOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => redeemCouponMutation.mutate()}
+                  disabled={redeemCouponMutation.isPending || !selectedCoupon}
+                  className="flex-1"
+                >
+                  {redeemCouponMutation.isPending ? "Redeeming..." : "Redeem"}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

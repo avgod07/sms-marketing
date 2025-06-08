@@ -6,9 +6,10 @@ import type { Coupon } from "@shared/schema";
 interface CouponTableProps {
   coupons: Coupon[];
   isLoading: boolean;
+  onRedeem: (coupon: Coupon) => void;
 }
 
-export default function CouponTable({ coupons, isLoading }: CouponTableProps) {
+export default function CouponTable({ coupons, isLoading, onRedeem }: CouponTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -50,6 +51,7 @@ export default function CouponTable({ coupons, isLoading }: CouponTableProps) {
             <th className="text-left py-3 px-4 font-medium text-gray-500">Usage</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Expires</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -66,6 +68,14 @@ export default function CouponTable({ coupons, isLoading }: CouponTableProps) {
               </td>
               <td className="py-4 px-4">
                 <Badge className={getCouponStatusColor(coupon.status)}>{coupon.status}</Badge>
+              </td>
+              <td className="py-4 px-4">
+                <button
+                  className="text-blue-600 hover:underline"
+                  onClick={() => onRedeem(coupon)}
+                >
+                  Redeem
+                </button>
               </td>
             </tr>
           ))}
