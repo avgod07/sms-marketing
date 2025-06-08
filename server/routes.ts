@@ -20,8 +20,10 @@ import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "./auth";
 import { logError, logInfo } from "./logger";
 import { nanoid } from "nanoid";
+import { createRateLimiter } from "./rate-limit";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
   // Authentication routes
   app.post("/api/signup", async (req, res) => {
     try {
@@ -389,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/coupons/:code/redeem", async (req, res) => {
+  app.post("/api/coupons/:code/redeem", redeemRateLimiter, async (req, res) => {
     try {
       const code = req.params.code;
       const coupon = await storage.getCouponByCode(code);
