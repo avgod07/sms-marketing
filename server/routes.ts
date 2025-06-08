@@ -6,6 +6,7 @@ import {
   insertCampaignSchema,
   insertMessageSchema,
   insertCouponSchema,
+  insertCouponBaseSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -369,7 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/coupons/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertCouponSchema.partial().parse(req.body);
+      const validatedData = insertCouponBaseSchema.partial().parse(req.body);
       const coupon = await storage.updateCoupon(id, validatedData);
       res.json(coupon);
     } catch (error) {

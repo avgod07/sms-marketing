@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
 
 export const couponSchema = z
   .object({
@@ -16,10 +17,16 @@ export const couponSchema = z
     discount: z.coerce.number().min(1, "Discount is required").max(100),
     expirationDate: z.date().optional(),
     validDays: z.coerce.number().positive().int().optional(),
+    usageLimit: z.coerce.number().positive().int().optional(),
+    reusable: z.boolean().optional(),
   })
   .refine(data => !(data.expirationDate && data.validDays), {
     message: "Choose either expiration date or valid days",
     path: ["validDays"],
+  })
+  .refine(data => !(data.reusable && data.usageLimit), {
+    message: "Either reusable or usage limit, not both",
+    path: ["usageLimit"],
   });
 
 export type CouponFormValues = z.infer<typeof couponSchema>;
@@ -47,6 +54,8 @@ export default function CouponForm({
       discount: 10,
       expirationDate: undefined,
       validDays: undefined,
+      usageLimit: undefined,
+      reusable: false,
       ...initialValues,
     },
   });
@@ -59,6 +68,8 @@ export default function CouponForm({
 
   const watchExpiration = form.watch("expirationDate");
   const watchValidDays = form.watch("validDays");
+  const watchReusable = form.watch("reusable");
+  const watchUsageLimit = form.watch("usageLimit");
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -114,6 +125,28 @@ export default function CouponForm({
         />
         {form.formState.errors.validDays && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.validDays.message}</p>
+        )}
+      </div>
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="reusable"
+          checked={watchReusable}
+          onCheckedChange={(checked) => form.setValue("reusable", checked)}
+          disabled={!!watchUsageLimit}
+        />
+        <Label htmlFor="reusable">Reusable</Label>
+      </div>
+      <div>
+        <Label htmlFor="usageLimit">Usage Limit</Label>
+        <Input
+          type="number"
+          id="usageLimit"
+          min={1}
+          {...form.register("usageLimit", { valueAsNumber: true })}
+          disabled={watchReusable}
+        />
+        {form.formState.errors.usageLimit && (
+          <p className="text-sm text-red-600 mt-1">{form.formState.errors.usageLimit.message}</p>
         )}
       </div>
       <div className="flex space-x-2">
