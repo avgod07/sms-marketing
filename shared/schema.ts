@@ -9,7 +9,7 @@ export const contacts = pgTable("contacts", {
   lastName: text("last_name").notNull(),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
   email: text("email"),
-  segment: text("segment").notNull().default("all"), // all, vip, new_leads, inactive
+  segment: text("segment").notNull().default("all"), // all, active, inactive
   status: text("status").notNull().default("active"), // active, inactive
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -19,7 +19,7 @@ export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   message: text("message").notNull(),
-  audience: text("audience").notNull(), // all, vip, new_leads, etc.
+  audience: text("audience").notNull(), // all, active, inactive
   status: text("status").notNull().default("active"), // active, completed, paused
   sentCount: integer("sent_count").default(0),
   deliveredCount: integer("delivered_count").default(0),
