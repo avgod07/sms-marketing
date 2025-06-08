@@ -30,7 +30,7 @@ export default function Coupons() {
   });
 
   const createCouponMutation = useMutation({
-    mutationFn: (data: CouponFormValues) => {
+    mutationFn: async (data: CouponFormValues) => {
       const payload = {
         ...data,
         value: data.type === "free" ? "0" : data.value.toString(),
@@ -39,12 +39,20 @@ export default function Coupons() {
           : undefined,
         validDays: data.validDays ?? undefined,
       };
-      return apiRequest({ method: "POST", url: "/api/coupons", data: payload });
+      const res = await apiRequest({
+        method: "POST",
+        url: "/api/coupons",
+        data: payload,
+      });
+      return (await res.json()) as Coupon;
     },
-    onSuccess: () => {
+    onSuccess: (coupon: Coupon) => {
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
       setIsCreateOpen(false);
-      toast({ title: "Coupon Created" });
+      toast({
+        title: "Coupon Created",
+        description: `Code: ${coupon.code}`,
+      });
     },
     onError: (error: any) => {
       toast({
