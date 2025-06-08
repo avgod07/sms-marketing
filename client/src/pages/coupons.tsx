@@ -99,6 +99,7 @@ export default function Coupons() {
     },
     onSuccess: (coupon: Coupon) => {
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       setIsCreateOpen(false);
       toast({
         title: "Coupon Created",
@@ -145,6 +146,7 @@ export default function Coupons() {
       apiRequest({ method: "DELETE", url: `/api/coupons/${deletingCoupon!.id}` }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       setIsDeleteOpen(false);
       setDeletingCoupon(null);
       toast({ title: "Coupon Deleted" });
