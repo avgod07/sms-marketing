@@ -86,6 +86,34 @@ export async function seedData() {
       await storage.createCampaign(campaign);
     }
 
+    // Add sample coupons
+    const sampleCoupons = [
+      {
+        code: "WELCOME10",
+        type: "percent",
+        value: "10",
+        status: "active",
+        expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+      {
+        code: "SPRING20",
+        type: "percent",
+        value: "20",
+        status: "expired",
+        expirationDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      },
+      {
+        code: "VIP50",
+        type: "amount",
+        value: "50",
+        status: "disabled",
+      },
+    ];
+
+    for (const coupon of sampleCoupons) {
+      await storage.createCoupon(coupon);
+    }
+
     logInfo("Sample data seeded successfully!");
   } catch (error) {
     console.error("Error seeding data:", error);
