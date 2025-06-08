@@ -44,6 +44,7 @@ export interface IStorage {
   // Coupons
   getCoupons(): Promise<Coupon[]>;
   getCoupon(id: number): Promise<Coupon | undefined>;
+  getCouponByCode(code: string): Promise<Coupon | undefined>;
   createCoupon(coupon: InsertCoupon): Promise<Coupon>;
   updateCoupon(id: number, coupon: Partial<Coupon>): Promise<Coupon>;
   deleteCoupon(id: number): Promise<void>;
@@ -228,6 +229,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(coupons)
       .where(eq(coupons.id, id));
+    return coupon || undefined;
+  }
+
+  async getCouponByCode(code: string): Promise<Coupon | undefined> {
+    const [coupon] = await db
+      .select()
+      .from(coupons)
+      .where(eq(coupons.code, code));
     return coupon || undefined;
   }
 
