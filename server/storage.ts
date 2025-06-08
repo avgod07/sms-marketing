@@ -70,6 +70,10 @@ export interface IStorage {
     contactId: number,
     couponCode: string,
   ): Promise<boolean>;
+  hasContactRedeemedCoupon(
+    contactId: number,
+    couponId: number,
+  ): Promise<boolean>;
 
   // Messages
   getMessages(): Promise<Message[]>;
@@ -218,6 +222,20 @@ export class DatabaseStorage implements IStorage {
       )
       .where(
         sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode}`,
+      )
+      .limit(1);
+    return !!row;
+  }
+
+  async hasContactRedeemedCoupon(
+    contactId: number,
+    couponId: number,
+  ): Promise<boolean> {
+    const [row] = await db
+      .select({ id: couponRedemptions.id })
+      .from(couponRedemptions)
+      .where(
+        sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.couponId} = ${couponId}`,
       )
       .limit(1);
     return !!row;
