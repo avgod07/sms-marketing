@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 export const couponSchema = z
   .object({
@@ -29,6 +30,14 @@ export const couponSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Value must be greater than 0",
+        path: ["value"],
+      });
+    }
+
+    if (data.type === "percent" && data.value > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Percent must be between 1 and 100",
         path: ["value"],
       });
     }
@@ -107,7 +116,24 @@ export default function CouponForm({
       {form.watch("type") !== "free" && (
         <div>
           <Label htmlFor="value">Value</Label>
-          <Input id="value" type="number" step="0.01" {...form.register("value")} />
+          <div className="relative">
+            {form.watch("type") === "amount" && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+            )}
+            <Input
+              id="value"
+              type="number"
+              step="0.01"
+              {...form.register("value")}
+              className={cn(
+                form.watch("type") === "amount" && "pl-7",
+                form.watch("type") === "percent" && "pr-7",
+              )}
+            />
+            {form.watch("type") === "percent" && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+            )}
+          </div>
           {form.formState.errors.value && (
             <p className="text-sm text-red-600 mt-1">{form.formState.errors.value.message}</p>
           )}
