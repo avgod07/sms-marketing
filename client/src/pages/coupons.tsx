@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import CouponForm, { type CouponFormValues } from "@/components/coupons/coupon-form";
 import CouponTable from "@/components/coupons/coupon-table";
 import { Tag, Plus } from "lucide-react";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Coupon } from "@shared/schema";
+import type { Coupon, CouponRedemption } from "@shared/schema";
+import RedemptionTable from "@/components/coupons/redemption-table";
 
 export default function Coupons() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -23,10 +24,23 @@ export default function Coupons() {
   const [redeemPhone, setRedeemPhone] = useState("");
   const [redeemNote, setRedeemNote] = useState("");
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyCoupon, setHistoryCoupon] = useState<Coupon | null>(null);
   const { toast } = useToast();
 
   const { data: coupons, isLoading } = useQuery<Coupon[]>({
     queryKey: ["/api/coupons"],
+  });
+
+  const {
+    data: redemptions,
+    isLoading: redemptionsLoading,
+  } = useQuery<CouponRedemption[]>({
+    queryKey: historyCoupon
+      ? [`/api/coupons/${historyCoupon.id}/redemptions`]
+      : [],
+    enabled: !!historyCoupon,
+    queryFn: getQueryFn({ on401: "throw" }),
   });
 
   const createCouponMutation = useMutation({
@@ -126,6 +140,10 @@ export default function Coupons() {
                 setSelectedCoupon(c);
                 setIsRedeemOpen(true);
               }}
+              onViewRedemptions={(c) => {
+                setHistoryCoupon(c);
+                setIsHistoryOpen(true);
+              }}
             />
           </CardContent>
         </Card>
@@ -186,6 +204,25 @@ export default function Coupons() {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={isHistoryOpen}
+          onOpenChange={(open) => {
+            setIsHistoryOpen(open);
+            if (!open) setHistoryCoupon(null);
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                Redemption History for {historyCoupon?.code}
+              </DialogTitle>
+            </DialogHeader>
+            <RedemptionTable
+              redemptions={redemptions || []}
+              isLoading={redemptionsLoading}
+            />
           </DialogContent>
         </Dialog>
       </div>

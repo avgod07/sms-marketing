@@ -355,6 +355,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/coupons/:id/redemptions", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const coupon = await storage.getCoupon(id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      const redemptions = await storage.getCouponRedemptions(id);
+      res.json(redemptions);
+    } catch (error) {
+      logError("Error fetching coupon redemptions:", error);
+      res.status(500).json({ message: "Failed to fetch coupon redemptions" });
+    }
+  });
+
   app.post("/api/coupons", async (req, res) => {
     try {
       const data = { ...req.body };
