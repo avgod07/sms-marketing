@@ -4,15 +4,14 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  LayoutDashboard, 
-  Users, 
-  Send, 
-  BarChart3, 
-  Settings, 
-  HelpCircle, 
+  LayoutDashboard,
+  Users,
+  Send,
+  BarChart3,
+  Settings,
+  HelpCircle,
   LogOut,
-  MessageSquare,
-  Crown
+  MessageSquare
 } from "lucide-react";
 
 const navigation = [
@@ -136,19 +135,6 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Pro Plan Section */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="bg-primary rounded-lg p-4 text-white">
-          <div className="flex items-center space-x-2 mb-2">
-            <Crown className="w-5 h-5 text-yellow-300" />
-            <span className="font-semibold">Pro Plan</span>
-          </div>
-          <p className="text-sm text-blue-100 mb-3">5,000 messages remaining</p>
-          <button className="w-full bg-white text-primary font-medium py-2 px-4 rounded-md hover:bg-gray-50 transition-colors">
-            Upgrade Plan
-          </button>
-        </div>
-      </div>
     </aside>
   );
 }
