@@ -41,7 +41,7 @@ export default function Help() {
     },
     {
       question: "What's the difference between contact segments?",
-      answer: "VIP customers are your premium contacts, New Leads are recent signups, and Inactive are contacts who haven't engaged recently.",
+      answer: "Active Contacts have engaged recently, while Inactive contacts haven't interacted in a while.",
     },
     {
       question: "How can I import my existing contacts?",

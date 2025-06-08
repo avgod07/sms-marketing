@@ -11,9 +11,8 @@ export interface DashboardStats {
 
 export interface ContactStats {
   allContacts: number;
-  vipCustomers: number;
-  newLeads: number;
   inactive: number;
+  activeContacts: number;
 }
 
 export interface CampaignStats {
