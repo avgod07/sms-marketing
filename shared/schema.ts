@@ -41,6 +41,18 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const coupons = pgTable("coupons", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  type: text("type").notNull(), // percent, amount
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  usageCount: integer("usage_count").default(0),
+  expirationDate: timestamp("expiration_date"),
+  status: text("status").notNull().default("active"), // active, expired, disabled
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const analytics = pgTable("analytics", {
   id: serial("id").primaryKey(),
   date: timestamp("date").defaultNow().notNull(),
@@ -100,6 +112,13 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   deliveredAt: true,
 });
 
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  usageCount: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -114,6 +133,9 @@ export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type Coupon = typeof coupons.$inferSelect;
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

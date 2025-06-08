@@ -1,7 +1,14 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import CouponTable from "@/components/coupons/coupon-table";
 import { Tag } from "lucide-react";
+import type { Coupon } from "@shared/schema";
 
 export default function Coupons() {
+  const { data: coupons, isLoading } = useQuery<Coupon[]>({
+    queryKey: ["/api/coupons"],
+  });
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -22,19 +29,11 @@ export default function Coupons() {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Tag className="w-6 h-6" />
-              <span>Coupons Dashboard</span>
+              <span>All Coupons</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Tag className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Coupons Coming Soon</h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                This section will let you create and manage discount coupons for your marketing campaigns.
-              </p>
-            </div>
+            <CouponTable coupons={coupons || []} isLoading={isLoading} />
           </CardContent>
         </Card>
       </div>
