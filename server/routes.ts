@@ -13,6 +13,7 @@ const userCredentialsSchema = z.object({
   password: z.string(),
 });
 import twilio from "twilio";
+import { executeCampaign } from "./services/campaign.js";
 import passport from "passport";
 import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "./auth";
@@ -238,7 +239,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertCampaignSchema.parse(req.body);
       const campaign = await storage.createCampaign(validatedData);
-      res.status(201).json(campaign);
+
+      const results = await executeCampaign(campaign.id);
+
+      res.status(201).json({
+        campaign,
+        sentCount: results.sentCount,
+        totalContacts: results.totalContacts,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
@@ -300,67 +308,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campaignId = parseInt(req.params.id);
       const campaign = await storage.getCampaign(campaignId);
-      
+
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
 
-      // Get contacts based on campaign audience
-      const contacts = await storage.getContactsBySegment(campaign.audience);
-      
-      if (contacts.length === 0) {
-        return res.status(400).json({ message: "No contacts found for selected audience" });
-      }
+      const results = await executeCampaign(campaignId);
 
-      // Import Twilio service
-      const { TwilioService } = await import("./services/twilio.js");
-      
-      // Prepare SMS messages
-      const smsMessages = contacts.map(contact => ({
-        to: contact.phoneNumber,
-        message: campaign.message,
-        campaignId: campaign.id,
-        contactId: contact.id,
-      }));
-
-      // Send SMS messages
-      const results = await TwilioService.sendBulkSMS(smsMessages);
-      
-      // Create message records and update campaign stats
-      let sentCount = 0;
-      let deliveredCount = 0;
-      
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        const contact = contacts[i];
-        
-        const messageData = {
-          phoneNumber: contact.phoneNumber,
-          contactId: contact.id,
-          content: campaign.message,
-          status: result.success ? 'sent' : 'failed',
-          campaignId: campaign.id,
-        };
-        
-        await storage.createMessage(messageData);
-        
-        if (result.success) {
-          sentCount++;
-          deliveredCount++; // Assume delivered for now, will be updated by webhooks
-        }
-      }
-      
-      // Update campaign with new status and message counts
-      await storage.updateCampaign(campaignId, {
-        status: 'completed',
-        sentCount: (campaign.sentCount || 0) + sentCount,
-        deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
-      });
-
-      res.json({ 
+      res.json({
         message: "Campaign sent successfully",
-        sentCount,
-        totalContacts: contacts.length,
+        sentCount: results.sentCount,
+        totalContacts: results.totalContacts,
       });
     } catch (error) {
       logError("Error sending campaign:", error);

@@ -19,6 +19,8 @@ This project relies on Node.js and Docker for local development. Follow these st
 
    You can create a free account at [Twilio](https://www.twilio.com/). After verifying your phone number, retrieve the **Account SID**, **Auth Token**, and a phone number from the Twilio Console. Add these values to your `.env` file.
 
+   Once configured, campaigns will automatically send SMS messages to their audience when created.
+
 3. **Database migration**
 
    The project uses Drizzle ORM. To apply the schema to the local Postgres container, run:
