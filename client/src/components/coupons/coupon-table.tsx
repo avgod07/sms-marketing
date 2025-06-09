@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tag, MoreHorizontal, Check, History, Trash2 } from "lucide-react";
-import { formatDate, getCouponStatusColor } from "@/lib/utils";
+import { formatCouponExpiry, formatDate, getCouponStatusColor } from "@/lib/utils";
 import type { Coupon } from "@shared/schema";
 
 interface CouponTableProps {
@@ -85,11 +85,7 @@ export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemp
               </td>
               <td className="py-4 px-4 text-gray-900">{coupon.usageCount}</td>
               <td className="py-4 px-4 text-gray-900">
-                {coupon.expirationDate
-                  ? formatDate(coupon.expirationDate)
-                  : coupon.validDays
-                  ? `${coupon.validDays} days`
-                  : "—"}
+                {formatCouponExpiry(coupon.expirationDate, coupon.validDays)}
               </td>
               <td className="py-4 px-4">
                 <Badge className={getCouponStatusColor(coupon.status)}>{coupon.status}</Badge>
