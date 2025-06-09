@@ -46,6 +46,7 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign>;
   deleteCampaign(id: number): Promise<void>;
+  normalizeCampaignStatuses(): Promise<void>;
 
   // Coupons
   getCoupons(): Promise<Coupon[]>;
@@ -288,6 +289,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(campaigns).where(eq(campaigns.id, id));
   }
 
+  async normalizeCampaignStatuses(): Promise<void> {
+    await db
+      .update(campaigns)
+      .set({ status: "in_progress", updatedAt: new Date() })
+      .where(sql`${campaigns.status} IN ('active', 'paused')`);
+  }
+
   // Coupons
   async getCoupons(): Promise<Coupon[]> {
     return await db.select().from(coupons).orderBy(desc(coupons.createdAt));
@@ -484,7 +492,7 @@ export class DatabaseStorage implements IStorage {
     const [campaignsCount] = await db
       .select({ count: count() })
       .from(campaigns)
-      .where(eq(campaigns.status, "active"));
+      .where(eq(campaigns.status, "in_progress"));
 
     const [deliveredCount] = await db
       .select({ count: count() })
@@ -559,13 +567,13 @@ export class DatabaseStorage implements IStorage {
       .select({ count: count() })
       .from(campaigns)
       .where(
-        sql`${campaigns.createdAt} >= ${startOfMonth} AND ${campaigns.status} = 'active'`,
+        sql`${campaigns.createdAt} >= ${startOfMonth} AND ${campaigns.status} = 'in_progress'`,
       );
     const [campaignsLastMonth] = await db
       .select({ count: count() })
       .from(campaigns)
       .where(
-        sql`${campaigns.createdAt} >= ${startOfLastMonth} AND ${campaigns.createdAt} < ${startOfMonth} AND ${campaigns.status} = 'active'`,
+        sql`${campaigns.createdAt} >= ${startOfLastMonth} AND ${campaigns.createdAt} < ${startOfMonth} AND ${campaigns.status} = 'in_progress'`,
       );
 
     const contactsChange =
@@ -655,7 +663,7 @@ export class DatabaseStorage implements IStorage {
     const [activeCampaigns] = await db
       .select({ count: count() })
       .from(campaigns)
-      .where(eq(campaigns.status, "active"));
+      .where(eq(campaigns.status, "in_progress"));
 
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

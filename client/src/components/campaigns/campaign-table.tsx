@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatNumber, formatDate, getStatusColor } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
-import { MoreHorizontal, Edit, Play, Pause, Copy, Trash2 } from "lucide-react";
+import { MoreHorizontal, Edit, Copy, Trash2, Play } from "lucide-react";
 
 interface CampaignTableProps {
   campaigns: Campaign[];
@@ -16,7 +16,6 @@ interface CampaignTableProps {
   onEdit: (campaign: Campaign) => void;
   onDuplicate: (campaign: Campaign) => void;
   onDelete: (campaign: Campaign) => void;
-  onToggleStatus: (campaign: Campaign) => void;
 }
 
 export default function CampaignTable({
@@ -25,7 +24,6 @@ export default function CampaignTable({
   onEdit,
   onDuplicate,
   onDelete,
-  onToggleStatus,
 }: CampaignTableProps) {
   if (isLoading) {
     return (
@@ -120,19 +118,13 @@ export default function CampaignTable({
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" onClick={() => onEdit(campaign)}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onToggleStatus(campaign)}
+                    onClick={() => onEdit(campaign)}
+                    disabled={campaign.status === 'completed'}
                   >
-                    {campaign.status === 'active' ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
+                    <Edit className="w-4 h-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
