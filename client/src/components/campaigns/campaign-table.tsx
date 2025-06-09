@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatNumber, formatDate, getStatusColor } from "@/lib/utils";
+import { formatNumber, formatDate, getStatusColor, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
 import { MoreHorizontal, Edit, Copy, Trash2, Play } from "lucide-react";
 
@@ -113,7 +113,7 @@ export default function CampaignTable({
               </td>
               <td className="py-4 px-4">
                 <Badge className={getStatusColor(campaign.status)}>
-                  {campaign.status}
+                  {formatCampaignStatus(campaign.status)}
                 </Badge>
               </td>
               <td className="py-4 px-4">
