@@ -1,5 +1,12 @@
 import { Badge } from "@/components/ui/badge";
-import { Tag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tag, MoreHorizontal, Check, History, Trash2 } from "lucide-react";
 import { formatDate, getCouponStatusColor } from "@/lib/utils";
 import type { Coupon } from "@shared/schema";
 
@@ -87,27 +94,30 @@ export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemp
               <td className="py-4 px-4">
                 <Badge className={getCouponStatusColor(coupon.status)}>{coupon.status}</Badge>
               </td>
-              <td className="py-4 px-4 space-x-2">
-                <button
-                  className="text-blue-600 hover:underline"
-                  onClick={() => onRedeem(coupon)}
-                >
-                  Redeem
-                </button>
-                <button
-                  className="text-blue-600 hover:underline"
-                  onClick={() => onViewRedemptions(coupon)}
-                >
-                  View Redemptions
-                </button>
-                {coupon.usageCount === 0 && (
-                  <button
-                    className="text-red-600 hover:underline"
-                    onClick={() => onDelete(coupon)}
-                  >
-                    Delete
-                  </button>
-                )}
+              <td className="py-4 px-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onRedeem(coupon)}>
+                      <Check className="mr-2 h-4 w-4" /> Redeem
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onViewRedemptions(coupon)}>
+                      <History className="mr-2 h-4 w-4" /> View Redemptions
+                    </DropdownMenuItem>
+                    {coupon.usageCount === 0 && (
+                      <DropdownMenuItem
+                        onSelect={() => onDelete(coupon)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </td>
             </tr>
           ))}
