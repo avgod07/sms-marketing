@@ -1,5 +1,6 @@
-import { storage } from "./storage.js";
-import { logInfo } from "./logger.js";
+import { storage } from "./storage";
+import { logInfo } from "./logger";
+import { pool } from "./db";
 import bcrypt from "bcryptjs";
 
 export async function seedData() {
@@ -13,6 +14,9 @@ export async function seedData() {
       await storage.createUser({ username: defaultUsername, passwordHash });
       logInfo(`Created default user \"${defaultUsername}\"`);
     }
+    logInfo(
+      `Default credentials: username \"${defaultUsername}\" / password \"${defaultPassword}\"`,
+    );
 
     // Check if we already have contact data
     const existingContacts = await storage.getContacts();
@@ -141,3 +145,9 @@ export async function seedData() {
     console.error("Error seeding data:", error);
   }
 }
+
+// Execute when run directly
+(async () => {
+  await seedData();
+  await pool.end();
+})();
