@@ -8,16 +8,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatPhoneNumber, getSegmentColor, getStatusColor } from "@/lib/utils";
 import { Contact } from "@shared/schema";
-import { MoreHorizontal, Mail, Phone, Edit } from "lucide-react";
+import { MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
 
 interface ContactTableProps {
   contacts: Contact[];
   isLoading: boolean;
   onEdit: (contact: Contact) => void;
   onViewRedemptions: (contact: Contact) => void;
+  onDelete: (contact: Contact) => void;
 }
 
-export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemptions }: ContactTableProps) {
+export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemptions, onDelete }: ContactTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -114,6 +115,12 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onViewRedemptions(contact)}>
                       View Redemptions
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => onDelete(contact)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

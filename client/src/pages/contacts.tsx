@@ -11,6 +11,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -48,6 +57,8 @@ export default function Contacts() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyContact, setHistoryContact] = useState<Contact | null>(null);
+  const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { toast } = useToast();
 
   // Persist filter choice during the session
@@ -139,6 +150,38 @@ export default function Contacts() {
 
   const handleEditSubmit = (data: ContactFormValues) => {
     updateContactMutation.mutate(data);
+  };
+
+  const deleteContactMutation = useMutation({
+    mutationFn: () =>
+      apiRequest({
+        method: "DELETE",
+        url: `/api/contacts/${deletingContact!.id}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsDeleteOpen(false);
+      setDeletingContact(null);
+      toast({ title: "Contact Deleted" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete contact",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (contact: Contact) => {
+    setDeletingContact(contact);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    deleteContactMutation.mutate();
   };
 
   return (
@@ -250,6 +293,20 @@ export default function Contacts() {
                   />
                 </DialogContent>
               </Dialog>
+              <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+                  </AlertDialogHeader>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Are you sure you want to delete this contact? This action cannot be undone.
+                  </p>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </CardHeader>
@@ -300,6 +357,7 @@ export default function Contacts() {
                 setHistoryContact(c);
                 setIsHistoryOpen(true);
               }}
+              onDelete={handleDelete}
             />
           </CardContent>
         </Card>
