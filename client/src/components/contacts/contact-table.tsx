@@ -1,3 +1,4 @@
+import StatusBadge from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -6,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatPhoneNumber, getSegmentColor, getStatusColor } from "@/lib/utils";
+import { formatPhoneNumber, getSegmentColor } from "@/lib/utils";
 import { Contact } from "@shared/schema";
 import { MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
 
@@ -98,9 +99,7 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
                 </Badge>
               </td>
               <td className="py-4 px-4">
-                <Badge className={getStatusColor(contact.status)}>
-                  {contact.status}
-                </Badge>
+                <StatusBadge status={contact.status} />
               </td>
               <td className="py-4 px-4">
                 <DropdownMenu>

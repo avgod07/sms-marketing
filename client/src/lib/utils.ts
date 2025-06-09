@@ -64,6 +64,8 @@ export function getSegmentColor(segment: string): string {
 
 export function getStatusColor(status: string): string {
   switch (status) {
+    case 'active':
+      return 'bg-green-100 text-green-700';
     case 'in_progress':
       return 'bg-green-100 text-green-700';
     case 'completed':
