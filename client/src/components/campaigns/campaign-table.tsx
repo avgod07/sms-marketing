@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatNumber, formatDate, getStatusColor, formatCampaignStatus } from "@/lib/utils";
+import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
 import { MoreHorizontal, Edit, Copy, Trash2, Play } from "lucide-react";
 
@@ -112,9 +112,9 @@ export default function CampaignTable({
                 <span className="text-gray-900">{formatNumber(campaign.clickCount || 0)}</span>
               </td>
               <td className="py-4 px-4">
-                <Badge className={getStatusColor(campaign.status)}>
+                <StatusBadge status={campaign.status}>
                   {formatCampaignStatus(campaign.status)}
-                </Badge>
+                </StatusBadge>
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
