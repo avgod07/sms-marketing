@@ -2,7 +2,7 @@ services:
   app:
     image: mcr.microsoft.com/vscode/devcontainers/javascript-node:20
     volumes:
-      - /Users/ayushgodhani/desktop/sms
+      - ..:/workspace:cached
     command: sleep infinity
     ports:
       # Expose container port 5000 on host port 5001
