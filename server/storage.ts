@@ -118,6 +118,17 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private normalizeCouponStatus(coupon: Coupon): Coupon {
+    const isExpired =
+      (coupon.expirationDate && new Date(coupon.expirationDate) < new Date()) ||
+      (coupon.validDays !== null &&
+        coupon.validDays !== undefined &&
+        new Date(coupon.createdAt).getTime() +
+          coupon.validDays * 24 * 60 * 60 * 1000 <
+          Date.now());
+    const status = coupon.status === "active" && !isExpired ? "active" : "inactive";
+    return { ...coupon, status };
+  }
   // Contacts
   async getContacts(): Promise<Contact[]> {
     return await db.select().from(contacts).orderBy(desc(contacts.createdAt));
@@ -303,7 +314,8 @@ export class DatabaseStorage implements IStorage {
 
   // Coupons
   async getCoupons(): Promise<Coupon[]> {
-    return await db.select().from(coupons).orderBy(desc(coupons.createdAt));
+    const rows = await db.select().from(coupons).orderBy(desc(coupons.createdAt));
+    return rows.map((c) => this.normalizeCouponStatus(c));
   }
 
   async getCoupon(id: number): Promise<Coupon | undefined> {
@@ -311,7 +323,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(coupons)
       .where(eq(coupons.id, id));
-    return coupon || undefined;
+    return coupon ? this.normalizeCouponStatus(coupon) : undefined;
   }
 
   async getCouponByCode(code: string): Promise<Coupon | undefined> {
@@ -330,7 +342,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .returning();
-    return newCoupon;
+    return this.normalizeCouponStatus(newCoupon);
   }
 
   async updateCoupon(
@@ -345,7 +357,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(coupons.id, id))
       .returning();
-    return updatedCoupon;
+    return this.normalizeCouponStatus(updatedCoupon);
   }
 
   async deleteCoupon(id: number): Promise<void> {
@@ -408,13 +420,6 @@ export class DatabaseStorage implements IStorage {
     if (filters.search) {
       clauses.push(sql`${coupons.code} ILIKE ${"%" + filters.search + "%"}`);
     }
-    if (filters.status && filters.status !== "all") {
-      if (filters.status === "redeemed") {
-        clauses.push(sql`${coupons.usageCount} > 0`);
-      } else {
-        clauses.push(sql`${coupons.status} = ${filters.status}`);
-      }
-    }
     if (filters.type && filters.type !== "all") {
       clauses.push(sql`${coupons.type} = ${filters.type}`);
     }
@@ -433,9 +438,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     const query = db.select().from(coupons);
-    return await (whereClause
+    let rows = await (whereClause
       ? query.where(whereClause).orderBy(desc(coupons.createdAt))
       : query.orderBy(desc(coupons.createdAt)));
+    rows = rows.map((c) => this.normalizeCouponStatus(c));
+    if (filters.status && filters.status !== "all") {
+      rows = rows.filter((c) => c.status === filters.status);
+    }
+    return rows;
   }
 
   // Messages
