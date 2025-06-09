@@ -74,7 +74,7 @@ export default function Dashboard() {
             title="Campaigns"
             value={stats?.activeCampaigns || 0}
             change={stats?.campaignsChange ?? 0}
-            changeLabel="active campaigns"
+            changeLabel="in progress campaigns"
             icon={Send}
             iconColor="text-purple-600"
             iconBgColor="bg-purple-50"

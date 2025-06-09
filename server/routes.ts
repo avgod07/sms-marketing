@@ -26,6 +26,7 @@ import { validateCoupon } from "./coupon-middleware";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
+  await storage.normalizeCampaignStatuses();
   // Authentication routes
   app.post("/api/signup", async (req, res) => {
     try {
@@ -280,6 +281,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/campaigns/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const existing = await storage.getCampaign(id);
+      if (!existing) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      if (existing.status === "completed") {
+        return res.status(400).json({ message: "Completed campaigns cannot be edited" });
+      }
       const validatedData = insertCampaignSchema.partial().parse(req.body);
       const campaign = await storage.updateCampaign(id, validatedData);
       res.json(campaign);
@@ -314,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: `${campaign.name} (Copy)`,
         message: campaign.message,
         audience: campaign.audience,
-        status: "active",
+        status: "in_progress",
         scheduledAt: campaign.scheduledAt || null,
       });
       res.status(201).json(copy);
