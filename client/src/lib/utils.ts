@@ -51,12 +51,10 @@ export function getSegmentColor(segment: string): string {
 
 export function getStatusColor(status: string): string {
   switch (status) {
-    case 'active':
+    case 'in_progress':
       return 'bg-green-100 text-green-700';
     case 'completed':
       return 'bg-blue-100 text-blue-700';
-    case 'paused':
-      return 'bg-yellow-100 text-yellow-700';
     case 'inactive':
       return 'bg-gray-100 text-gray-700';
     default:

@@ -87,13 +87,13 @@ export async function seedData() {
         name: "Welcome Series",
         message: "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
         audience: "active",
-        status: "active",
+        status: "in_progress",
       },
       {
         name: "VIP Exclusive",
         message: "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
         audience: "active",
-        status: "active",
+        status: "in_progress",
       },
     ];
 
