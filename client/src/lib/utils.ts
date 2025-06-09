@@ -62,6 +62,23 @@ export function getStatusColor(status: string): string {
   }
 }
 
+export function formatCampaignStatus(status: string): string {
+  switch (status) {
+    case 'in_progress':
+      return 'In Progress';
+    case 'completed':
+      return 'Completed';
+    case 'active':
+    case 'paused':
+      return 'In Progress';
+    case 'sent':
+    case 'finished':
+      return 'Completed';
+    default:
+      return status;
+  }
+}
+
 export function getCouponStatusColor(status: string): string {
   switch (status) {
     case 'active':
