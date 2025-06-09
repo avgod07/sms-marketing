@@ -198,7 +198,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteContact(id: number): Promise<void> {
-    await db.delete(contacts).where(eq(contacts.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(messages).where(eq(messages.contactId, id));
+      await tx
+        .delete(couponRecipients)
+        .where(eq(couponRecipients.contactId, id));
+      await tx
+        .update(couponRedemptions)
+        .set({ contactId: null })
+        .where(eq(couponRedemptions.contactId, id));
+      await tx.delete(contacts).where(eq(contacts.id, id));
+    });
   }
 
   async searchContacts(query: string, status?: string): Promise<Contact[]> {
