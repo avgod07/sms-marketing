@@ -20,7 +20,7 @@ export const campaigns = pgTable("campaigns", {
   name: text("name").notNull(),
   message: text("message").notNull(),
   audience: text("audience").notNull(), // all, active, inactive
-  status: text("status").notNull().default("active"), // active, completed, paused
+  status: text("status").notNull().default("in_progress"), // in_progress, completed
   sentCount: integer("sent_count").default(0),
   deliveredCount: integer("delivered_count").default(0),
   clickCount: integer("click_count").default(0),

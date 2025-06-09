@@ -128,34 +128,13 @@ export default function Campaigns() {
     },
   });
 
-  const toggleStatusMutation = useMutation({
-    mutationFn: (campaign: Campaign) => {
-      const status = campaign.status === "active" ? "paused" : "active";
-      return apiRequest({
-        method: "PATCH",
-        url: `/api/campaigns/${campaign.id}`,
-        data: { status },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({ title: "Campaign Updated" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update campaign",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleEditSubmit = (data: CampaignFormValues) => {
     updateCampaignMutation.mutate(data);
   };
 
   const handleEdit = (campaign: Campaign) => {
+    if (campaign.status === 'completed') return;
     setEditingCampaign(campaign);
     setIsEditOpen(true);
   };
@@ -164,9 +143,6 @@ export default function Campaigns() {
     duplicateCampaignMutation.mutate(campaign);
   };
 
-  const handleToggleStatus = (campaign: Campaign) => {
-    toggleStatusMutation.mutate(campaign);
-  };
 
   const handleDelete = (campaign: Campaign) => {
     setDeletingCampaign(campaign);
@@ -179,7 +155,7 @@ export default function Campaigns() {
 
   const stats = [
     {
-      title: "Active Campaigns",
+      title: "In Progress Campaigns",
       value: campaignStats?.activeCampaigns || 0,
       icon: Send,
       color: "text-green-600",
@@ -306,7 +282,6 @@ export default function Campaigns() {
               onEdit={handleEdit}
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}
-              onToggleStatus={handleToggleStatus}
             />
           </CardContent>
         </Card>
