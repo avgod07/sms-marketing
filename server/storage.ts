@@ -294,6 +294,11 @@ export class DatabaseStorage implements IStorage {
       .update(campaigns)
       .set({ status: "in_progress", updatedAt: new Date() })
       .where(sql`${campaigns.status} IN ('active', 'paused')`);
+
+    await db
+      .update(campaigns)
+      .set({ status: "completed", updatedAt: new Date() })
+      .where(sql`${campaigns.status} IN ('sent', 'finished')`);
   }
 
   // Coupons
