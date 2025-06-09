@@ -21,6 +21,19 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date));
 }
 
+export function formatCouponExpiry(
+  expirationDate?: string | Date | null,
+  validDays?: number | null,
+): string {
+  if (expirationDate) {
+    return formatDate(expirationDate);
+  }
+  if (validDays) {
+    return `${validDays} days`;
+  }
+  return 'No expiration';
+}
+
 export function formatPhoneNumber(phone: string): string {
   // Remove all non-digits
   const cleaned = phone.replace(/\D/g, '');
