@@ -23,15 +23,11 @@ import CouponForm, { type CouponFormValues } from "@/components/coupons/coupon-f
 import CouponTable from "@/components/coupons/coupon-table";
 import { Search, Filter, Tag, Plus } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
@@ -200,7 +196,7 @@ export default function Coupons() {
           </CardHeader>
           <CardContent>
             {/* Search and Filter */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -218,35 +214,31 @@ export default function Coupons() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="p-2 space-y-2 w-64">
-                  <div>
-                    <Label className="mb-1 block text-sm">Status</Label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-1">
+                    <DropdownMenuLabel>Status</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={statusFilter}
+                      onValueChange={setStatusFilter}
+                    >
+                      <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="inactive">Inactive</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
                   </div>
-                  <div>
-                    <Label className="mb-1 block text-sm">Type</Label>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="percent">Percent Off</SelectItem>
-                        <SelectItem value="amount">Flat</SelectItem>
-                        <SelectItem value="free">Free</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-1">
+                    <DropdownMenuLabel>Type</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={typeFilter}
+                      onValueChange={setTypeFilter}
+                    >
+                      <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="percent">Percent Off</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="amount">Flat</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="free">Free</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
                   </div>
-                  <div className="flex space-x-2">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
                       <Label className="mb-1 block text-sm">Start</Label>
                       <Input
                         type="date"
@@ -254,7 +246,7 @@ export default function Coupons() {
                         onChange={(e) => setStartDate(e.target.value)}
                       />
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <Label className="mb-1 block text-sm">End</Label>
                       <Input
                         type="date"
