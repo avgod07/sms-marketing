@@ -1,9 +1,20 @@
 import { storage } from "./storage.js";
 import { logInfo } from "./logger.js";
+import bcrypt from "bcryptjs";
 
 export async function seedData() {
   try {
-    // Check if we already have data
+    // Ensure a default user exists for testing
+    const defaultUsername = "user";
+    const defaultPassword = "user";
+    const existingUser = await storage.getUserByUsername(defaultUsername);
+    if (!existingUser) {
+      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      await storage.createUser({ username: defaultUsername, passwordHash });
+      logInfo(`Created default user \"${defaultUsername}\"`);
+    }
+
+    // Check if we already have contact data
     const existingContacts = await storage.getContacts();
     if (existingContacts.length > 0) {
       logInfo("Sample data already exists, skipping seed");

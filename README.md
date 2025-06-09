@@ -37,6 +37,9 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm run seed
    ```
 
+   This command also creates a default account with username `user` and
+   password `user` which can be used for testing.
+
 5. **Development server**
 
    Start the dev server with:
@@ -59,7 +62,8 @@ This project relies on Node.js and Docker for local development. Follow these st
 
 7. **Reset the database**
 
-   To remove any existing Postgres data and recreate the schema, run:
+   Run the reset script from **inside the dev container** to wipe any existing
+   data and recreate the schema:
 
    ```bash
    ./scripts/reset-db.sh [--seed]
