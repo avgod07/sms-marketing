@@ -111,8 +111,11 @@ export default function CampaignTable({
               <td className="py-4 px-4">
                 <span className="text-gray-900">{formatNumber(campaign.clickCount || 0)}</span>
               </td>
-              <td className="py-4 px-4">
-                <StatusBadge status={campaign.status}>
+              <td className="py-4 px-4 align-middle">
+                <StatusBadge
+                  status={campaign.status}
+                  className="whitespace-nowrap"
+                >
                   {formatCampaignStatus(campaign.status)}
                 </StatusBadge>
               </td>
