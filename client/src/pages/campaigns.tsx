@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Link } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 export default function Campaigns() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
@@ -37,31 +37,6 @@ export default function Campaigns() {
     queryKey: ["/api/campaigns"],
   });
 
-  const createCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormValues) =>
-      apiRequest({ method: "POST", url: "/api/campaigns", data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      setIsCreateOpen(false);
-      toast({
-        title: "Campaign Created",
-        description: "Your SMS campaign has been created successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create campaign",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (data: CampaignFormValues) => {
-    createCampaignMutation.mutate(data);
-  };
 
   const updateCampaignMutation = useMutation({
     mutationFn: (data: CampaignFormValues) =>
@@ -188,25 +163,12 @@ export default function Campaigns() {
               Create and manage your SMS campaigns.
             </p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>Create Campaign</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create New Campaign</DialogTitle>
-              </DialogHeader>
-              <CampaignForm
-                onSubmit={(data: CampaignFormValues) => createCampaignMutation.mutate(data)}
-                onCancel={() => setIsCreateOpen(false)}
-                pending={createCampaignMutation.isPending}
-                submitLabel="Create Campaign"
-              />
-            </DialogContent>
-          </Dialog>
+          <Button asChild className="flex items-center space-x-2">
+            <Link href="/campaigns/new">
+              <Plus className="w-4 h-4" />
+              <span>Create Campaign</span>
+            </Link>
+          </Button>
           <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
@@ -269,9 +231,11 @@ export default function Campaigns() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>All Campaigns</CardTitle>
-              <Button onClick={() => setIsCreateOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Campaign
+              <Button asChild>
+                <Link href="/campaigns/new">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Campaign
+                </Link>
               </Button>
             </div>
           </CardHeader>
