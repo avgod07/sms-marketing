@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import CampaignForm, { type CampaignFormValues } from "@/components/campaigns/campaign-form";
+import CampaignForm, { type CampaignFormValues } from "@/components/CampaignForm";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft } from "lucide-react";
