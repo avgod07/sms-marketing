@@ -43,12 +43,21 @@ export default function Campaigns() {
 
 
   const updateCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormValues) =>
-      apiRequest({
+    mutationFn: (data: CampaignFormValues) => {
+      const payload: Record<string, any> = {
+        name: data.name,
+        message: data.message,
+        audience: data.audience,
+      };
+      if (data.sendTime === "scheduled" && data.scheduledAt) {
+        payload.scheduledAt = data.scheduledAt;
+      }
+      return apiRequest({
         method: "PATCH",
         url: `/api/campaigns/${editingCampaign!.id}`,
-        data,
-      }),
+        data: payload,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
@@ -185,7 +194,20 @@ export default function Campaigns() {
                 <DialogTitle>Edit Campaign</DialogTitle>
               </DialogHeader>
               <CampaignForm
-                initialValues={editingCampaign as CampaignFormValues | undefined}
+                initialValues={
+                  editingCampaign
+                    ? {
+                        name: editingCampaign.name,
+                        message: editingCampaign.message,
+                        audience: editingCampaign.audience,
+                        frequency: editingCampaign.scheduledAt ? "one-time" : "recurring",
+                        sendTime: editingCampaign.scheduledAt ? "scheduled" : "immediate",
+                        scheduledAt: editingCampaign.scheduledAt
+                          ? new Date(editingCampaign.scheduledAt).toISOString().slice(0, 16)
+                          : "",
+                      }
+                    : undefined
+                }
                 onSubmit={handleEditSubmit}
                 onCancel={() => setIsEditOpen(false)}
                 pending={updateCampaignMutation.isPending}
