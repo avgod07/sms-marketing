@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Send,
+  Plus,
   Tag,
   BarChart3,
   Settings,
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Campaigns", href: "/campaigns", icon: Send },
+  { name: "Create Campaign", href: "/campaigns/new", icon: Plus },
   { name: "Coupons", href: "/coupons", icon: Tag },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
