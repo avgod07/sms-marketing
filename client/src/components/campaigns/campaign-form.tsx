@@ -13,16 +13,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import MessagePreview from "./message-preview";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-export const campaignSchema = z.object({
-  name: z.string().min(1, "Campaign name is required"),
-  message: z
-    .string()
-    .min(1, "Message is required")
-    .max(160, "Message must be 160 characters or less"),
-  audience: z.string().min(1, "Audience is required"),
-});
+export const campaignSchema = z
+  .object({
+    name: z.string().min(1, "Campaign name is required"),
+    message: z
+      .string()
+      .min(1, "Message is required")
+      .max(160, "Message must be 160 characters or less"),
+    audience: z.string().min(1, "Audience is required"),
+    frequency: z.enum(["one-time", "recurring"]),
+    sendTime: z.enum(["immediate", "scheduled"]),
+    scheduledAt: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.sendTime === "scheduled" && !data.scheduledAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please select a date and time",
+        path: ["scheduledAt"],
+      });
+    }
+  });
 
 export type CampaignFormValues = z.infer<typeof campaignSchema>;
 
@@ -50,6 +63,9 @@ export default function CampaignForm({
       name: "",
       message: "",
       audience: "all",
+      frequency: "one-time",
+      sendTime: "immediate",
+      scheduledAt: "",
       ...initialValues,
     },
   });
@@ -60,11 +76,9 @@ export default function CampaignForm({
     }
   }, [initialValues, form]);
 
-  const previewMessage = form.watch("message");
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 order-2 md:order-1">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="name">Campaign Name</Label>
           <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
@@ -109,6 +123,51 @@ export default function CampaignForm({
             </p>
           </div>
         </div>
+        <div>
+          <Label>Frequency</Label>
+          <RadioGroup
+            value={form.watch("frequency")}
+            onValueChange={(val) => form.setValue("frequency", val as "one-time" | "recurring")}
+            className="flex space-x-4 mt-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem id="freq-once" value="one-time" />
+              <Label htmlFor="freq-once">One-time</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem id="freq-recurring" value="recurring" />
+              <Label htmlFor="freq-recurring">Recurring</Label>
+            </div>
+          </RadioGroup>
+        </div>
+        <div>
+          <Label>Send Time</Label>
+          <RadioGroup
+            value={form.watch("sendTime")}
+            onValueChange={(val) => form.setValue("sendTime", val as "immediate" | "scheduled")}
+            className="flex space-x-4 mt-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem id="send-now" value="immediate" />
+              <Label htmlFor="send-now">Immediate</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem id="send-scheduled" value="scheduled" />
+              <Label htmlFor="send-scheduled">Scheduled</Label>
+            </div>
+          </RadioGroup>
+          {form.watch("sendTime") === "scheduled" && (
+            <Input
+              id="scheduledAt"
+              type="datetime-local"
+              className="mt-2"
+              {...form.register("scheduledAt")}
+            />
+          )}
+          {form.formState.errors.scheduledAt && (
+            <p className="text-sm text-red-600 mt-1">{form.formState.errors.scheduledAt.message}</p>
+          )}
+        </div>
         <div className="flex space-x-2">
           <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
             Cancel
@@ -121,10 +180,6 @@ export default function CampaignForm({
             {pending ? "Saving..." : submitLabel}
           </Button>
         </div>
-      </form>
-      <div className="order-1 md:order-2">
-        <MessagePreview message={previewMessage} />
-      </div>
-    </div>
+    </form>
   );
 }
