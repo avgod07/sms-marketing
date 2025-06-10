@@ -11,8 +11,16 @@ export default function MessagePreview({ message }: MessagePreviewProps) {
         <CardTitle className="text-base">SMS Preview</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-md bg-gray-50 p-4 whitespace-pre-wrap text-sm text-gray-900 min-h-[120px]">
-          {message ? message : <span className="text-gray-400">Your message will appear here...</span>}
+        <div className="rounded-md border bg-gray-50 p-4 min-h-[140px]">
+          {message ? (
+            <div className="flex justify-end">
+              <div className="max-w-[75%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
+                {message}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Your message will appear here...</p>
+          )}
         </div>
       </CardContent>
     </Card>
