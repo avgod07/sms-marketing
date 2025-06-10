@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import CampaignForm, { type CampaignFormValues } from "@/components/campaigns/campaign-form";
+import CampaignForm, { type CampaignFormValues } from "@/components/CampaignForm";
 import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target, BarChart3 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
