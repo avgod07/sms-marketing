@@ -1,4 +1,5 @@
 import StatusBadge from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { differenceInCalendarDays } from "date-fns";
 import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
 import { MoreHorizontal, Edit, Copy, Trash2, Play } from "lucide-react";
@@ -83,10 +85,20 @@ export default function CampaignTable({
                   <div>
                     <p className="font-medium text-gray-900">{campaign.name}</p>
                     <p className="text-sm text-gray-500">
-                      {campaign.message.length > 50 
-                        ? `${campaign.message.substring(0, 50)}...` 
+                      {campaign.message.length > 50
+                        ? `${campaign.message.substring(0, 50)}...`
                         : campaign.message}
                     </p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Badge className={campaign.scheduledAt ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}>
+                        {campaign.scheduledAt ? 'One-time' : 'Recurring'}
+                      </Badge>
+                      {campaign.scheduledAt && new Date(campaign.scheduledAt) > new Date() && (
+                        <span className="text-xs text-gray-500">
+                          {`Sending in ${differenceInCalendarDays(new Date(campaign.scheduledAt), new Date())} days`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </td>
