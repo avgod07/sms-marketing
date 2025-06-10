@@ -18,7 +18,7 @@ import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target, BarChart3 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { Campaign } from "@shared/schema";
-import type { CampaignStats, DashboardStats } from "@shared/api-types";
+import type { CampaignStats } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -35,10 +35,6 @@ export default function Campaigns() {
 
   const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
-  });
-
-  const { data: dashboardStats } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
   });
 
 
@@ -61,7 +57,6 @@ export default function Campaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       setIsEditOpen(false);
       setEditingCampaign(null);
       toast({ title: "Campaign Updated" });
@@ -84,7 +79,6 @@ export default function Campaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       setIsDeleteOpen(false);
       setDeletingCampaign(null);
       toast({ title: "Campaign Deleted" });
@@ -104,7 +98,6 @@ export default function Campaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "Campaign Duplicated" });
     },
     onError: (error: any) => {
@@ -165,11 +158,6 @@ export default function Campaigns() {
     },
   ];
 
-  const overview = {
-    totalCampaigns: campaigns?.length || 0,
-    messagesSent: dashboardStats?.messagesSent || 0,
-    subscribers: dashboardStats?.totalContacts || 0,
-  };
 
   return (
     <div className="fade-in">
@@ -258,25 +246,6 @@ export default function Campaigns() {
         })}
       </div>
 
-        {/* Overview Card */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 text-center gap-6">
-              <div>
-                <p className="text-sm text-gray-500">Total Campaigns</p>
-                <p className="text-2xl font-bold text-gray-900">{formatNumber(overview.totalCampaigns)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Messages Sent</p>
-                <p className="text-2xl font-bold text-gray-900">{formatNumber(overview.messagesSent)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Subscribers</p>
-                <p className="text-2xl font-bold text-gray-900">{formatNumber(overview.subscribers)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* All Campaigns */}
         <Card>
