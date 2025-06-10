@@ -24,6 +24,7 @@ export const campaignSchema = z
       .max(160, "Message must be 160 characters or less"),
     audience: z.string().min(1, "Audience is required"),
     frequency: z.enum(["one-time", "recurring"]),
+    repeatInterval: z.enum(["daily", "weekly", "monthly"]).optional(),
     sendTime: z.enum(["immediate", "scheduled"]),
     scheduledAt: z.string().optional(),
   })
@@ -33,6 +34,13 @@ export const campaignSchema = z
         code: z.ZodIssueCode.custom,
         message: "Please select a date and time",
         path: ["scheduledAt"],
+      });
+    }
+    if (data.frequency === "recurring" && !data.repeatInterval) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please select a repeat interval",
+        path: ["repeatInterval"],
       });
     }
   });
@@ -64,6 +72,7 @@ export default function CampaignForm({
       message: "",
       audience: "all",
       frequency: "one-time",
+      repeatInterval: "daily",
       sendTime: "immediate",
       scheduledAt: "",
       ...initialValues,
@@ -72,7 +81,7 @@ export default function CampaignForm({
 
   useEffect(() => {
     if (initialValues) {
-      form.reset(initialValues);
+      form.reset({ repeatInterval: "daily", ...initialValues });
     }
   }, [initialValues, form]);
 
@@ -139,6 +148,25 @@ export default function CampaignForm({
               <Label htmlFor="freq-recurring">Recurring</Label>
             </div>
           </RadioGroup>
+          {form.watch("frequency") === "recurring" && (
+            <Select
+              value={form.watch("repeatInterval")}
+              onValueChange={(val) => form.setValue("repeatInterval", val as "daily" | "weekly" | "monthly")}
+              defaultValue="daily"
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Select interval" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {form.formState.errors.repeatInterval && (
+            <p className="text-sm text-red-600 mt-1">{form.formState.errors.repeatInterval.message}</p>
+          )}
         </div>
         <div>
           <Label>Send Time</Label>
