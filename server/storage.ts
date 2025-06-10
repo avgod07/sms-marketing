@@ -7,6 +7,7 @@ import {
   couponRecipients,
   analytics,
   users,
+  businesses,
   type Contact,
   type InsertContact,
   type Campaign,
@@ -20,6 +21,8 @@ import {
   type CouponRecipient,
   type InsertCouponRecipient,
   type Analytics,
+  type Business,
+  type InsertBusiness,
   type User,
   type InsertUser,
 } from "@shared/schema";
@@ -78,6 +81,10 @@ export interface IStorage {
     contactId: number,
     couponId: number,
   ): Promise<boolean>;
+
+  // Businesses
+  getBusiness(id: number): Promise<Business | undefined>;
+  createBusiness(business: InsertBusiness): Promise<Business>;
 
   // Messages
   getMessages(): Promise<Message[]>;
@@ -713,6 +720,23 @@ export class DatabaseStorage implements IStorage {
       messagesThisMonth: messagesThisMonth.count,
       avgClickRate: Math.round(avgClickRate * 100) / 100,
     };
+  }
+
+  // Businesses
+  async getBusiness(id: number): Promise<Business | undefined> {
+    const [business] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, id));
+    return business || undefined;
+  }
+
+  async createBusiness(business: InsertBusiness): Promise<Business> {
+    const [newBusiness] = await db
+      .insert(businesses)
+      .values(business)
+      .returning();
+    return newBusiness;
   }
 
   // Users
