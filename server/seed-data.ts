@@ -11,12 +11,7 @@ export async function seedData() {
     const existingUser = await storage.getUserByUsername(defaultUsername);
     if (!existingUser) {
       const passwordHash = await bcrypt.hash(defaultPassword, 10);
-      const business = await storage.createBusiness({ name: "Default Business" });
-      await storage.createUser({
-        username: defaultUsername,
-        passwordHash,
-        businessId: business.id,
-      });
+      await storage.createUser({ username: defaultUsername, passwordHash });
       logInfo(`Created default user \"${defaultUsername}\"`);
     }
     logInfo(
