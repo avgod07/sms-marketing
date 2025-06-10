@@ -21,6 +21,11 @@ export interface CampaignStats {
   avgClickRate: number;
 }
 
+export interface SetupStatus {
+  phoneConfigured: boolean;
+  hasContacts: boolean;
+}
+
 export interface ContactRedemption {
   id: number;
   couponId: number;
