@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import MessagePreview from "./message-preview";
 
 export const campaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
@@ -57,60 +58,67 @@ export default function CampaignForm({
     }
   }, [initialValues, form]);
 
+  const previewMessage = form.watch("message");
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <Label htmlFor="name">Campaign Name</Label>
-        <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
-        {form.formState.errors.name && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
-        )}
-      </div>
-      <div>
-        <Label htmlFor="audience">Audience</Label>
-        <Select
-          onValueChange={(value) => form.setValue("audience", value)}
-          value={form.watch("audience")}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select audience" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Contacts</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="active">Active Contacts</SelectItem>
-          </SelectContent>
-        </Select>
-        {form.formState.errors.audience && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.audience.message}</p>
-        )}
-      </div>
-      <div>
-        <Label htmlFor="message">Message</Label>
-        <Textarea
-          id="message"
-          {...form.register("message")}
-          placeholder="Enter your SMS message (max 160 characters)"
-          className="resize-none"
-          rows={3}
-        />
-        <div className="flex justify-between mt-1">
-          {form.formState.errors.message && (
-            <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 order-2 md:order-1">
+        <div>
+          <Label htmlFor="name">Campaign Name</Label>
+          <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
+          {form.formState.errors.name && (
+            <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
           )}
-          <p className="text-sm text-gray-500 ml-auto">
-            {form.watch("message")?.length || 0}/160
-          </p>
         </div>
+        <div>
+          <Label htmlFor="audience">Audience</Label>
+          <Select
+            onValueChange={(value) => form.setValue("audience", value)}
+            value={form.watch("audience")}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select audience" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Contacts</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="active">Active Contacts</SelectItem>
+            </SelectContent>
+          </Select>
+          {form.formState.errors.audience && (
+            <p className="text-sm text-red-600 mt-1">{form.formState.errors.audience.message}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="message">Message</Label>
+          <Textarea
+            id="message"
+            {...form.register("message")}
+            placeholder="Enter your SMS message (max 160 characters)"
+            className="resize-none"
+            rows={3}
+          />
+          <div className="flex justify-between mt-1">
+            {form.formState.errors.message && (
+              <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
+            )}
+            <p className="text-sm text-gray-500 ml-auto">
+              {form.watch("message")?.length || 0}/160
+            </p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!form.formState.isValid || pending} className="flex-1">
+            {pending ? "Saving..." : submitLabel}
+          </Button>
+        </div>
+      </form>
+      <div className="order-1 md:order-2">
+        <MessagePreview message={previewMessage} />
       </div>
-      <div className="flex space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
-          Cancel
-        </Button>
-        <Button type="submit" disabled={!form.formState.isValid || pending} className="flex-1">
-          {pending ? "Saving..." : submitLabel}
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
