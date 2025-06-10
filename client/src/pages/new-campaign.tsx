@@ -1,14 +1,20 @@
-import { useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import CampaignForm, { type CampaignFormValues } from "@/components/campaigns/campaign-form";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { SetupStatus } from "@shared/api-types";
 
 export default function NewCampaignPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+
+  const { data: setup } = useQuery<SetupStatus>({
+    queryKey: ["/api/setup/status"],
+  });
 
   const createCampaignMutation = useMutation({
     mutationFn: (data: CampaignFormValues) =>
@@ -36,6 +42,9 @@ export default function NewCampaignPage() {
     createCampaignMutation.mutate(data);
   };
 
+  const disabled =
+    !setup?.phoneConfigured || !setup?.hasContacts;
+
   return (
     <div className="fade-in">
       <header className="bg-white border-b border-gray-200 px-8 py-6">
@@ -51,11 +60,37 @@ export default function NewCampaignPage() {
         </div>
       </header>
       <div className="p-8 max-w-md mx-auto">
+        {disabled && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+            <AlertTitle>Complete Setup</AlertTitle>
+            <AlertDescription>
+              {!setup?.phoneConfigured && (
+                <p>
+                  Add your phone number in{' '}
+                  <Link href="/settings" className="underline">
+                    Settings
+                  </Link>
+                  .
+                </p>
+              )}
+              {!setup?.hasContacts && (
+                <p>
+                  Add contacts on the{' '}
+                  <Link href="/contacts" className="underline">
+                    Contacts
+                  </Link>{' '}
+                  page.
+                </p>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         <CampaignForm
           onSubmit={handleSubmit}
           onCancel={() => navigate("/campaigns")}
           pending={createCampaignMutation.isPending}
           submitLabel="Create Campaign"
+          disabled={disabled}
         />
       </div>
     </div>
