@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { differenceInCalendarDays } from "date-fns";
 import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
 import { MoreHorizontal, Edit, Copy, Trash2, Play } from "lucide-react";
@@ -93,11 +92,6 @@ export default function CampaignTable({
                       <Badge className={campaign.scheduledAt ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}>
                         {campaign.scheduledAt ? 'One-time' : 'Recurring'}
                       </Badge>
-                      {campaign.scheduledAt && new Date(campaign.scheduledAt) > new Date() && (
-                        <span className="text-xs text-gray-500">
-                          {`Sending in ${differenceInCalendarDays(new Date(campaign.scheduledAt), new Date())} days`}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
