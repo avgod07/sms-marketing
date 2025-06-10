@@ -89,19 +89,10 @@ export const analytics = pgTable("analytics", {
   clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
 });
 
-export const businesses = pgTable("businesses", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -122,17 +113,6 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   campaign: one(campaigns, {
     fields: [messages.campaignId],
     references: [campaigns.id],
-  }),
-}));
-
-export const businessesRelations = relations(businesses, ({ many }) => ({
-  users: many(users),
-}));
-
-export const usersRelations = relations(users, ({ one }) => ({
-  business: one(businesses, {
-    fields: [users.businessId],
-    references: [businesses.id],
   }),
 }));
 
@@ -178,11 +158,6 @@ export const insertCouponRecipientSchema =
     createdAt: true,
   });
 
-export const insertBusinessSchema = createInsertSchema(businesses).omit({
-  id: true,
-  createdAt: true,
-});
-
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -210,9 +185,6 @@ export type CouponRecipient = typeof couponRecipients.$inferSelect;
 export type InsertCouponRecipient = z.infer<
   typeof insertCouponRecipientSchema
 >;
-
-export type Business = typeof businesses.$inferSelect;
-export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
