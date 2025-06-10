@@ -11,9 +11,13 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-const userCredentialsSchema = z.object({
+const loginSchema = z.object({
   username: z.string(),
   password: z.string(),
+});
+
+const signupSchema = loginSchema.extend({
+  businessName: z.string(),
 });
 import twilio from "twilio";
 import { executeCampaign } from "./services/campaign.js";
@@ -31,13 +35,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/signup", async (req, res) => {
     try {
-      const { username, password } = userCredentialsSchema.parse(req.body);
+      const { username, password, businessName } = signupSchema.parse(req.body);
       const existing = await storage.getUserByUsername(username);
       if (existing) {
         return res.status(400).json({ message: "User already exists" });
       }
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ username, passwordHash });
+      const business = await storage.createBusiness({ name: businessName });
+      const user = await storage.createUser({
+        username,
+        passwordHash,
+        businessId: business.id,
+      });
       req.login(user, (err: any) => {
         if (err) throw err;
         res.status(201).json({ message: "Signed up" });
