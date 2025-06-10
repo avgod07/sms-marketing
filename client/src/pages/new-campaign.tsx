@@ -22,9 +22,13 @@ export default function NewCampaignPage() {
         name: data.name,
         message: data.message,
         audience: data.audience,
+        frequency: data.frequency,
       };
       if (data.sendTime === "scheduled" && data.scheduledAt) {
         payload.scheduledAt = data.scheduledAt;
+      }
+      if (data.frequency === "recurring" && data.repeatInterval) {
+        payload.repeatInterval = data.repeatInterval;
       }
       return apiRequest({ method: "POST", url: "/api/campaigns", data: payload });
     },

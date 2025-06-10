@@ -48,9 +48,13 @@ export default function Campaigns() {
         name: data.name,
         message: data.message,
         audience: data.audience,
+        frequency: data.frequency,
       };
       if (data.sendTime === "scheduled" && data.scheduledAt) {
         payload.scheduledAt = data.scheduledAt;
+      }
+      if (data.frequency === "recurring" && data.repeatInterval) {
+        payload.repeatInterval = data.repeatInterval;
       }
       return apiRequest({
         method: "PATCH",
@@ -201,6 +205,7 @@ export default function Campaigns() {
                         message: editingCampaign.message,
                         audience: editingCampaign.audience,
                         frequency: editingCampaign.scheduledAt ? "one-time" : "recurring",
+                        repeatInterval: "daily",
                         sendTime: editingCampaign.scheduledAt ? "scheduled" : "immediate",
                         scheduledAt: editingCampaign.scheduledAt
                           ? new Date(editingCampaign.scheduledAt).toISOString().slice(0, 16)
