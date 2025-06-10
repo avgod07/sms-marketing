@@ -18,7 +18,7 @@ import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target, BarChart3 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { Campaign } from "@shared/schema";
-import type { CampaignStats } from "@shared/api-types";
+import type { CampaignStats, DashboardStats } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -35,6 +35,10 @@ export default function Campaigns() {
 
   const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
+  });
+
+  const { data: dashboardStats } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
   });
 
 
@@ -152,6 +156,12 @@ export default function Campaigns() {
     },
   ];
 
+  const overview = {
+    totalCampaigns: campaigns?.length || 0,
+    messagesSent: dashboardStats?.messagesSent || 0,
+    subscribers: dashboardStats?.totalContacts || 0,
+  };
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -202,29 +212,49 @@ export default function Campaigns() {
 
       {/* Content */}
       <div className="p-8">
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {stats.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={index} className="card-hover">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">{stat.title}</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
-                      </p>
-                    </div>
-                    <div className={`w-12 h-12 ${stat.bgColor} rounded-full flex items-center justify-center`}>
-                      <Icon className={`w-6 h-6 ${stat.color}`} />
-                    </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index} className="card-hover">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">{stat.title}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  <div className={`w-12 h-12 ${stat.bgColor} rounded-full flex items-center justify-center`}>
+                    <Icon className={`w-6 h-6 ${stat.color}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+        {/* Overview Card */}
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 text-center gap-6">
+              <div>
+                <p className="text-sm text-gray-500">Total Campaigns</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(overview.totalCampaigns)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Messages Sent</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(overview.messagesSent)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Subscribers</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(overview.subscribers)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* All Campaigns */}
         <Card>
