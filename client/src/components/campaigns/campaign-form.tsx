@@ -32,6 +32,7 @@ interface CampaignFormProps {
   onCancel: () => void;
   pending?: boolean;
   submitLabel?: string;
+  disabled?: boolean;
 }
 
 export default function CampaignForm({
@@ -40,6 +41,7 @@ export default function CampaignForm({
   onCancel,
   pending,
   submitLabel = "Save",
+  disabled = false,
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
@@ -111,7 +113,11 @@ export default function CampaignForm({
           <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={!form.formState.isValid || pending} className="flex-1">
+          <Button
+            type="submit"
+            disabled={!form.formState.isValid || pending || disabled}
+            className="flex-1"
+          >
             {pending ? "Saving..." : submitLabel}
           </Button>
         </div>

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { normalizePhoneNumber } from "./phone.js";
+import { TwilioService } from "./services/twilio.js";
 import {
   insertContactSchema,
   insertCampaignSchema,
@@ -112,6 +113,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  app.get("/api/setup/status", async (_req, res) => {
+    try {
+      const contactStats = await storage.getContactStats();
+      res.json({
+        phoneConfigured: TwilioService.isConfigured(),
+        hasContacts: contactStats.allContacts > 0,
+      });
+    } catch (error) {
+      logError("Error fetching setup status:", error);
+      res.status(500).json({ message: "Failed to fetch setup status" });
     }
   });
 
