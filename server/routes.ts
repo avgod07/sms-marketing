@@ -8,6 +8,7 @@ import {
   insertCampaignSchema,
   insertMessageSchema,
   insertCouponSchema,
+  insertBusinessProfileSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -17,6 +18,10 @@ const loginSchema = z.object({
 });
 
 const signupSchema = loginSchema.extend({
+  businessName: z.string(),
+});
+
+const businessProfileSchema = insertBusinessProfileSchema.extend({
   businessName: z.string(),
 });
 import twilio from "twilio";
@@ -135,6 +140,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError("Error fetching setup status:", error);
       res.status(500).json({ message: "Failed to fetch setup status" });
+    }
+  });
+
+  app.get("/api/business-profile", async (req, res) => {
+    try {
+      const profile = await biz(req).getBusinessProfile();
+      res.json(profile || null);
+    } catch (error) {
+      logError("Error fetching business profile:", error);
+      res.status(500).json({ message: "Failed to fetch business profile" });
+    }
+  });
+
+  app.post("/api/business-profile", async (req, res) => {
+    try {
+      const data = businessProfileSchema.parse(req.body);
+      await biz(req).updateBusiness({ name: data.businessName });
+      const profile = await biz(req).upsertBusinessProfile(data);
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error saving business profile:", error);
+      res.status(500).json({ message: "Failed to save business profile" });
     }
   });
 

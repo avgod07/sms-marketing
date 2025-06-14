@@ -126,6 +126,36 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const businessProfiles = pgTable("business_profiles", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  addressStreet: text("address_street").notNull(),
+  addressCity: text("address_city").notNull(),
+  addressState: text("address_state").notNull(),
+  addressPostalCode: text("address_postal_code").notNull(),
+  addressCountry: text("address_country").notNull(),
+  organizationType: text("organization_type").notNull(),
+  companyStatus: text("company_status").notNull(),
+  stockTicker: text("stock_ticker"),
+  taxId: text("tax_id").notNull(),
+  industrySector: text("industry_sector").notNull(),
+  regionsOfOperation: text("regions_of_operation").notNull(),
+  repName: text("rep_name").notNull(),
+  repTitle: text("rep_title").notNull(),
+  repEmail: text("rep_email").notNull(),
+  repPhone: varchar("rep_phone", { length: 20 }).notNull(),
+  useCase: text("use_case").notNull(),
+  campaignDescription: text("campaign_description").notNull(),
+  sample1: text("sample1").notNull(),
+  sample2: text("sample2").notNull(),
+  status: text("status").default("provided").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -155,6 +185,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   couponRedemptions: many(couponRedemptions),
   couponRecipients: many(couponRecipients),
   analytics: many(analytics),
+  businessProfiles: many(businessProfiles),
 }));
 
 // Insert schemas
@@ -210,6 +241,14 @@ export const insertBusinessSchema = createInsertSchema(businesses).omit({
   createdAt: true,
 });
 
+export const insertBusinessProfileSchema =
+  createInsertSchema(businessProfiles).omit({
+    id: true,
+    businessId: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   businessId: true,
@@ -246,3 +285,6 @@ export type Analytics = typeof analytics.$inferSelect;
 
 export type Business = typeof businesses.$inferSelect;
 export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
+
+export type BusinessProfile = typeof businessProfiles.$inferSelect;
+export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;
