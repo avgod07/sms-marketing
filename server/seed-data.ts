@@ -8,18 +8,27 @@ export async function seedData() {
     // Ensure a default user exists for testing
     const defaultUsername = "user";
     const defaultPassword = "user";
-    const existingUser = await storage.getUserByUsername(defaultUsername);
-    if (!existingUser) {
-      const passwordHash = await bcrypt.hash(defaultPassword, 10);
-      await storage.createUser({ username: defaultUsername, passwordHash });
-      logInfo(`Created default user \"${defaultUsername}\"`);
-    }
+  const existingUser = await storage.getUserByUsername(defaultUsername);
+  let businessId: number;
+  if (!existingUser) {
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    const business = await storage.createBusiness({ name: "Default Business" });
+    await storage
+      .forBusiness(business.id)
+      .createUser({ username: defaultUsername, passwordHash });
+    logInfo(`Created default user \"${defaultUsername}\"`);
+    businessId = business.id;
+  } else {
+    businessId = existingUser.businessId;
+  }
     logInfo(
       `Default credentials: username \"${defaultUsername}\" / password \"${defaultPassword}\"`,
     );
 
+    const biz = storage.forBusiness(businessId);
+
     // Check if we already have contact data
-    const existingContacts = await storage.getContacts();
+    const existingContacts = await biz.getContacts();
     if (existingContacts.length > 0) {
       logInfo("Sample data already exists, skipping seed");
       return;
@@ -72,7 +81,7 @@ export async function seedData() {
     ];
 
     for (const contact of sampleContacts) {
-      await storage.createContact(contact);
+      await biz.createContact(contact);
     }
 
     // Add sample campaigns
@@ -98,7 +107,7 @@ export async function seedData() {
     ];
 
     for (const campaign of sampleCampaigns) {
-      await storage.createCampaign(campaign);
+      await biz.createCampaign(campaign);
     }
 
     // Add sample coupons
@@ -137,7 +146,7 @@ export async function seedData() {
     ];
 
     for (const coupon of sampleCoupons) {
-      await storage.createCoupon(coupon);
+      await biz.createCoupon(coupon);
     }
 
     logInfo("Sample data seeded successfully!");
