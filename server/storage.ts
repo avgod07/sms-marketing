@@ -31,6 +31,9 @@ import {
   twilioCredentials,
   type TwilioCredential,
   type InsertTwilioCredential,
+  businessPhoneNumbers,
+  type BusinessPhoneNumber,
+  type InsertBusinessPhoneNumber,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "./db";
@@ -48,6 +51,8 @@ export interface IStorage {
   upsertTwilioCredentials(
     creds: InsertTwilioCredential & { messagingServiceSid?: string }
   ): Promise<TwilioCredential>;
+  getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
+  setPhoneNumbers(numbers: InsertBusinessPhoneNumber[]): Promise<BusinessPhoneNumber[]>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContactsBySegment(segment: string): Promise<Contact[]>;
@@ -1019,6 +1024,28 @@ export class DatabaseStorage implements IStorage {
       .values({ ...creds, businessId: this.businessId! })
       .returning();
     return row;
+  }
+
+  async getPhoneNumbers(): Promise<BusinessPhoneNumber[]> {
+    return await db
+      .select()
+      .from(businessPhoneNumbers)
+      .where(eq(businessPhoneNumbers.businessId, this.businessId!))
+      .orderBy(desc(businessPhoneNumbers.createdAt));
+  }
+
+  async setPhoneNumbers(
+    numbers: InsertBusinessPhoneNumber[],
+  ): Promise<BusinessPhoneNumber[]> {
+    await db
+      .delete(businessPhoneNumbers)
+      .where(eq(businessPhoneNumbers.businessId, this.businessId!));
+    if (numbers.length === 0) return [];
+    const rows = await db
+      .insert(businessPhoneNumbers)
+      .values(numbers.map(n => ({ ...n, businessId: this.businessId! })))
+      .returning();
+    return rows;
   }
 
   // Users
