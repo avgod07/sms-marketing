@@ -26,6 +26,7 @@ const businessProfileSchema = insertBusinessProfileSchema.extend({
 });
 import twilio from "twilio";
 import { executeCampaign } from "./services/campaign.js";
+import { registerBusinessForA2P } from "./services/a2p.js";
 import passport from "passport";
 import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "./auth";
@@ -278,6 +279,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logError("Error saving phone numbers:", error);
       res.status(500).json({ message: "Failed to save phone numbers" });
+    }
+  });
+
+  app.post("/api/twilio/a2p/register", async (req, res) => {
+    try {
+      const creds = await biz(req).getTwilioCredentials();
+      const profile = await biz(req).getBusinessProfile();
+      const business = await biz(req).getBusiness();
+      if (!creds || !profile) {
+        return res.status(400).json({ message: "Missing profile or credentials" });
+      }
+      const result = await registerBusinessForA2P(creds, business, profile);
+      await biz(req).upsertBusinessProfile({
+        ...profile,
+        customerProfileSid: result.customerProfileSid,
+        brandSid: result.brandSid,
+        campaignSid: result.campaignSid,
+        registrationStatus: result.status,
+      });
+      res.json({ status: result.status });
+    } catch (error) {
+      logError("Error registering A2P:", error);
+      res.status(500).json({ message: "Failed to register A2P" });
     }
   });
 
