@@ -33,7 +33,7 @@ import { logError, logInfo } from "./logger";
 import { nanoid } from "nanoid";
 import { createRateLimiter } from "./rate-limit";
 import { validateCoupon } from "./coupon-middleware";
-import { encrypt } from "./utils/encryption";
+import { encrypt, decrypt } from "./utils/encryption";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
@@ -212,6 +212,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logError("Error connecting Twilio:", error);
       res.status(500).json({ message: "Failed to connect Twilio account" });
+    }
+  });
+
+  app.get("/api/twilio/numbers", async (req, res) => {
+    try {
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const numbers = await client.incomingPhoneNumbers.list();
+      res.json(
+        numbers.map((n: any) => ({
+          sid: n.sid,
+          phoneNumber: n.phoneNumber,
+          friendlyName: n.friendlyName,
+        }))
+      );
+    } catch (error) {
+      logError("Error fetching phone numbers:", error);
+      res.status(500).json({ message: "Failed to fetch phone numbers" });
+    }
+  });
+
+  const numberSchema = z.object({
+    defaultSid: z.string(),
+    sids: z.array(z.string()),
+  });
+
+  app.post("/api/twilio/numbers", async (req, res) => {
+    try {
+      const data = numberSchema.parse(req.body);
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+
+      const fetched = await Promise.all(
+        data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
+      );
+
+      for (const num of fetched) {
+        if (creds.messagingServiceSid) {
+          await client.messaging
+            .services(creds.messagingServiceSid)
+            .phoneNumbers.create({ phoneNumberSid: num.sid });
+        }
+        await client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl });
+      }
+
+      const records = await biz(req).setPhoneNumbers(
+        fetched.map((n) => ({
+          phoneNumber: n.phoneNumber,
+          isDefault: n.sid === data.defaultSid,
+        }))
+      );
+
+      res.json(records);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error saving phone numbers:", error);
+      res.status(500).json({ message: "Failed to save phone numbers" });
     }
   });
 
