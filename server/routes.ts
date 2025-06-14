@@ -1,6 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import {
+  storage,
+  findTwilioCredentialByAccountSid,
+  findBusinessIdByPhoneNumber,
+} from "./storage";
 import { normalizePhoneNumber } from "./phone.js";
 import { TwilioService } from "./services/twilio.js";
 import {
@@ -115,6 +119,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError("Error processing Twilio webhook:", error);
       res.status(500).json({ message: "Failed to process webhook" });
+    }
+  });
+
+  // Inbound message webhook for all businesses
+  app.post("/webhooks/twilio-inbound", async (req, res) => {
+    try {
+      const { AccountSid, From, To, Body } = req.body as any;
+
+      let creds = await findTwilioCredentialByAccountSid(AccountSid);
+      let businessId = creds?.businessId;
+      if (!businessId && To) {
+        businessId = await findBusinessIdByPhoneNumber(To);
+        if (businessId) {
+          creds = await storage.forBusiness(businessId).getTwilioCredentials();
+        }
+      }
+
+      if (!businessId || !creds) {
+        logError("Unknown inbound message", { AccountSid, To });
+        return res.status(400).send("Unknown account");
+      }
+
+      const signature = req.get("x-twilio-signature") || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+      const token = decrypt(creds.authTokenEncrypted);
+      const valid = twilio.validateRequest(token, signature, url, req.body);
+      if (!valid) {
+        return res.status(403).send("Invalid Twilio signature");
+      }
+
+      const bizStore = storage.forBusiness(businessId);
+      const normalizedFrom = normalizePhoneNumber(From);
+      let contact = await bizStore.getContactByPhoneNumber(normalizedFrom);
+      if (!contact) {
+        contact = await bizStore.createContact({
+          firstName: "SMS",
+          lastName: "Contact",
+          phoneNumber: normalizedFrom,
+          segment: "all",
+          status: "active",
+        });
+      }
+
+      await bizStore.createMessage({
+        phoneNumber: normalizedFrom,
+        contactId: contact.id,
+        content: Body || "",
+        status: "received",
+      });
+
+      res.status(200).send("OK");
+    } catch (error) {
+      logError("Error processing inbound webhook:", error);
+      res.status(500).json({ message: "Failed to process inbound message" });
     }
   });
 
@@ -452,7 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertCampaignSchema.parse(req.body);
       const campaign = await biz(req).createCampaign(validatedData);
 
-      const results = await executeCampaign(campaign.id);
+      const results = await executeCampaign(biz(req), campaign.id);
 
       res.status(201).json({
         campaign,
@@ -532,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Campaign not found" });
       }
 
-      const results = await executeCampaign(campaignId);
+      const results = await executeCampaign(biz(req), campaignId);
 
       res.json({
         message: "Campaign sent successfully",

@@ -1,16 +1,27 @@
-import twilio from 'twilio';
+import twilio from "twilio";
+import type { TwilioCredential } from "@shared/schema";
+import { decrypt } from "../utils/encryption";
 
-// Twilio configuration - these will be set via environment variables
-const accountSid = process.env.TWILIO_ACCOUNT_SID || 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-const authToken = process.env.TWILIO_AUTH_TOKEN || 'your_auth_token_here';
-const phoneNumber = process.env.TWILIO_PHONE_NUMBER || '+1234567890';
+// Global fallback configuration for development/testing
+const fallbackSid = process.env.TWILIO_ACCOUNT_SID || "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+const fallbackToken = process.env.TWILIO_AUTH_TOKEN || "your_auth_token_here";
+const fallbackNumber = process.env.TWILIO_PHONE_NUMBER || "+1234567890";
 
-// Initialize Twilio client
-const client = twilio(accountSid, authToken);
+// Cache clients per account for efficiency
+const clientCache = new Map<string, twilio.Twilio>();
+function getClient(accountSid: string, token: string) {
+  const existing = clientCache.get(accountSid);
+  if (existing) return existing;
+  const client = twilio(accountSid, token);
+  clientCache.set(accountSid, client);
+  return client;
+}
 
 export interface SMSMessage {
   to: string;
   message: string;
+  from?: string;
+  messagingServiceSid?: string;
   campaignId?: number;
   contactId?: number;
 }
@@ -22,44 +33,50 @@ export interface SMSResult {
 }
 
 export class TwilioService {
-  static async sendSMS(smsData: SMSMessage): Promise<SMSResult> {
+  static async sendSMS(
+    creds: TwilioCredential | undefined,
+    smsData: SMSMessage,
+  ): Promise<SMSResult> {
     try {
-      // Check if Twilio is properly configured
-      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-        console.warn('Twilio credentials not configured. SMS will be simulated.');
-        return {
-          success: true,
-          messageSid: `sim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        };
-      }
+      // Fallback to env configuration if creds not provided
+      const sid = creds ? creds.accountSid : fallbackSid;
+      const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
+      const client = getClient(sid, token);
 
-      const message = await client.messages.create({
+      const params: any = {
         body: smsData.message,
-        from: phoneNumber,
         to: smsData.to,
-      });
+      };
+
+      if (smsData.messagingServiceSid) params.messagingServiceSid = smsData.messagingServiceSid;
+      else params.from = smsData.from || fallbackNumber;
+
+      const message = await client.messages.create(params);
 
       return {
         success: true,
         messageSid: message.sid,
       };
     } catch (error: any) {
-      console.error('Twilio SMS Error:', error);
+      console.error("Twilio SMS Error:", error);
       return {
         success: false,
-        error: error.message || 'Failed to send SMS',
+        error: error.message || "Failed to send SMS",
       };
     }
   }
 
-  static async sendBulkSMS(messages: SMSMessage[]): Promise<SMSResult[]> {
+  static async sendBulkSMS(
+    creds: TwilioCredential | undefined,
+    messages: SMSMessage[],
+  ): Promise<SMSResult[]> {
     const results: SMSResult[] = [];
     
     // Send messages in batches to avoid rate limits
     const batchSize = 10;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
-      const batchPromises = batch.map(msg => this.sendSMS(msg));
+      const batchPromises = batch.map(msg => this.sendSMS(creds, msg));
       const batchResults = await Promise.all(batchPromises);
       results.push(...batchResults);
       

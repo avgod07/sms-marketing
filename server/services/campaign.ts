@@ -1,27 +1,26 @@
-import { storage } from "../storage";
+import type { IStorage } from "../storage";
 import { TwilioService } from "./twilio";
-import type { Campaign } from "@shared/schema";
 
-export async function executeCampaign(campaignId: number) {
-  const campaign = await storage.getCampaign(campaignId);
+export async function executeCampaign(bizStorage: IStorage, campaignId: number) {
+  const campaign = await bizStorage.getCampaign(campaignId);
   if (!campaign) {
     throw new Error("Campaign not found");
   }
 
-  const contacts = await storage.getContactsBySegment(campaign.audience);
+  const contacts = await bizStorage.getContactsBySegment(campaign.audience);
 
   if (contacts.length === 0) {
     return { sentCount: 0, totalContacts: 0 };
   }
 
-  const allCoupons = await storage.getCoupons();
+  const allCoupons = await bizStorage.getCoupons();
   const campaignCoupons = allCoupons.filter(c =>
     campaign.message.includes(c.code),
   );
 
   for (const contact of contacts) {
     for (const coupon of campaignCoupons) {
-      await storage.createCouponRecipient({
+      await bizStorage.createCouponRecipient({
         campaignId: campaign.id,
         contactId: contact.id,
         couponId: coupon.id,
@@ -29,14 +28,20 @@ export async function executeCampaign(campaignId: number) {
     }
   }
 
+  const creds = await bizStorage.getTwilioCredentials();
+  const numbers = await bizStorage.getPhoneNumbers();
+  const defaultNumber = numbers.find(n => n.isDefault)?.phoneNumber;
+
   const smsMessages = contacts.map(contact => ({
     to: contact.phoneNumber,
     message: campaign.message,
     campaignId: campaign.id,
     contactId: contact.id,
+    from: defaultNumber,
+    messagingServiceSid: creds?.messagingServiceSid || undefined,
   }));
 
-  const results = await TwilioService.sendBulkSMS(smsMessages);
+  const results = await TwilioService.sendBulkSMS(creds, smsMessages);
 
   let sentCount = 0;
   let deliveredCount = 0;
@@ -53,7 +58,7 @@ export async function executeCampaign(campaignId: number) {
       campaignId: campaign.id,
     };
 
-    await storage.createMessage(messageData);
+    await bizStorage.createMessage(messageData);
 
     if (result.success) {
       sentCount++;
@@ -61,7 +66,7 @@ export async function executeCampaign(campaignId: number) {
     }
   }
 
-  await storage.updateCampaign(campaignId, {
+  await bizStorage.updateCampaign(campaignId, {
     status: "completed",
     sentCount: (campaign.sentCount || 0) + sentCount,
     deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
