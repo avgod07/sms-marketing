@@ -15,31 +15,44 @@ import Help from "@/pages/help";
 import Coupons from "@/pages/coupons";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
+import OnboardingPage from "@/pages/onboarding";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 
 function Router() {
   const [location, navigate] = useLocation();
   const { data: user, isLoading } = useAuth();
+  const { data: setup, isLoading: setupLoading } = useSetupStatus(!!user);
 
   const isAuthPage = location === "/login" || location === "/signup";
+  const isOnboardingPage = location.startsWith("/onboarding");
+  const onboardingDone = localStorage.getItem("onboardingComplete") === "true";
+  const needsOnboarding =
+    user && !onboardingDone &&
+    setup && (!setup.phoneConfigured || !setup.hasContacts);
 
   useEffect(() => {
     if (!isLoading && !user && !isAuthPage) {
       navigate("/login");
     }
-    if (!isLoading && user && isAuthPage) {
-      navigate("/");
+    if (!isLoading && !setupLoading && user) {
+      if (needsOnboarding) {
+        if (!isOnboardingPage) navigate("/onboarding");
+      } else {
+        if (isAuthPage || isOnboardingPage) navigate("/");
+      }
     }
-  }, [isLoading, user, isAuthPage, navigate]);
+  }, [isLoading, setupLoading, user, needsOnboarding, isAuthPage, isOnboardingPage, navigate]);
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {!isAuthPage && <Sidebar />}
+      {!isAuthPage && !isOnboardingPage && <Sidebar />}
       <main className="flex-1 overflow-y-auto">
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
+          <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/" component={Dashboard} />
           <Route path="/contacts" component={Contacts} />
           <Route path="/campaigns/new" component={NewCampaignPage} />
