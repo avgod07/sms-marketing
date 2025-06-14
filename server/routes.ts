@@ -28,6 +28,10 @@ import { validateCoupon } from "./coupon-middleware";
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
   await storage.normalizeCampaignStatuses();
+
+  function biz(req: any) {
+    return storage.forBusiness(req.user.businessId);
+  }
   // Authentication routes
   app.post("/api/signup", async (req, res) => {
     try {
@@ -37,7 +41,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User already exists" });
       }
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ username, passwordHash });
+      const business = await storage.createBusiness({ name: `${username}'s business` });
+      const user = await storage.forBusiness(business.id).createUser({ username, passwordHash });
       req.login(user, (err: any) => {
         if (err) throw err;
         res.status(201).json({ message: "Signed up" });
@@ -89,10 +94,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (MessageStatus === "delivered") status = "delivered";
       else if (MessageStatus === "failed" || MessageStatus === "undelivered") status = "failed";
 
-      const messages = await storage.getMessages();
+      const messages = await biz(req).getMessages();
       const message = messages.find(m => m.phoneNumber === To && m.status !== "delivered" && m.status !== "failed");
       if (message) {
-        await storage.updateMessageStatus(message.id, status, status === "delivered" ? new Date() : undefined);
+        await biz(req).updateMessageStatus(message.id, status, status === "delivered" ? new Date() : undefined);
       }
 
       res.status(200).send("OK");
@@ -108,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard routes
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const stats = await biz(req).getDashboardStats();
       res.json(stats);
     } catch (error) {
       logError("Error fetching dashboard stats:", error);
@@ -116,9 +121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/setup/status", async (_req, res) => {
+  app.get("/api/setup/status", async (req, res) => {
     try {
-      const contactStats = await storage.getContactStats();
+      const contactStats = await biz(req).getContactStats();
       res.json({
         phoneConfigured: TwilioService.isConfigured(),
         hasContacts: contactStats.allContacts > 0,
@@ -140,13 +145,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let contacts;
       if (search) {
-        contacts = await storage.searchContacts(search, status);
+        contacts = await biz(req).searchContacts(search, status);
       } else if (status) {
-        contacts = await storage.getContactsByStatus(status);
+        contacts = await biz(req).getContactsByStatus(status);
       } else if (segment) {
-        contacts = await storage.getContactsBySegment(segment);
+        contacts = await biz(req).getContactsBySegment(segment);
       } else {
-        contacts = await storage.getContacts();
+        contacts = await biz(req).getContacts();
       }
       
       res.json(contacts);
@@ -170,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contacts/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const contact = await storage.getContact(id);
+      const contact = await biz(req).getContact(id);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
@@ -184,11 +189,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contacts/:id/redemptions", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const contact = await storage.getContact(id);
+      const contact = await biz(req).getContact(id);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      const redemptions = await storage.getContactRedemptions(id);
+      const redemptions = await biz(req).getContactRedemptions(id);
       res.json(redemptions);
     } catch (error) {
       logError("Error fetching contact redemptions:", error);
@@ -199,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contacts", async (req, res) => {
     try {
       const validatedData = insertContactSchema.parse(req.body);
-      const contact = await storage.createContact(validatedData);
+      const contact = await biz(req).createContact(validatedData);
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -214,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertContactSchema.partial().parse(req.body);
-      const contact = await storage.updateContact(id, validatedData);
+      const contact = await biz(req).updateContact(id, validatedData);
       res.json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -228,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/contacts/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteContact(id);
+      await biz(req).deleteContact(id);
       res.status(204).send();
     } catch (error) {
       logError("Error deleting contact:", error);
@@ -239,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Campaign routes
   app.get("/api/campaigns", async (req, res) => {
     try {
-      const campaigns = await storage.getCampaigns();
+      const campaigns = await biz(req).getCampaigns();
       res.json(campaigns);
     } catch (error) {
       logError("Error fetching campaigns:", error);
@@ -249,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/campaigns/stats", async (req, res) => {
     try {
-      const stats = await storage.getCampaignStats();
+      const stats = await biz(req).getCampaignStats();
       res.json(stats);
     } catch (error) {
       logError("Error fetching campaign stats:", error);
@@ -260,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/campaigns/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const campaign = await storage.getCampaign(id);
+      const campaign = await biz(req).getCampaign(id);
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
@@ -274,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns", async (req, res) => {
     try {
       const validatedData = insertCampaignSchema.parse(req.body);
-      const campaign = await storage.createCampaign(validatedData);
+      const campaign = await biz(req).createCampaign(validatedData);
 
       const results = await executeCampaign(campaign.id);
 
@@ -295,7 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/campaigns/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const existing = await storage.getCampaign(id);
+      const existing = await biz(req).getCampaign(id);
       if (!existing) {
         return res.status(404).json({ message: "Campaign not found" });
       }
@@ -303,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Completed campaigns cannot be edited" });
       }
       const validatedData = insertCampaignSchema.partial().parse(req.body);
-      const campaign = await storage.updateCampaign(id, validatedData);
+      const campaign = await biz(req).updateCampaign(id, validatedData);
       res.json(campaign);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -317,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/campaigns/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteCampaign(id);
+      await biz(req).deleteCampaign(id);
       res.status(204).send();
     } catch (error) {
       logError("Error deleting campaign:", error);
@@ -328,11 +333,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns/:id/duplicate", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const campaign = await storage.getCampaign(id);
+      const campaign = await biz(req).getCampaign(id);
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
-      const copy = await storage.createCampaign({
+      const copy = await biz(req).createCampaign({
         name: `${campaign.name} (Copy)`,
         message: campaign.message,
         audience: campaign.audience,
@@ -350,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns/:id/send", async (req, res) => {
     try {
       const campaignId = parseInt(req.params.id);
-      const campaign = await storage.getCampaign(campaignId);
+      const campaign = await biz(req).getCampaign(campaignId);
 
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
@@ -380,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate?: string;
       };
 
-      const coupons = await storage.searchCoupons({
+      const coupons = await biz(req).searchCoupons({
         search,
         status,
         type,
@@ -397,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/coupons/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const coupon = await storage.getCoupon(id);
+      const coupon = await biz(req).getCoupon(id);
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
@@ -415,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
-      const redemptions = await storage.getCouponRedemptions(id);
+      const redemptions = await biz(req).getCouponRedemptions(id);
       res.json(redemptions);
     } catch (error) {
       logError("Error fetching coupon redemptions:", error);
@@ -436,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.validDays = Number(data.validDays);
       }
       const validatedData = insertCouponSchema.parse(data);
-      const coupon = await storage.createCoupon(validatedData);
+      const coupon = await biz(req).createCoupon(validatedData);
       res.status(201).json(coupon);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -461,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.validDays = Number(data.validDays);
       }
       const validatedData = insertCouponSchema.partial().parse(data);
-      const coupon = await storage.updateCoupon(id, validatedData);
+      const coupon = await biz(req).updateCoupon(id, validatedData);
       res.json(coupon);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -488,12 +493,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const phoneNumber = normalizePhoneNumber(rawPhone);
 
-      const contact = await storage.getContactByPhoneNumber(phoneNumber);
+      const contact = await biz(req).getContactByPhoneNumber(phoneNumber);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
 
-      const received = await storage.hasContactReceivedCoupon(contact.id, code);
+      const received = await biz(req).hasContactReceivedCoupon(contact.id, code);
       if (!received) {
         return res.status(400).json({
           message:
@@ -501,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const alreadyRedeemed = await storage.hasContactRedeemedCoupon(
+      const alreadyRedeemed = await biz(req).hasContactRedeemedCoupon(
         contact.id,
         coupon.id,
       );
@@ -514,10 +519,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const contactId = contact.id;
 
       const currentCount = coupon.usageCount ?? 0;
-      const updated = await storage.updateCoupon(coupon.id, {
+      const updated = await biz(req).updateCoupon(coupon.id, {
         usageCount: currentCount + 1,
       });
-      await storage.createCouponRedemption({
+      await biz(req).createCouponRedemption({
         couponId: coupon.id,
         contactId,
         phoneNumber,
@@ -539,7 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/coupons/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteCoupon(id);
+      await biz(req).deleteCoupon(id);
       res.status(204).send();
     } catch (error) {
       logError("Error deleting coupon:", error);
@@ -554,9 +559,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let messages;
       if (campaignId) {
-        messages = await storage.getMessagesByCampaign(parseInt(campaignId as string));
+        messages = await biz(req).getMessagesByCampaign(parseInt(campaignId as string));
       } else {
-        messages = await storage.getMessages();
+        messages = await biz(req).getMessages();
       }
       
       res.json(messages);
@@ -569,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/messages", async (req, res) => {
     try {
       const validatedData = insertMessageSchema.parse(req.body);
-      const message = await storage.createMessage(validatedData);
+      const message = await biz(req).createMessage({ ...validatedData });
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -584,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { status, deliveredAt } = req.body;
-      const message = await storage.updateMessageStatus(id, status, deliveredAt ? new Date(deliveredAt) : undefined);
+      const message = await biz(req).updateMessageStatus(id, status, deliveredAt ? new Date(deliveredAt) : undefined);
       res.json(message);
     } catch (error) {
       logError("Error updating message status:", error);
