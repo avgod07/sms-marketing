@@ -1081,3 +1081,24 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+export async function findTwilioCredentialByAccountSid(
+  accountSid: string,
+): Promise<TwilioCredential | undefined> {
+  const [row] = await db
+    .select()
+    .from(twilioCredentials)
+    .where(eq(twilioCredentials.accountSid, accountSid));
+  return row || undefined;
+}
+
+export async function findBusinessIdByPhoneNumber(
+  phoneNumber: string,
+): Promise<number | undefined> {
+  const normalized = normalizePhoneNumber(phoneNumber);
+  const [row] = await db
+    .select({ businessId: businessPhoneNumbers.businessId })
+    .from(businessPhoneNumbers)
+    .where(eq(businessPhoneNumbers.phoneNumber, normalized));
+  return row?.businessId;
+}
