@@ -3,8 +3,17 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const businesses = pgTable("businesses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
@@ -17,6 +26,9 @@ export const contacts = pgTable("contacts", {
 
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   name: text("name").notNull(),
   message: text("message").notNull(),
   audience: text("audience").notNull(), // all, active, inactive
@@ -31,6 +43,9 @@ export const campaigns = pgTable("campaigns", {
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   campaignId: integer("campaign_id").references(() => campaigns.id),
   contactId: integer("contact_id").references(() => contacts.id).notNull(),
   content: text("content").notNull(),
@@ -43,6 +58,9 @@ export const messages = pgTable("messages", {
 
 export const coupons = pgTable("coupons", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   code: text("code").notNull().unique(),
   label: text("label"),
   type: text("type").notNull(), // percent, amount
@@ -57,6 +75,9 @@ export const coupons = pgTable("coupons", {
 
 export const couponRedemptions = pgTable("coupon_redemptions", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   couponId: integer("coupon_id")
     .references(() => coupons.id)
     .notNull(),
@@ -68,6 +89,9 @@ export const couponRedemptions = pgTable("coupon_redemptions", {
 
 export const couponRecipients = pgTable("coupon_recipients", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   couponId: integer("coupon_id")
     .references(() => coupons.id)
     .notNull(),
@@ -82,6 +106,9 @@ export const couponRecipients = pgTable("coupon_recipients", {
 
 export const analytics = pgTable("analytics", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   date: timestamp("date").defaultNow().notNull(),
   totalContacts: integer("total_contacts").default(0),
   messagesSent: integer("messages_sent").default(0),
@@ -91,6 +118,9 @@ export const analytics = pgTable("analytics", {
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -116,15 +146,28 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+export const businessesRelations = relations(businesses, ({ many }) => ({
+  users: many(users),
+  contacts: many(contacts),
+  campaigns: many(campaigns),
+  messages: many(messages),
+  coupons: many(coupons),
+  couponRedemptions: many(couponRedemptions),
+  couponRecipients: many(couponRecipients),
+  analytics: many(analytics),
+}));
+
 // Insert schemas
 export const insertContactSchema = createInsertSchema(contacts).omit({
   id: true,
+  businessId: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   id: true,
+  businessId: true,
   createdAt: true,
   updatedAt: true,
   sentCount: true,
@@ -134,6 +177,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
 
 export const insertMessageSchema = createInsertSchema(messages).omit({
   id: true,
+  businessId: true,
   createdAt: true,
   sentAt: true,
   deliveredAt: true,
@@ -141,6 +185,7 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
   id: true,
+  businessId: true,
   createdAt: true,
   updatedAt: true,
   usageCount: true,
@@ -149,17 +194,25 @@ export const insertCouponSchema = createInsertSchema(coupons).omit({
 export const insertCouponRedemptionSchema =
   createInsertSchema(couponRedemptions).omit({
     id: true,
+    businessId: true,
     createdAt: true,
   });
 
 export const insertCouponRecipientSchema =
   createInsertSchema(couponRecipients).omit({
     id: true,
+    businessId: true,
     createdAt: true,
   });
 
+export const insertBusinessSchema = createInsertSchema(businesses).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
+  businessId: true,
   createdAt: true,
 });
 
@@ -190,3 +243,6 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Analytics = typeof analytics.$inferSelect;
+
+export type Business = typeof businesses.$inferSelect;
+export type InsertBusiness = z.infer<typeof insertBusinessSchema>;

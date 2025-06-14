@@ -7,6 +7,7 @@ import {
   couponRecipients,
   analytics,
   users,
+  businesses,
   type Contact,
   type InsertContact,
   type Campaign,
@@ -22,6 +23,8 @@ import {
   type Analytics,
   type User,
   type InsertUser,
+  type Business,
+  type InsertBusiness,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "./db";
@@ -29,6 +32,8 @@ import { eq, desc, count, sql } from "drizzle-orm";
 import { normalizePhoneNumber } from "./phone";
 
 export interface IStorage {
+  forBusiness(businessId: number): IStorage;
+  createBusiness(business: InsertBusiness): Promise<Business>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContactsBySegment(segment: string): Promise<Contact[]>;
@@ -118,6 +123,12 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  constructor(private businessId?: number) {}
+
+  forBusiness(businessId: number): IStorage {
+    return new DatabaseStorage(businessId);
+  }
+
   private normalizeCouponStatus(coupon: Coupon): Coupon {
     const isExpired =
       (coupon.expirationDate && new Date(coupon.expirationDate) < new Date()) ||
@@ -131,7 +142,11 @@ export class DatabaseStorage implements IStorage {
   }
   // Contacts
   async getContacts(): Promise<Contact[]> {
-    return await db.select().from(contacts).orderBy(desc(contacts.createdAt));
+    const base = db.select().from(contacts);
+    const q = this.businessId !== undefined
+      ? base.where(eq(contacts.businessId, this.businessId))
+      : base;
+    return await q.orderBy(desc(contacts.createdAt));
   }
 
   async getContactsBySegment(segment: string): Promise<Contact[]> {
@@ -142,14 +157,22 @@ export class DatabaseStorage implements IStorage {
       return await db
         .select()
         .from(contacts)
-        .where(eq(contacts.status, segment))
+        .where(
+          this.businessId !== undefined
+            ? sql`${contacts.status} = ${segment} AND ${contacts.businessId} = ${this.businessId}`
+            : eq(contacts.status, segment),
+        )
         .orderBy(desc(contacts.createdAt));
     }
-    return await db
-      .select()
-      .from(contacts)
-      .where(eq(contacts.segment, segment))
-      .orderBy(desc(contacts.createdAt));
+      return await db
+        .select()
+        .from(contacts)
+        .where(
+          this.businessId !== undefined
+            ? sql`${contacts.segment} = ${segment} AND ${contacts.businessId} = ${this.businessId}`
+            : eq(contacts.segment, segment),
+        )
+        .orderBy(desc(contacts.createdAt));
   }
 
   async getContactsByStatus(status: string): Promise<Contact[]> {
@@ -159,7 +182,11 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(contacts)
-      .where(eq(contacts.status, status))
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.status} = ${status} AND ${contacts.businessId} = ${this.businessId}`
+          : eq(contacts.status, status),
+      )
       .orderBy(desc(contacts.createdAt));
   }
 
@@ -167,7 +194,11 @@ export class DatabaseStorage implements IStorage {
     const [contact] = await db
       .select()
       .from(contacts)
-      .where(eq(contacts.id, id));
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${this.businessId}`
+          : eq(contacts.id, id),
+      );
     return contact || undefined;
   }
 
@@ -176,6 +207,7 @@ export class DatabaseStorage implements IStorage {
       .insert(contacts)
       .values({
         ...contact,
+        businessId: this.businessId!,
         updatedAt: new Date(),
       })
       .returning();
@@ -192,22 +224,46 @@ export class DatabaseStorage implements IStorage {
         ...contact,
         updatedAt: new Date(),
       })
-      .where(eq(contacts.id, id))
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${this.businessId}`
+          : eq(contacts.id, id),
+      )
       .returning();
     return updatedContact;
   }
 
   async deleteContact(id: number): Promise<void> {
     await db.transaction(async (tx) => {
-      await tx.delete(messages).where(eq(messages.contactId, id));
+      await tx
+        .delete(messages)
+        .where(
+          this.businessId !== undefined
+            ? sql`${messages.contactId} = ${id} AND ${messages.businessId} = ${this.businessId}`
+            : eq(messages.contactId, id),
+        );
       await tx
         .delete(couponRecipients)
-        .where(eq(couponRecipients.contactId, id));
+        .where(
+          this.businessId !== undefined
+            ? sql`${couponRecipients.contactId} = ${id} AND ${couponRecipients.businessId} = ${this.businessId}`
+            : eq(couponRecipients.contactId, id),
+        );
       await tx
         .update(couponRedemptions)
         .set({ contactId: null })
-        .where(eq(couponRedemptions.contactId, id));
-      await tx.delete(contacts).where(eq(contacts.id, id));
+        .where(
+          this.businessId !== undefined
+            ? sql`${couponRedemptions.contactId} = ${id} AND ${couponRedemptions.businessId} = ${this.businessId}`
+            : eq(couponRedemptions.contactId, id),
+        );
+      await tx
+        .delete(contacts)
+        .where(
+          this.businessId !== undefined
+            ? sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${this.businessId}`
+            : eq(contacts.id, id),
+        );
     });
   }
 
@@ -217,10 +273,13 @@ export class DatabaseStorage implements IStorage {
       status && status !== "all"
         ? sql`(${searchSql}) AND ${contacts.status} = ${status}`
         : searchSql;
+    const finalWhere = this.businessId !== undefined
+      ? sql`(${whereClause}) AND ${contacts.businessId} = ${this.businessId}`
+        : searchSql;
     return await db
       .select()
       .from(contacts)
-      .where(whereClause)
+      .where(finalWhere)
       .orderBy(desc(contacts.createdAt));
   }
 
@@ -231,7 +290,11 @@ export class DatabaseStorage implements IStorage {
     const [contact] = await db
       .select()
       .from(contacts)
-      .where(eq(contacts.phoneNumber, normalized));
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.phoneNumber} = ${normalized} AND ${contacts.businessId} = ${this.businessId}`
+          : eq(contacts.phoneNumber, normalized),
+      );
     return contact || undefined;
   }
 
@@ -247,7 +310,9 @@ export class DatabaseStorage implements IStorage {
         eq(couponRecipients.couponId, coupons.id),
       )
       .where(
-        sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode}`,
+        this.businessId !== undefined
+          ? sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode} AND ${couponRecipients.businessId} = ${this.businessId}`
+          : sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode}`,
       )
       .limit(1);
     return !!row;
@@ -261,7 +326,9 @@ export class DatabaseStorage implements IStorage {
       .select({ id: couponRedemptions.id })
       .from(couponRedemptions)
       .where(
-        sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.couponId} = ${couponId}`,
+        this.businessId !== undefined
+          ? sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.couponId} = ${couponId} AND ${couponRedemptions.businessId} = ${this.businessId}`
+          : sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.couponId} = ${couponId}`,
       )
       .limit(1);
     return !!row;
@@ -269,14 +336,22 @@ export class DatabaseStorage implements IStorage {
 
   // Campaigns
   async getCampaigns(): Promise<Campaign[]> {
-    return await db.select().from(campaigns).orderBy(desc(campaigns.createdAt));
+    const base = db.select().from(campaigns);
+    const q = this.businessId !== undefined
+      ? base.where(eq(campaigns.businessId, this.businessId))
+      : base;
+    return await q.orderBy(desc(campaigns.createdAt));
   }
 
   async getCampaign(id: number): Promise<Campaign | undefined> {
     const [campaign] = await db
       .select()
       .from(campaigns)
-      .where(eq(campaigns.id, id));
+      .where(
+        this.businessId !== undefined
+          ? sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${this.businessId}`
+          : eq(campaigns.id, id),
+      );
     return campaign || undefined;
   }
 
@@ -285,6 +360,7 @@ export class DatabaseStorage implements IStorage {
       .insert(campaigns)
       .values({
         ...campaign,
+        businessId: this.businessId!,
         updatedAt: new Date(),
       })
       .returning();
@@ -301,30 +377,50 @@ export class DatabaseStorage implements IStorage {
         ...campaign,
         updatedAt: new Date(),
       })
-      .where(eq(campaigns.id, id))
+      .where(
+        this.businessId !== undefined
+          ? sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${this.businessId}`
+          : eq(campaigns.id, id),
+      )
       .returning();
     return updatedCampaign;
   }
 
   async deleteCampaign(id: number): Promise<void> {
-    await db.delete(campaigns).where(eq(campaigns.id, id));
+    await db
+      .delete(campaigns)
+      .where(
+        this.businessId !== undefined
+          ? sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${this.businessId}`
+          : eq(campaigns.id, id),
+      );
   }
 
   async normalizeCampaignStatuses(): Promise<void> {
+    const whereActive = this.businessId !== undefined
+      ? sql`${campaigns.status} IN ('active', 'paused') AND ${campaigns.businessId} = ${this.businessId}`
+      : sql`${campaigns.status} IN ('active', 'paused')`;
     await db
       .update(campaigns)
       .set({ status: "in_progress", updatedAt: new Date() })
-      .where(sql`${campaigns.status} IN ('active', 'paused')`);
+      .where(whereActive);
 
+    const whereCompleted = this.businessId !== undefined
+      ? sql`${campaigns.status} IN ('sent', 'finished') AND ${campaigns.businessId} = ${this.businessId}`
+      : sql`${campaigns.status} IN ('sent', 'finished')`;
     await db
       .update(campaigns)
       .set({ status: "completed", updatedAt: new Date() })
-      .where(sql`${campaigns.status} IN ('sent', 'finished')`);
+      .where(whereCompleted);
   }
 
   // Coupons
   async getCoupons(): Promise<Coupon[]> {
-    const rows = await db.select().from(coupons).orderBy(desc(coupons.createdAt));
+    const base = db.select().from(coupons);
+    const q = this.businessId !== undefined
+      ? base.where(eq(coupons.businessId, this.businessId))
+      : base;
+    const rows = await q.orderBy(desc(coupons.createdAt));
     return rows.map((c) => this.normalizeCouponStatus(c));
   }
 
@@ -332,7 +428,11 @@ export class DatabaseStorage implements IStorage {
     const [coupon] = await db
       .select()
       .from(coupons)
-      .where(eq(coupons.id, id));
+      .where(
+        this.businessId !== undefined
+          ? sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${this.businessId}`
+          : eq(coupons.id, id),
+      );
     return coupon ? this.normalizeCouponStatus(coupon) : undefined;
   }
 
@@ -340,7 +440,11 @@ export class DatabaseStorage implements IStorage {
     const [coupon] = await db
       .select()
       .from(coupons)
-      .where(eq(coupons.code, code));
+      .where(
+        this.businessId !== undefined
+          ? sql`${coupons.code} = ${code} AND ${coupons.businessId} = ${this.businessId}`
+          : eq(coupons.code, code),
+      );
     return coupon || undefined;
   }
 
@@ -349,6 +453,7 @@ export class DatabaseStorage implements IStorage {
       .insert(coupons)
       .values({
         ...coupon,
+        businessId: this.businessId!,
         updatedAt: new Date(),
       })
       .returning();
@@ -365,13 +470,23 @@ export class DatabaseStorage implements IStorage {
         ...coupon,
         updatedAt: new Date(),
       })
-      .where(eq(coupons.id, id))
+      .where(
+        this.businessId !== undefined
+          ? sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${this.businessId}`
+          : eq(coupons.id, id),
+      )
       .returning();
     return this.normalizeCouponStatus(updatedCoupon);
   }
 
   async deleteCoupon(id: number): Promise<void> {
-    await db.delete(coupons).where(eq(coupons.id, id));
+    await db
+      .delete(coupons)
+      .where(
+        this.businessId !== undefined
+          ? sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${this.businessId}`
+          : eq(coupons.id, id),
+      );
   }
 
   async createCouponRedemption(
@@ -379,7 +494,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<CouponRedemption> {
     const [newRedemption] = await db
       .insert(couponRedemptions)
-      .values(redemption)
+      .values({ ...redemption, businessId: this.businessId! })
       .returning();
     return newRedemption;
   }
@@ -389,7 +504,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<CouponRecipient> {
     const [record] = await db
       .insert(couponRecipients)
-      .values(recipient)
+      .values({ ...recipient, businessId: this.businessId! })
       .returning();
     return record;
   }
@@ -398,7 +513,11 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(couponRedemptions)
-      .where(eq(couponRedemptions.couponId, couponId))
+      .where(
+        this.businessId !== undefined
+          ? sql`${couponRedemptions.couponId} = ${couponId} AND ${couponRedemptions.businessId} = ${this.businessId}`
+          : eq(couponRedemptions.couponId, couponId),
+      )
       .orderBy(desc(couponRedemptions.createdAt));
   }
 
@@ -415,7 +534,11 @@ export class DatabaseStorage implements IStorage {
       })
       .from(couponRedemptions)
       .innerJoin(coupons, eq(couponRedemptions.couponId, coupons.id))
-      .where(eq(couponRedemptions.contactId, contactId))
+      .where(
+        this.businessId !== undefined
+          ? sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.businessId} = ${this.businessId}`
+          : eq(couponRedemptions.contactId, contactId),
+      )
       .orderBy(desc(couponRedemptions.createdAt));
   }
 
@@ -447,10 +570,17 @@ export class DatabaseStorage implements IStorage {
       whereClause = rest.reduce((acc, curr) => sql`${acc} AND ${curr}`, first);
     }
 
-    const query = db.select().from(coupons);
+    const base = db.select().from(coupons);
+    let rowsQuery = base;
+    if (this.businessId !== undefined) {
+      const businessClause = sql`${coupons.businessId} = ${this.businessId}`;
+      whereClause = whereClause
+        ? sql`${whereClause} AND ${businessClause}`
+        : businessClause;
+    }
     let rows = await (whereClause
-      ? query.where(whereClause).orderBy(desc(coupons.createdAt))
-      : query.orderBy(desc(coupons.createdAt)));
+      ? rowsQuery.where(whereClause).orderBy(desc(coupons.createdAt))
+      : rowsQuery.orderBy(desc(coupons.createdAt)));
     rows = rows.map((c) => this.normalizeCouponStatus(c));
     if (filters.status && filters.status !== "all") {
       rows = rows.filter((c) => c.status === filters.status);
@@ -460,19 +590,33 @@ export class DatabaseStorage implements IStorage {
 
   // Messages
   async getMessages(): Promise<Message[]> {
-    return await db.select().from(messages).orderBy(desc(messages.createdAt));
+    const base = db.select().from(messages);
+    const q = this.businessId !== undefined
+      ? base.where(eq(messages.businessId, this.businessId))
+      : base;
+    return await q.orderBy(desc(messages.createdAt));
   }
 
   async getMessagesByCampaign(campaignId: number): Promise<Message[]> {
-    return await db
-      .select()
-      .from(messages)
-      .where(eq(messages.campaignId, campaignId))
-      .orderBy(desc(messages.createdAt));
+    const q = this.businessId !== undefined
+      ? db
+          .select()
+          .from(messages)
+          .where(
+            sql`${messages.campaignId} = ${campaignId} AND ${messages.businessId} = ${this.businessId}`,
+          )
+      : db
+          .select()
+          .from(messages)
+          .where(eq(messages.campaignId, campaignId));
+    return await q.orderBy(desc(messages.createdAt));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const [newMessage] = await db.insert(messages).values(message).returning();
+    const [newMessage] = await db
+      .insert(messages)
+      .values({ ...message, businessId: this.businessId! })
+      .returning();
     return newMessage;
   }
 
@@ -492,7 +636,11 @@ export class DatabaseStorage implements IStorage {
     const [updatedMessage] = await db
       .update(messages)
       .set(updateData)
-      .where(eq(messages.id, id))
+      .where(
+        this.businessId !== undefined
+          ? sql`${messages.id} = ${id} AND ${messages.businessId} = ${this.businessId}`
+          : eq(messages.id, id),
+      )
       .returning();
     return updatedMessage;
   }
@@ -513,20 +661,36 @@ export class DatabaseStorage implements IStorage {
     const [messagesCount] = await db
       .select({ count: count() })
       .from(messages)
-      .where(eq(messages.status, "sent"));
+      .where(
+        this.businessId !== undefined
+          ? sql`${messages.status} = 'sent' AND ${messages.businessId} = ${this.businessId}`
+          : eq(messages.status, "sent"),
+      );
     const [campaignsCount] = await db
       .select({ count: count() })
       .from(campaigns)
-      .where(eq(campaigns.status, "in_progress"));
+      .where(
+        this.businessId !== undefined
+          ? sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${this.businessId}`
+          : eq(campaigns.status, "in_progress"),
+      );
 
     const [deliveredCount] = await db
       .select({ count: count() })
       .from(messages)
-      .where(eq(messages.status, "delivered"));
+      .where(
+        this.businessId !== undefined
+          ? sql`${messages.status} = 'delivered' AND ${messages.businessId} = ${this.businessId}`
+          : eq(messages.status, "delivered"),
+      );
     const [totalSentCount] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.status} IN ('sent', 'delivered')`);
+      .where(
+        this.businessId !== undefined
+          ? sql`${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.status} IN ('sent', 'delivered')`,
+      );
 
     const deliveryRate =
       totalSentCount.count > 0
@@ -542,63 +706,85 @@ export class DatabaseStorage implements IStorage {
     const [contactsThisMonth] = await db
       .select({ count: count() })
       .from(contacts)
-      .where(sql`${contacts.createdAt} >= ${startOfMonth}`);
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.createdAt} >= ${startOfMonth} AND ${contacts.businessId} = ${this.businessId}`
+          : sql`${contacts.createdAt} >= ${startOfMonth}`,
+      );
     const [contactsLastMonth] = await db
       .select({ count: count() })
       .from(contacts)
       .where(
-        sql`${contacts.createdAt} >= ${startOfLastMonth} AND ${contacts.createdAt} < ${startOfMonth}`,
+        this.businessId !== undefined
+          ? sql`${contacts.createdAt} >= ${startOfLastMonth} AND ${contacts.createdAt} < ${startOfMonth} AND ${contacts.businessId} = ${this.businessId}`
+          : sql`${contacts.createdAt} >= ${startOfLastMonth} AND ${contacts.createdAt} < ${startOfMonth}`,
       );
 
     const [messagesThisWeek] = await db
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
+        this.businessId !== undefined
+          ? sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
       );
     const [messagesLastWeek] = await db
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
+        this.businessId !== undefined
+          ? sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
       );
 
     const [deliveredThisWeek] = await db
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} = 'delivered'`,
+        this.businessId !== undefined
+          ? sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} = 'delivered' AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} = 'delivered'`,
       );
     const [sentThisWeek] = await db
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
+        this.businessId !== undefined
+          ? sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
       );
     const [deliveredLastWeek] = await db
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} = 'delivered'`,
+        this.businessId !== undefined
+          ? sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} = 'delivered' AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} = 'delivered'`,
       );
     const [sentLastWeek] = await db
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
+        this.businessId !== undefined
+          ? sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered')`,
       );
 
     const [campaignsThisMonth] = await db
       .select({ count: count() })
       .from(campaigns)
       .where(
-        sql`${campaigns.createdAt} >= ${startOfMonth} AND ${campaigns.status} = 'in_progress'`,
+        this.businessId !== undefined
+          ? sql`${campaigns.createdAt} >= ${startOfMonth} AND ${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${this.businessId}`
+          : sql`${campaigns.createdAt} >= ${startOfMonth} AND ${campaigns.status} = 'in_progress'`,
       );
     const [campaignsLastMonth] = await db
       .select({ count: count() })
       .from(campaigns)
       .where(
-        sql`${campaigns.createdAt} >= ${startOfLastMonth} AND ${campaigns.createdAt} < ${startOfMonth} AND ${campaigns.status} = 'in_progress'`,
+        this.businessId !== undefined
+          ? sql`${campaigns.createdAt} >= ${startOfLastMonth} AND ${campaigns.createdAt} < ${startOfMonth} AND ${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${this.businessId}`
+          : sql`${campaigns.createdAt} >= ${startOfLastMonth} AND ${campaigns.createdAt} < ${startOfMonth} AND ${campaigns.status} = 'in_progress'`,
       );
 
     const contactsChange =
@@ -652,26 +838,49 @@ export class DatabaseStorage implements IStorage {
       const [active] = await db
         .select({ count: count() })
         .from(contacts)
-        .where(eq(contacts.status, "active"));
+        .where(
+          this.businessId !== undefined
+            ? sql`${contacts.status} = 'active' AND ${contacts.businessId} = ${this.businessId}`
+            : eq(contacts.status, "active"),
+        );
       return { allContacts: active.count, inactive: 0, activeContacts: active.count };
     }
     if (status === "inactive") {
       const [inactive] = await db
         .select({ count: count() })
         .from(contacts)
-        .where(eq(contacts.status, "inactive"));
+        .where(
+          this.businessId !== undefined
+            ? sql`${contacts.status} = 'inactive' AND ${contacts.businessId} = ${this.businessId}`
+            : eq(contacts.status, "inactive"),
+        );
       return { allContacts: inactive.count, inactive: inactive.count, activeContacts: 0 };
     }
 
-    const [allContacts] = await db.select({ count: count() }).from(contacts);
+    const [allContacts] = await db
+      .select({ count: count() })
+      .from(contacts)
+      .where(
+        this.businessId !== undefined
+          ? eq(contacts.businessId, this.businessId)
+          : undefined,
+      );
     const [inactiveContacts] = await db
       .select({ count: count() })
       .from(contacts)
-      .where(eq(contacts.status, "inactive"));
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.status} = 'inactive' AND ${contacts.businessId} = ${this.businessId}`
+          : eq(contacts.status, "inactive"),
+      );
     const [activeContacts] = await db
       .select({ count: count() })
       .from(contacts)
-      .where(eq(contacts.status, "active"));
+      .where(
+        this.businessId !== undefined
+          ? sql`${contacts.status} = 'active' AND ${contacts.businessId} = ${this.businessId}`
+          : eq(contacts.status, "active"),
+      );
 
     return {
       allContacts: allContacts.count,
@@ -688,16 +897,31 @@ export class DatabaseStorage implements IStorage {
     const [activeCampaigns] = await db
       .select({ count: count() })
       .from(campaigns)
-      .where(eq(campaigns.status, "in_progress"));
+      .where(
+        this.businessId !== undefined
+          ? sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${this.businessId}`
+          : eq(campaigns.status, "in_progress"),
+      );
 
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const [messagesThisMonth] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.createdAt} >= ${firstDayOfMonth}`);
+      .where(
+        this.businessId !== undefined
+          ? sql`${messages.createdAt} >= ${firstDayOfMonth} AND ${messages.businessId} = ${this.businessId}`
+          : sql`${messages.createdAt} >= ${firstDayOfMonth}`,
+      );
 
-    const campaignsList = await db.select().from(campaigns);
+    const campaignsList = await db
+      .select()
+      .from(campaigns)
+      .where(
+        this.businessId !== undefined
+          ? eq(campaigns.businessId, this.businessId)
+          : undefined,
+      );
     const totalClickRate = campaignsList.reduce(
       (sum, campaign) => sum + (campaign.clickCount || 0),
       0,
@@ -715,6 +939,11 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async createBusiness(business: InsertBusiness): Promise<Business> {
+    const [row] = await db.insert(businesses).values(business).returning();
+    return row;
+  }
+
   // Users
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db
@@ -730,7 +959,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
+    const [newUser] = await db
+      .insert(users)
+      .values({ ...user, businessId: this.businessId! })
+      .returning();
     return newUser;
   }
 }
