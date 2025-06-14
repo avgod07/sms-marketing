@@ -28,6 +28,9 @@ import {
   businessProfiles,
   type BusinessProfile,
   type InsertBusinessProfile,
+  twilioCredentials,
+  type TwilioCredential,
+  type InsertTwilioCredential,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "./db";
@@ -40,6 +43,11 @@ export interface IStorage {
   updateBusiness(business: Partial<InsertBusiness>): Promise<Business>;
   getBusinessProfile(): Promise<BusinessProfile | undefined>;
   upsertBusinessProfile(profile: InsertBusinessProfile): Promise<BusinessProfile>;
+  // Twilio
+  getTwilioCredentials(): Promise<TwilioCredential | undefined>;
+  upsertTwilioCredentials(
+    creds: InsertTwilioCredential & { messagingServiceSid?: string }
+  ): Promise<TwilioCredential>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContactsBySegment(segment: string): Promise<Contact[]>;
@@ -982,6 +990,33 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db
       .insert(businessProfiles)
       .values({ ...profile, businessId: this.businessId! })
+      .returning();
+    return row;
+  }
+
+  async getTwilioCredentials(): Promise<TwilioCredential | undefined> {
+    const [row] = await db
+      .select()
+      .from(twilioCredentials)
+      .where(eq(twilioCredentials.businessId, this.businessId!));
+    return row || undefined;
+  }
+
+  async upsertTwilioCredentials(
+    creds: InsertTwilioCredential & { messagingServiceSid?: string },
+  ): Promise<TwilioCredential> {
+    const existing = await this.getTwilioCredentials();
+    if (existing) {
+      const [row] = await db
+        .update(twilioCredentials)
+        .set({ ...creds, updatedAt: new Date() })
+        .where(eq(twilioCredentials.businessId, this.businessId!))
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .insert(twilioCredentials)
+      .values({ ...creds, businessId: this.businessId! })
       .returning();
     return row;
   }
