@@ -52,6 +52,10 @@ export default function OnboardingWizard({ onComplete }: WizardProps) {
     return saved ? JSON.parse(saved) : {};
   });
 
+  const [twilioConnected, setTwilioConnected] = useState(() => {
+    return localStorage.getItem("twilioConnected") === "true";
+  });
+
   const [errors, setErrors] = useState<
     Partial<Record<keyof OnboardingData, string[]>>
   >({});
@@ -81,6 +85,10 @@ export default function OnboardingWizard({ onComplete }: WizardProps) {
     localStorage.setItem("onboardingData", JSON.stringify(data));
   }, [data]);
 
+  useEffect(() => {
+    localStorage.setItem("twilioConnected", String(twilioConnected));
+  }, [twilioConnected]);
+
   const updateData = useCallback(
     (updates: Partial<OnboardingData>) =>
       setData((d) => ({ ...d, ...updates })),
@@ -88,7 +96,9 @@ export default function OnboardingWizard({ onComplete }: WizardProps) {
   );
 
   const nextDisabled =
-    (step === 1 && !profileSchema.safeParse(data).success) || step > totalSteps;
+    (step === 1 && !profileSchema.safeParse(data).success) ||
+    (step === 2 && !twilioConnected) ||
+    step > totalSteps;
 
   const handleNext = () => {
     if (step === 1) {
@@ -106,6 +116,7 @@ export default function OnboardingWizard({ onComplete }: WizardProps) {
       localStorage.setItem("onboardingComplete", "true");
       localStorage.removeItem("onboardingStep");
       localStorage.removeItem("onboardingData");
+      localStorage.removeItem("twilioConnected");
       onComplete();
     } else {
       setStep((s) => Math.min(totalSteps, s + 1));
@@ -122,7 +133,7 @@ export default function OnboardingWizard({ onComplete }: WizardProps) {
       );
       break;
     case 2:
-      content = <TwilioStep />;
+      content = <TwilioStep onSuccess={() => setTwilioConnected(true)} />;
       break;
     case 3:
       content = <PhoneNumberStep />;

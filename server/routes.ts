@@ -33,6 +33,7 @@ import { logError, logInfo } from "./logger";
 import { nanoid } from "nanoid";
 import { createRateLimiter } from "./rate-limit";
 import { validateCoupon } from "./coupon-middleware";
+import { encrypt } from "./utils/encryption";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
@@ -133,8 +134,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/setup/status", async (req, res) => {
     try {
       const contactStats = await biz(req).getContactStats();
+      const creds = await biz(req).getTwilioCredentials();
       res.json({
-        phoneConfigured: TwilioService.isConfigured(),
+        phoneConfigured: !!creds,
         hasContacts: contactStats.allContacts > 0,
       });
     } catch (error) {
@@ -165,6 +167,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logError("Error saving business profile:", error);
       res.status(500).json({ message: "Failed to save business profile" });
+    }
+  });
+
+  const twilioCredsSchema = z.object({
+    accountSid: z.string(),
+    authToken: z.string(),
+  });
+
+  app.post("/api/twilio/connect", async (req, res) => {
+    try {
+      const { accountSid, authToken } = twilioCredsSchema.parse(req.body);
+
+      const client = twilio(accountSid, authToken);
+      try {
+        await client.api.accounts(accountSid).fetch();
+      } catch (err: any) {
+        return res
+          .status(400)
+          .json({ message: "Invalid SID or Auth Token, please check and try again" });
+      }
+
+      let service;
+      try {
+        service = await client.messaging.services.create({
+          friendlyName: `Messaging Service - ${accountSid.slice(-4)}`,
+        });
+      } catch (err: any) {
+        logError("Error creating messaging service:", err);
+        return res.status(500).json({ message: "Failed to create messaging service" });
+      }
+
+      const encrypted = encrypt(authToken);
+      await biz(req).upsertTwilioCredentials({
+        accountSid,
+        authTokenEncrypted: encrypted,
+        messagingServiceSid: service.sid,
+      });
+
+      res.json({ messagingServiceSid: service.sid });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error connecting Twilio:", error);
+      res.status(500).json({ message: "Failed to connect Twilio account" });
     }
   });
 
