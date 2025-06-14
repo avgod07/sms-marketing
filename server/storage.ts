@@ -25,6 +25,9 @@ import {
   type InsertUser,
   type Business,
   type InsertBusiness,
+  businessProfiles,
+  type BusinessProfile,
+  type InsertBusinessProfile,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "./db";
@@ -34,6 +37,9 @@ import { normalizePhoneNumber } from "./phone";
 export interface IStorage {
   forBusiness(businessId: number): IStorage;
   createBusiness(business: InsertBusiness): Promise<Business>;
+  updateBusiness(business: Partial<InsertBusiness>): Promise<Business>;
+  getBusinessProfile(): Promise<BusinessProfile | undefined>;
+  upsertBusinessProfile(profile: InsertBusinessProfile): Promise<BusinessProfile>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContactsBySegment(segment: string): Promise<Contact[]>;
@@ -941,6 +947,42 @@ export class DatabaseStorage implements IStorage {
 
   async createBusiness(business: InsertBusiness): Promise<Business> {
     const [row] = await db.insert(businesses).values(business).returning();
+    return row;
+  }
+
+  async updateBusiness(business: Partial<InsertBusiness>): Promise<Business> {
+    const [row] = await db
+      .update(businesses)
+      .set(business)
+      .where(eq(businesses.id, this.businessId!))
+      .returning();
+    return row;
+  }
+
+  async getBusinessProfile(): Promise<BusinessProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(businessProfiles)
+      .where(eq(businessProfiles.businessId, this.businessId!));
+    return profile || undefined;
+  }
+
+  async upsertBusinessProfile(
+    profile: InsertBusinessProfile,
+  ): Promise<BusinessProfile> {
+    const existing = await this.getBusinessProfile();
+    if (existing) {
+      const [row] = await db
+        .update(businessProfiles)
+        .set({ ...profile, updatedAt: new Date() })
+        .where(eq(businessProfiles.businessId, this.businessId!))
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .insert(businessProfiles)
+      .values({ ...profile, businessId: this.businessId! })
+      .returning();
     return row;
   }
 
