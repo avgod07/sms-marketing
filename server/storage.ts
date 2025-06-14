@@ -44,6 +44,7 @@ export interface IStorage {
   forBusiness(businessId: number): IStorage;
   createBusiness(business: InsertBusiness): Promise<Business>;
   updateBusiness(business: Partial<InsertBusiness>): Promise<Business>;
+  getBusiness(): Promise<Business>;
   getBusinessProfile(): Promise<BusinessProfile | undefined>;
   upsertBusinessProfile(profile: InsertBusinessProfile): Promise<BusinessProfile>;
   // Twilio
@@ -970,6 +971,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(businesses.id, this.businessId!))
       .returning();
     return row;
+  }
+
+  async getBusiness(): Promise<Business> {
+    const [row] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, this.businessId!));
+    return row as Business;
   }
 
   async getBusinessProfile(): Promise<BusinessProfile | undefined> {
