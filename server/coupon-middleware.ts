@@ -4,7 +4,8 @@ import { storage } from './storage';
 export async function validateCoupon(req: Request, res: Response, next: NextFunction) {
   try {
     const code = req.params.code;
-    const coupon = await storage.getCouponByCode(code);
+    const bizId = (req as any).user.businessId;
+    const coupon = await storage.forBusiness(bizId).getCouponByCode(code);
     if (!coupon) {
       return res.status(404).json({ message: 'Coupon not found' });
     }
