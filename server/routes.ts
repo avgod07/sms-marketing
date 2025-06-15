@@ -223,10 +223,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const stats = await biz(req).getDashboardStats();
-      res.json(stats);
+      const defaults = {
+        totalContacts: 0,
+        messagesSent: 0,
+        activeCampaigns: 0,
+        deliveryRate: 0,
+        contactsChange: null as number | null,
+        messagesChange: null as number | null,
+        campaignsChange: null as number | null,
+        deliveryRateChange: null as number | null,
+      };
+      res.json({ ...defaults, ...(stats || {}) });
     } catch (error) {
       logError("Error fetching dashboard stats:", error);
-      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+      const defaults = {
+        totalContacts: 0,
+        messagesSent: 0,
+        activeCampaigns: 0,
+        deliveryRate: 0,
+        contactsChange: null as number | null,
+        messagesChange: null as number | null,
+        campaignsChange: null as number | null,
+        deliveryRateChange: null as number | null,
+      };
+      res.status(500).json({ message: "Failed to fetch dashboard stats", stats: defaults });
     }
   });
 
