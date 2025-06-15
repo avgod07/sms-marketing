@@ -230,6 +230,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/analytics", async (req, res) => {
+    try {
+      const { range } = req.query as { range?: string };
+      if (
+        !range ||
+        !["thisMonth", "lastMonth", "thisWeek", "lastWeek"].includes(range)
+      ) {
+        return res.status(400).json({ message: "Invalid range" });
+      }
+      const analytics = await biz(req).getAnalytics(range as any);
+      res.json(analytics);
+    } catch (error) {
+      logError("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   app.get("/api/setup/status", async (req, res) => {
     try {
       const contactStats = await biz(req).getContactStats();
