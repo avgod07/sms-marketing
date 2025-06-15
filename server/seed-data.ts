@@ -1,31 +1,39 @@
 import { storage } from "./storage";
 import { logInfo } from "./logger";
-import { pool } from "./db";
+import { db, pool } from "./db";
+import { businesses } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { encrypt } from "./utils/encryption";
 import bcrypt from "bcryptjs";
 
 export async function seedData() {
   try {
-    // Ensure a default user exists for testing
-    const defaultUsername = "user";
-    const defaultPassword = "user";
-  const existingUser = await storage.getUserByUsername(defaultUsername);
-  let businessId: number;
-  if (!existingUser) {
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
-    const business = await storage.createBusiness({ name: "Default Business" });
-    await storage
-      .forBusiness(business.id)
-      .createUser({ username: defaultUsername, passwordHash });
-    logInfo(`Created default user \"${defaultUsername}\"`);
-    businessId = business.id;
-  } else {
-    businessId = existingUser.businessId;
-  }
-    logInfo(
-      `Default credentials: username \"${defaultUsername}\" / password \"${defaultPassword}\"`,
-    );
+    // Ensure a demo business and user exist for testing
+    const demoBusinessName = "Demo Business";
+    const demoUsername = "demo";
+    const demoPassword = "demo";
 
-    const biz = storage.forBusiness(businessId);
+    let [business] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.name, demoBusinessName));
+
+    if (!business) {
+      business = await storage.createBusiness({ name: demoBusinessName });
+    }
+
+    const biz = storage.forBusiness(business.id);
+
+    let existingUser = await biz.getUserByUsername(demoUsername);
+    if (!existingUser) {
+      const passwordHash = await bcrypt.hash(demoPassword, 10);
+      existingUser = await biz.createUser({ username: demoUsername, passwordHash });
+      logInfo(`Created demo user \"${demoUsername}\"`);
+    }
+
+    logInfo(
+      `Demo credentials: username \"${demoUsername}\" / password \"${demoPassword}\"`,
+    );
 
     // Check if we already have contact data
     const existingContacts = await biz.getContacts();
@@ -148,6 +156,13 @@ export async function seedData() {
     for (const coupon of sampleCoupons) {
       await biz.createCoupon(coupon);
     }
+
+    // Seed dummy Twilio credentials so onboarding shows connected state
+    await biz.upsertTwilioCredentials({
+      accountSid: "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      authTokenEncrypted: encrypt("auth_token"),
+      messagingServiceSid: "MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    });
 
     logInfo("Sample data seeded successfully!");
   } catch (error) {
