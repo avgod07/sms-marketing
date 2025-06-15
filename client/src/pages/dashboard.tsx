@@ -4,13 +4,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Users, MessageSquare, Send, TrendingUp, Plus } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
 import type { DashboardStats } from "@shared/api-types";
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const {
+    data: stats,
+    isLoading,
+    isError,
+  } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
+
+  const dashboardStats: DashboardStats = {
+    totalContacts: 0,
+    messagesSent: 0,
+    activeCampaigns: 0,
+    deliveryRate: 0,
+    contactsChange: null,
+    messagesChange: null,
+    campaignsChange: null,
+    deliveryRateChange: null,
+    ...(stats || {}),
+  };
 
   if (isLoading) {
     return (
@@ -54,8 +69,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Total Contacts"
-            value={stats?.totalContacts || 0}
-            change={stats?.contactsChange ?? undefined}
+            value={dashboardStats.totalContacts}
+            change={dashboardStats.contactsChange ?? undefined}
             changeLabel="from last month"
             icon={Users}
             iconColor="text-primary"
@@ -63,8 +78,8 @@ export default function Dashboard() {
           />
           <StatsCard
             title="Messages Sent"
-            value={stats?.messagesSent || 0}
-            change={stats?.messagesChange ?? undefined}
+            value={dashboardStats.messagesSent}
+            change={dashboardStats.messagesChange ?? undefined}
             changeLabel="from last week"
             icon={MessageSquare}
             iconColor="text-green-600"
@@ -72,8 +87,8 @@ export default function Dashboard() {
           />
           <StatsCard
             title="Campaigns"
-            value={stats?.activeCampaigns || 0}
-            change={stats?.campaignsChange ?? undefined}
+            value={dashboardStats.activeCampaigns}
+            change={dashboardStats.campaignsChange ?? undefined}
             changeLabel="in progress campaigns"
             icon={Send}
             iconColor="text-purple-600"
@@ -81,8 +96,8 @@ export default function Dashboard() {
           />
           <StatsCard
             title="Delivery Rate"
-            value={stats?.deliveryRate || 0}
-            change={stats?.deliveryRateChange ?? undefined}
+            value={dashboardStats.deliveryRate}
+            change={dashboardStats.deliveryRateChange ?? undefined}
             changeLabel="improvement"
             icon={TrendingUp}
             iconColor="text-blue-600"
