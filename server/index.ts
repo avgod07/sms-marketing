@@ -3,9 +3,10 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import { logInfo } from "./logger";
 import { setupAuth } from "./auth";
-import { errorHandler } from "./error-middleware";
+import { errorHandler, setupGlobalErrorHandling } from "./error-middleware";
 
 const app = express();
+setupGlobalErrorHandling();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 setupAuth(app);
