@@ -306,14 +306,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/twilio/credentials", async (req, res) => {
+    try {
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.json(null);
+      }
+      const numbers = await biz(req).getPhoneNumbers();
+      const phoneNumber = numbers.find(n => n.isDefault)?.phoneNumber || null;
+      res.json({
+        accountSid: creds.accountSid,
+        authToken: decrypt(creds.authTokenEncrypted),
+        messagingServiceSid: creds.messagingServiceSid,
+        phoneNumber,
+      });
+    } catch (error) {
+      logError("Error fetching Twilio credentials:", error);
+      res.status(500).json({ message: "Failed to fetch Twilio credentials" });
+    }
+  });
+
   const twilioCredsSchema = z.object({
     accountSid: z.string(),
     authToken: z.string(),
+    messagingServiceSid: z.string().optional(),
+    phoneNumber: z.string().optional(),
   });
 
   app.post("/api/twilio/connect", async (req, res) => {
     try {
-      const { accountSid, authToken } = twilioCredsSchema.parse(req.body);
+      const { accountSid, authToken, messagingServiceSid, phoneNumber } =
+        twilioCredsSchema.parse(req.body);
 
       const client = twilio(accountSid, authToken);
       try {
@@ -324,24 +347,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .json({ message: "Invalid SID or Auth Token, please check and try again" });
       }
 
-      let service;
-      try {
-        service = await client.messaging.services.create({
-          friendlyName: `Messaging Service - ${accountSid.slice(-4)}`,
-        });
-      } catch (err: any) {
-        logError("Error creating messaging service:", err);
-        return res.status(500).json({ message: "Failed to create messaging service" });
+      let serviceSid = messagingServiceSid;
+      if (!serviceSid) {
+        try {
+          const service = await client.messaging.services.create({
+            friendlyName: `Messaging Service - ${accountSid.slice(-4)}`,
+          });
+          serviceSid = service.sid;
+        } catch (err: any) {
+          logError("Error creating messaging service:", err);
+          return res
+            .status(500)
+            .json({ message: "Failed to create messaging service" });
+        }
       }
 
       const encrypted = encrypt(authToken);
       await biz(req).upsertTwilioCredentials({
         accountSid,
         authTokenEncrypted: encrypted,
-        messagingServiceSid: service.sid,
+        messagingServiceSid: serviceSid,
       });
 
-      res.json({ messagingServiceSid: service.sid });
+      if (phoneNumber) {
+        await biz(req).setPhoneNumbers([
+          { phoneNumber, isDefault: true },
+        ]);
+      }
+
+      res.json({ messagingServiceSid: serviceSid });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
