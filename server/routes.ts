@@ -393,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contacts/stats", async (req, res) => {
     try {
       const { status } = req.query as { status?: string };
-      const stats = await storage.getContactStats(status);
+      const stats = await biz(req).getContactStats(status);
       res.json(stats);
     } catch (error) {
       logError("Error fetching contact stats:", error);
@@ -645,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/coupons/:id/redemptions", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const coupon = await storage.getCoupon(id);
+      const coupon = await biz(req).getCoupon(id);
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
