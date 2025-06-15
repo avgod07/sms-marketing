@@ -55,7 +55,7 @@ export default function Dashboard() {
           <StatsCard
             title="Total Contacts"
             value={stats?.totalContacts || 0}
-            change={stats?.contactsChange ?? 0}
+            change={stats?.contactsChange ?? undefined}
             changeLabel="from last month"
             icon={Users}
             iconColor="text-primary"
@@ -64,7 +64,7 @@ export default function Dashboard() {
           <StatsCard
             title="Messages Sent"
             value={stats?.messagesSent || 0}
-            change={stats?.messagesChange ?? 0}
+            change={stats?.messagesChange ?? undefined}
             changeLabel="from last week"
             icon={MessageSquare}
             iconColor="text-green-600"
@@ -73,7 +73,7 @@ export default function Dashboard() {
           <StatsCard
             title="Campaigns"
             value={stats?.activeCampaigns || 0}
-            change={stats?.campaignsChange ?? 0}
+            change={stats?.campaignsChange ?? undefined}
             changeLabel="in progress campaigns"
             icon={Send}
             iconColor="text-purple-600"
@@ -82,7 +82,7 @@ export default function Dashboard() {
           <StatsCard
             title="Delivery Rate"
             value={stats?.deliveryRate || 0}
-            change={stats?.deliveryRateChange ?? 0}
+            change={stats?.deliveryRateChange ?? undefined}
             changeLabel="improvement"
             icon={TrendingUp}
             iconColor="text-blue-600"
