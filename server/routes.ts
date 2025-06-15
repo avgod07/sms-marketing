@@ -99,28 +99,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Twilio webhook endpoint (unauthenticated)
+  // Twilio status webhook endpoint (unauthenticated)
   app.post("/api/twilio/webhook", async (req, res) => {
     try {
-      const signature = req.get("x-twilio-signature") || "";
-      const authToken = process.env.TWILIO_AUTH_TOKEN || "";
-      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+      const { AccountSid, MessageStatus, To } = req.body as any;
 
-      const isValid = twilio.validateRequest(authToken, signature, url, req.body);
+      let creds = await findTwilioCredentialByAccountSid(AccountSid);
+      let businessId = creds?.businessId;
+      if (!businessId && To) {
+        businessId = await findBusinessIdByPhoneNumber(To);
+        if (businessId) {
+          creds = await storage.forBusiness(businessId).getTwilioCredentials();
+        }
+      }
+
+      if (!businessId || !creds) {
+        logError("Unknown status webhook", { AccountSid, To });
+        return res.status(400).send("Unknown account");
+      }
+
+      const signature = req.get("x-twilio-signature") || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+      const token = decrypt(creds.authTokenEncrypted);
+      const isValid = twilio.validateRequest(token, signature, url, req.body);
       if (!isValid) {
         return res.status(403).json({ message: "Invalid Twilio signature" });
       }
-
-      const { MessageStatus, To } = req.body;
 
       let status = "sent";
       if (MessageStatus === "delivered") status = "delivered";
       else if (MessageStatus === "failed" || MessageStatus === "undelivered") status = "failed";
 
-      const messages = await biz(req).getMessages();
+      const bizStore = storage.forBusiness(businessId);
+      const messages = await bizStore.getMessages();
       const message = messages.find(m => m.phoneNumber === To && m.status !== "delivered" && m.status !== "failed");
       if (message) {
-        await biz(req).updateMessageStatus(message.id, status, status === "delivered" ? new Date() : undefined);
+        await bizStore.updateMessageStatus(
+          message.id,
+          status,
+          status === "delivered" ? new Date() : undefined,
+        );
       }
 
       res.status(200).send("OK");
