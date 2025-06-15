@@ -58,10 +58,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const passwordHash = await bcrypt.hash(password, 10);
       const business = await storage.createBusiness({ name: businessName });
       const user = await storage.forBusiness(business.id).createUser({ username, passwordHash });
-      req.login(user, (err: any) => {
-        if (err) throw err;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          req.login(user, (err: any) => {
+            if (err) return reject(err);
+            return resolve();
+          });
+        });
         res.status(201).json({ message: "Signed up" });
-      });
+      } catch (err) {
+        logError("Error logging in after signup:", err);
+        return res.status(500).json({ message: "Failed to sign up" });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
