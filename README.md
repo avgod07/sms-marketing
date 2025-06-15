@@ -37,8 +37,8 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm run seed
    ```
 
-   This command also creates a default account with username `user` and
-   password `user` which can be used for testing.
+   This command also creates a demo account with username `demo` and
+   password `demo` which can be used for testing.
 
 5. **Development server**
 
