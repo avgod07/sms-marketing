@@ -1,11 +1,68 @@
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Settings as SettingsIcon, Save, Key, MessageSquare } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { TwilioSettings } from "@shared/api-types";
 
 export default function Settings() {
+  const { toast } = useToast();
+
+  const { data: creds } = useQuery<TwilioSettings | null>({
+    queryKey: ["/api/twilio/credentials"],
+  });
+
+  const [sid, setSid] = useState("");
+  const [token, setToken] = useState("");
+  const [serviceSid, setServiceSid] = useState("");
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    if (creds) {
+      setSid(creds.accountSid || "");
+      setToken(creds.authToken || "");
+      setServiceSid(creds.messagingServiceSid || "");
+      setPhone(creds.phoneNumber || "");
+    }
+  }, [creds]);
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      apiRequest({
+        method: "POST",
+        url: "/api/twilio/connect",
+        data: {
+          accountSid: sid,
+          authToken: token,
+          messagingServiceSid: serviceSid || undefined,
+          phoneNumber: phone || undefined,
+        },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/twilio/credentials"] });
+      toast({ title: "Success", description: "SMS settings updated" });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update SMS settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const changed =
+    sid !== (creds?.accountSid || "") ||
+    token !== (creds?.authToken || "") ||
+    serviceSid !== (creds?.messagingServiceSid || "") ||
+    phone !== (creds?.phoneNumber || "");
+
+  const canSubmit = sid !== "" && token !== "" && changed && !updateMutation.isPending;
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -61,34 +118,46 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="twilio-sid">Twilio Account SID</Label>
-                  <Input 
-                    id="twilio-sid" 
-                    type="password" 
-                    placeholder="Enter Twilio Account SID" 
-                    defaultValue="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  <Input
+                    id="twilio-sid"
+                    type="password"
+                    placeholder="Enter Twilio Account SID"
+                    value={sid}
+                    onChange={(e) => setSid(e.target.value)}
                   />
                 </div>
                 <div>
                   <Label htmlFor="twilio-token">Twilio Auth Token</Label>
-                  <Input 
-                    id="twilio-token" 
-                    type="password" 
+                  <Input
+                    id="twilio-token"
+                    type="password"
                     placeholder="Enter Twilio Auth Token"
-                    defaultValue="••••••••••••••••••••••••••••••••"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
                   />
                 </div>
               </div>
               <div>
-                <Label htmlFor="twilio-phone">Twilio Phone Number</Label>
-                <Input 
-                  id="twilio-phone" 
-                  placeholder="Enter Twilio phone number"
-                  defaultValue="+1234567890"
+                <Label htmlFor="messaging-sid">Messaging Service SID</Label>
+                <Input
+                  id="messaging-sid"
+                  placeholder="Enter Messaging Service SID"
+                  value={serviceSid}
+                  onChange={(e) => setServiceSid(e.target.value)}
                 />
               </div>
-              <Button>
+              <div>
+                <Label htmlFor="twilio-phone">Twilio Phone Number</Label>
+                <Input
+                  id="twilio-phone"
+                  placeholder="Enter Twilio phone number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+              <Button onClick={() => updateMutation.mutate()} disabled={!canSubmit}>
                 <Save className="w-4 h-4 mr-2" />
-                Update SMS Settings
+                {updateMutation.isPending ? "Saving..." : "Update SMS Settings"}
               </Button>
             </CardContent>
           </Card>
