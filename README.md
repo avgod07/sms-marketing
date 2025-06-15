@@ -111,3 +111,8 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 ```
 
 You can run this command inside the dev container now that the Docker CLI is available, or from your host terminal if preferred. Then reopen the dev container so it can recreate the services with the updated mapping of host port 5001 to container port 5000.
+
+## Logging
+
+The server writes JSON logs to `logs/app.log` by default. Set the `LOG_FILE` environment variable to change the path or `LOG_SERVICE_URL` to POST logs to a remote service.
+Control verbosity with `LOG_LEVEL` (`error`, `warn`, `info`, or `debug`).
