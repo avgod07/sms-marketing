@@ -3,10 +3,10 @@ export interface DashboardStats {
   messagesSent: number;
   activeCampaigns: number;
   deliveryRate: number;
-  contactsChange: number;
-  messagesChange: number;
-  campaignsChange: number;
-  deliveryRateChange: number;
+  contactsChange: number | null;
+  messagesChange: number | null;
+  campaignsChange: number | null;
+  deliveryRateChange: number | null;
 }
 
 export interface ContactStats {

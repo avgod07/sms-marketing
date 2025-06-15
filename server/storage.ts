@@ -120,11 +120,12 @@ export interface IStorage {
     messagesSent: number;
     activeCampaigns: number;
     deliveryRate: number;
-    contactsChange: number;
-    messagesChange: number;
-    campaignsChange: number;
-    deliveryRateChange: number;
+    contactsChange: number | null;
+    messagesChange: number | null;
+    campaignsChange: number | null;
+    deliveryRateChange: number | null;
   }>;
+  getAnalytics(range: 'thisMonth' | 'lastMonth' | 'thisWeek' | 'lastWeek'): Promise<Analytics[]>;
   getContactStats(status?: string): Promise<{
     allContacts: number;
     inactive: number;
@@ -634,10 +635,10 @@ export class DatabaseStorage implements IStorage {
     messagesSent: number;
     activeCampaigns: number;
     deliveryRate: number;
-    contactsChange: number;
-    messagesChange: number;
-    campaignsChange: number;
-    deliveryRateChange: number;
+    contactsChange: number | null;
+    messagesChange: number | null;
+    campaignsChange: number | null;
+    deliveryRateChange: number | null;
   }> {
     const businessId = this.requireBusinessId();
     const contactStats = await this.getContactStats();
@@ -645,11 +646,21 @@ export class DatabaseStorage implements IStorage {
     const [messagesCount] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.status} = 'sent' AND ${messages.businessId} = ${businessId}`);
-    const [campaignsCount] = await db
+      .where(
+        sql`${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`,
+      );
+
+    const [totalCampaigns] = await db
       .select({ count: count() })
       .from(campaigns)
-      .where(sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`);
+      .where(eq(campaigns.businessId, businessId));
+
+    const now = new Date();
+    const inProgressWhere = sql`(${campaigns.status} IN ('draft', 'scheduled', 'in_progress') OR (${campaigns.scheduledAt} IS NOT NULL AND ${campaigns.scheduledAt} > ${now})) AND ${campaigns.businessId} = ${businessId}`;
+    const [inProgressCampaigns] = await db
+      .select({ count: count() })
+      .from(campaigns)
+      .where(inProgressWhere);
 
     const [deliveredCount] = await db
       .select({ count: count() })
@@ -665,7 +676,6 @@ export class DatabaseStorage implements IStorage {
         ? (deliveredCount.count / totalSentCount.count) * 100
         : 0;
 
-    const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const startOfPrevWeek = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -706,33 +716,22 @@ export class DatabaseStorage implements IStorage {
       .from(messages)
       .where(sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`);
 
-    const [campaignsThisMonth] = await db
-      .select({ count: count() })
-      .from(campaigns)
-      .where(sql`${campaigns.createdAt} >= ${startOfMonth} AND ${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`);
-    const [campaignsLastMonth] = await db
-      .select({ count: count() })
-      .from(campaigns)
-      .where(sql`${campaigns.createdAt} >= ${startOfLastMonth} AND ${campaigns.createdAt} < ${startOfMonth} AND ${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`);
-
     const contactsChange =
       contactsLastMonth.count > 0
         ? ((contactsThisMonth.count - contactsLastMonth.count) /
             contactsLastMonth.count) *
           100
-        : 0;
+        : null;
     const messagesChange =
       messagesLastWeek.count > 0
         ? ((messagesThisWeek.count - messagesLastWeek.count) /
             messagesLastWeek.count) *
           100
-        : 0;
+        : null;
     const campaignsChange =
-      campaignsLastMonth.count > 0
-        ? ((campaignsThisMonth.count - campaignsLastMonth.count) /
-            campaignsLastMonth.count) *
-          100
-        : 0;
+      totalCampaigns.count > 0
+        ? (inProgressCampaigns.count / totalCampaigns.count) * 100
+        : null;
 
     const currentDeliveryRate =
       sentThisWeek.count > 0
@@ -743,17 +742,23 @@ export class DatabaseStorage implements IStorage {
         ? (deliveredLastWeek.count / sentLastWeek.count) * 100
         : 0;
     const deliveryRateChange =
-      lastDeliveryRate > 0 ? currentDeliveryRate - lastDeliveryRate : 0;
+      sentLastWeek.count > 0 ? currentDeliveryRate - lastDeliveryRate : null;
 
     return {
       totalContacts: contactsCount.count,
       messagesSent: messagesCount.count,
-      activeCampaigns: campaignsCount.count,
+      activeCampaigns: inProgressCampaigns.count,
       deliveryRate: Math.round(deliveryRate * 100) / 100,
-      contactsChange: Math.round(contactsChange * 100) / 100,
-      messagesChange: Math.round(messagesChange * 100) / 100,
-      campaignsChange: Math.round(campaignsChange * 100) / 100,
-      deliveryRateChange: Math.round(deliveryRateChange * 100) / 100,
+      contactsChange:
+        contactsChange === null ? null : Math.round(contactsChange * 100) / 100,
+      messagesChange:
+        messagesChange === null ? null : Math.round(messagesChange * 100) / 100,
+      campaignsChange:
+        campaignsChange === null ? null : Math.round(campaignsChange * 100) / 100,
+      deliveryRateChange:
+        deliveryRateChange === null
+          ? null
+          : Math.round(deliveryRateChange * 100) / 100,
     };
   }
 
@@ -845,6 +850,42 @@ export class DatabaseStorage implements IStorage {
       messagesThisMonth: messagesThisMonth.count,
       avgClickRate: Math.round(avgClickRate * 100) / 100,
     };
+  }
+
+  async getAnalytics(
+    range: 'thisMonth' | 'lastMonth' | 'thisWeek' | 'lastWeek',
+  ): Promise<Analytics[]> {
+    const businessId = this.requireBusinessId();
+    const now = new Date();
+    let start: Date;
+    let end = new Date();
+    switch (range) {
+      case 'thisMonth':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'thisWeek':
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'lastWeek':
+        start = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+        end = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        start = new Date(0);
+        break;
+    }
+
+    return await db
+      .select()
+      .from(analytics)
+      .where(
+        sql`${analytics.businessId} = ${businessId} AND ${analytics.date} >= ${start} AND ${analytics.date} < ${end}`,
+      )
+      .orderBy(desc(analytics.date));
   }
 
   async createBusiness(business: InsertBusiness): Promise<Business> {
