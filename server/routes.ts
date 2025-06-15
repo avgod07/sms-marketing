@@ -16,13 +16,22 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
+const passwordSchema = z
+  .string()
+  .min(8, { message: "Password must be at least 8 characters" })
+  .max(72, { message: "Password must be at most 72 characters" })
+  .regex(/[a-z]/, { message: "Password must contain a lowercase letter" })
+  .regex(/[A-Z]/, { message: "Password must contain an uppercase letter" })
+  .regex(/\d/, { message: "Password must contain a number" })
+  .regex(/[^A-Za-z0-9]/, { message: "Password must contain a symbol" });
+
 const loginSchema = z.object({
-  username: z.string(),
-  password: z.string(),
+  username: z.string().email({ message: "Invalid email" }),
+  password: passwordSchema,
 });
 
 const signupSchema = loginSchema.extend({
-  businessName: z.string(),
+  businessName: z.string().min(1, { message: "Business name is required" }),
 });
 
 const businessProfileSchema = insertBusinessProfileSchema.extend({
