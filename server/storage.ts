@@ -39,6 +39,7 @@ import type { ContactRedemption } from "@shared/api-types";
 import { db } from "./db";
 import { eq, desc, count, sql } from "drizzle-orm";
 import { normalizePhoneNumber } from "./phone";
+import { logError } from "./logger";
 
 export interface IStorage {
   forBusiness(businessId: number): IStorage;
@@ -138,6 +139,9 @@ export interface IStorage {
   }>;
 
   // Users
+  // The following fetchers are intentionally accessible without
+  // scoping to a business. They are used during authentication
+  // before the tenant context is known.
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -154,6 +158,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   forBusiness(businessId: number): IStorage {
+    if (!businessId || Number.isNaN(businessId) || businessId <= 0) {
+      logError("Invalid business ID passed to forBusiness", { businessId });
+      throw new Error("Invalid business ID");
+    }
     return new DatabaseStorage(businessId);
   }
 
@@ -995,6 +1003,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Users
+  // These lookup helpers are allowed to bypass tenant scoping
+  // so authentication can look up a user before the business
+  // context has been established.
   async getUserByUsername(username: string): Promise<User | undefined> {
     const base = db.select().from(users);
     const q = this.businessId !== undefined
