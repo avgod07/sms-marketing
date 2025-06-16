@@ -97,8 +97,7 @@ export default function Contacts() {
 
   const createContactMutation = useMutation({
     mutationFn: (data: ContactFormValues) => {
-      const status = data.segment === "inactive" ? "inactive" : "active";
-      return apiRequest({ method: "POST", url: "/api/contacts", data: { ...data, status } });
+      return apiRequest({ method: "POST", url: "/api/contacts", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
@@ -128,8 +127,7 @@ export default function Contacts() {
   const updateContactMutation = useMutation({
     mutationFn: async (data: ContactFormValues) => {
       if (!editingContact) return;
-      const status = data.segment === "inactive" ? "inactive" : "active";
-      await apiRequest({ method: "PATCH", url: `/api/contacts/${editingContact.id}`, data: { ...data, status } });
+      await apiRequest({ method: "PATCH", url: `/api/contacts/${editingContact.id}`, data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
