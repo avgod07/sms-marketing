@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatPhoneNumber, getSegmentColor } from "@/lib/utils";
+import { formatPhoneNumber, getSegmentColor, formatSegment } from "@/lib/utils";
 import { Contact } from "@shared/schema";
 import { MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
 
@@ -95,7 +95,7 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
               </td>
               <td className="py-4 px-4">
                 <Badge className={getSegmentColor(contact.segment)}>
-                  {contact.segment === 'inactive' ? 'Inactive' : 'Customer'}
+                  {formatSegment(contact.segment)}
                 </Badge>
               </td>
               <td className="py-4 px-4">
