@@ -5,13 +5,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 
 export const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -20,8 +14,6 @@ export const contactSchema = z.object({
     .string()
     .regex(/^\+?1?\d{10}$/, "Enter a valid 10-digit US phone number"),
   email: z.string().email().optional().or(z.literal("")),
-  segment: z.string().min(1, "Segment is required"),
-  status: z.string().min(1, "Status is required"),
 });
 
 export type ContactFormValues = z.infer<typeof contactSchema>;
@@ -49,8 +41,6 @@ export default function ContactForm({
       lastName: "",
       phoneNumber: "",
       email: "",
-      segment: "all",
-      status: "active",
       ...initialValues,
     },
   });
@@ -90,41 +80,6 @@ export default function ContactForm({
         {form.formState.errors.email && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.email.message}</p>
         )}
-      </div>
-      <div>
-        <Label htmlFor="segment">Segment</Label>
-        <Select onValueChange={(value) => form.setValue("segment", value)} value={form.watch("segment")}
-          defaultValue={initialValues?.segment ?? "all"}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select segment" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Contacts</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="active">Active Contacts</SelectItem>
-          </SelectContent>
-        </Select>
-        {form.formState.errors.segment && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.segment.message}</p>
-        )}
-      </div>
-      <div>
-        <Label htmlFor="status">Status</Label>
-        <Select onValueChange={(value) => form.setValue("status", value)} value={form.watch("status")}
-          defaultValue={initialValues?.status ?? "active"}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="lead">Lead</SelectItem>
-          </SelectContent>
-        </Select>
-        {form.formState.errors.status && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.status.message}</p>
-        )}
-        <p className="text-xs text-gray-500 mt-1">This controls the contact's current status.</p>
       </div>
       <div className="flex space-x-2">
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
