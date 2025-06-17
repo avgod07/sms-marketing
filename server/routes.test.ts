@@ -65,7 +65,10 @@ async function setupApp(user?: any) {
   app.use(express.json());
   app.use((req, _res, next) => {
     req.login = (_u: any, cb: any) => cb?.();
-    if (user) req.user = user;
+    if (user) {
+      req.user = user;
+      req.isAuthenticated = () => true;
+    }
     next();
   });
   if (!registerRoutes) {
@@ -121,5 +124,15 @@ describe('routes', () => {
     const app = await setupApp();
     const res = await request(app).get('/api/me');
     expect(res.body).toBeNull();
+  });
+
+  it('deletes campaign with existing messages', async () => {
+    mockForBusiness.deleteCampaign = vi.fn().mockResolvedValue(undefined);
+
+    const app = await setupApp({ businessId: 1 });
+    const res = await request(app).delete('/api/campaigns/3');
+
+    expect(mockForBusiness.deleteCampaign).toHaveBeenCalledWith(3);
+    expect(res.status).toBe(204);
   });
 });
