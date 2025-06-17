@@ -13,12 +13,13 @@ import type { Coupon } from "@shared/schema";
 interface CouponTableProps {
   coupons: Coupon[];
   isLoading: boolean;
+  hasCoupons: boolean;
   onRedeem: (coupon: Coupon) => void;
   onViewRedemptions: (coupon: Coupon) => void;
   onDelete: (coupon: Coupon) => void;
 }
 
-export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemptions, onDelete }: CouponTableProps) {
+export default function CouponTable({ coupons, isLoading, hasCoupons, onRedeem, onViewRedemptions, onDelete }: CouponTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -38,13 +39,17 @@ export default function CouponTable({ coupons, isLoading, onRedeem, onViewRedemp
   }
 
   if (coupons.length === 0) {
+    const title = hasCoupons ? "No coupons match your search" : "No coupons found";
+    const description = hasCoupons
+      ? "Try adjusting your search or filters"
+      : "Coupons will appear here once created";
     return (
       <div className="text-center py-12">
         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Tag className="w-6 h-6 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No coupons found</h3>
-        <p className="text-gray-500">Coupons will appear here once created</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-500">{description}</p>
       </div>
     );
   }

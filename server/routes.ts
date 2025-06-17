@@ -270,10 +270,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/setup/status", async (req, res) => {
     try {
       const contactStats = await biz(req).getContactStats();
+      const couponStats = await biz(req).getCouponStats();
       const creds = await biz(req).getTwilioCredentials();
       res.json({
         phoneConfigured: !!creds,
         hasContacts: contactStats.allContacts > 0,
+        hasCoupons: couponStats.allCoupons > 0,
       });
     } catch (error) {
       logError("Error fetching setup status:", error);
