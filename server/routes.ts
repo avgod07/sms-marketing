@@ -11,7 +11,6 @@ import { normalizePhoneNumber } from "./phone.js";
 import { TwilioService } from "./services/twilio.js";
 import {
   insertContactSchema,
-  insertCampaignSchema,
   insertMessageSchema,
   insertCouponSchema,
   insertBusinessProfileSchema,
@@ -38,6 +37,14 @@ const signupSchema = loginSchema.extend({
 
 const businessProfileSchema = insertBusinessProfileSchema.extend({
   businessName: z.string(),
+});
+
+const simpleCampaignSchema = z.object({
+  name: z.string().min(1, { message: "Campaign name is required" }),
+  message: z
+    .string()
+    .min(1, { message: "Message is required" })
+    .max(160, { message: "Message must be 160 characters or less" }),
 });
 import twilio from "twilio";
 import { executeCampaign } from "./services/campaign.js";
@@ -602,7 +609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/campaigns", async (req, res) => {
     try {
-      const validatedData = insertCampaignSchema.parse(req.body);
+      const validatedData = simpleCampaignSchema.parse(req.body);
       const campaign = await biz(req).createCampaign(validatedData);
 
       const results = await executeCampaign(biz(req), campaign.id);
@@ -631,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existing.status === "completed") {
         return res.status(400).json({ message: "Completed campaigns cannot be edited" });
       }
-      const validatedData = insertCampaignSchema.partial().parse(req.body);
+      const validatedData = simpleCampaignSchema.partial().parse(req.body);
       const campaign = await biz(req).updateCampaign(id, validatedData);
       res.json(campaign);
     } catch (error) {
@@ -665,7 +672,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: `${campaign.name} (Copy)`,
         message: campaign.message,
         status: "in_progress",
-        scheduledAt: campaign.scheduledAt || null,
       });
       res.status(201).json(copy);
     } catch (error) {

@@ -604,8 +604,7 @@ export class DatabaseStorage implements IStorage {
       .from(campaigns)
       .where(eq(campaigns.businessId, businessId));
 
-    const now = new Date();
-    const inProgressWhere = sql`(${campaigns.status} IN ('draft', 'scheduled', 'in_progress') OR (${campaigns.scheduledAt} IS NOT NULL AND ${campaigns.scheduledAt} > ${now})) AND ${campaigns.businessId} = ${businessId}`;
+    const inProgressWhere = sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`;
     const [inProgressCampaigns] = await db
       .select({ count: count() })
       .from(campaigns)
@@ -624,6 +623,8 @@ export class DatabaseStorage implements IStorage {
       totalSentCount.count > 0
         ? (deliveredCount.count / totalSentCount.count) * 100
         : 0;
+
+    const now = new Date();
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
