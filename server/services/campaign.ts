@@ -7,7 +7,7 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
     throw new Error("Campaign not found");
   }
 
-  const contacts = await bizStorage.getContactsBySegment(campaign.audience);
+  const contacts = await bizStorage.getContacts();
 
   if (contacts.length === 0) {
     return { sentCount: 0, totalContacts: 0 };

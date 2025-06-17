@@ -1,5 +1,3 @@
-import StatusBadge from "@/components/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatPhoneNumber, getSegmentColor, formatSegment } from "@/lib/utils";
+import { formatPhoneNumber } from "@/lib/utils";
 import { Contact } from "@shared/schema";
 import { MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
 
@@ -58,8 +56,6 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
             <th className="text-left py-3 px-4 font-medium text-gray-500">Contact</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Phone</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Email</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Segment</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
         </thead>
@@ -92,14 +88,6 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
                 ) : (
                   <span className="text-gray-400">No email</span>
                 )}
-              </td>
-              <td className="py-4 px-4">
-                <Badge className={getSegmentColor(contact.segment)}>
-                  {formatSegment(contact.segment)}
-                </Badge>
-              </td>
-              <td className="py-4 px-4">
-                <StatusBadge status={contact.status} />
               </td>
               <td className="py-4 px-4">
                 <DropdownMenu>
