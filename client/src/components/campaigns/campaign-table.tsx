@@ -1,5 +1,4 @@
 import StatusBadge from "@/components/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -87,11 +86,6 @@ export default function CampaignTable({
                         ? `${campaign.message.substring(0, 50)}...`
                         : campaign.message}
                     </p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge className={campaign.scheduledAt ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}>
-                        {campaign.scheduledAt ? 'One-time' : 'Recurring'}
-                      </Badge>
-                    </div>
                   </div>
                 </div>
               </td>
