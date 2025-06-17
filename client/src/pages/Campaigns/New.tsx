@@ -17,16 +17,12 @@ export default function NewCampaignPage() {
   });
 
   const createCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormValues) => {
-      const payload: Record<string, any> = {
-        name: data.name,
-        message: data.message,
-      };
-      if (data.sendTime === "scheduled" && data.scheduledAt) {
-        payload.scheduledAt = data.scheduledAt;
-      }
-      return apiRequest({ method: "POST", url: "/api/campaigns", data: payload });
-    },
+    mutationFn: (data: CampaignFormValues) =>
+      apiRequest({
+        method: "POST",
+        url: "/api/campaigns",
+        data: { name: data.name, message: data.message },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
