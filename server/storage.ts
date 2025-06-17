@@ -70,7 +70,6 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign>;
   deleteCampaign(id: number): Promise<void>;
-  normalizeCampaignStatuses(): Promise<void>;
 
   // Coupons
   getCoupons(): Promise<Coupon[]>;
@@ -359,20 +358,6 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`);
   }
 
-  async normalizeCampaignStatuses(): Promise<void> {
-    const businessId = this.requireBusinessId();
-    const whereActive = sql`${campaigns.status} IN ('active', 'paused') AND ${campaigns.businessId} = ${businessId}`;
-    await db
-      .update(campaigns)
-      .set({ status: "in_progress", updatedAt: new Date() })
-      .where(whereActive);
-
-    const whereCompleted = sql`${campaigns.status} IN ('sent', 'finished') AND ${campaigns.businessId} = ${businessId}`;
-    await db
-      .update(campaigns)
-      .set({ status: "completed", updatedAt: new Date() })
-      .where(whereCompleted);
-  }
 
   // Coupons
   async getCoupons(): Promise<Coupon[]> {

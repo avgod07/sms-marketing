@@ -16,7 +16,6 @@ vi.mock('./db', () => ({
 vi.mock('./storage', () => {
   mockForBusiness = {
     createUser: vi.fn(),
-    normalizeCampaignStatuses: vi.fn(),
   };
   mockStorage = {
     getUserByUsername: vi.fn(),
