@@ -57,14 +57,12 @@ export interface IStorage {
   setPhoneNumbers(numbers: InsertBusinessPhoneNumber[]): Promise<BusinessPhoneNumber[]>;
   // Contacts
   getContacts(): Promise<Contact[]>;
-  getContactsBySegment(segment: string): Promise<Contact[]>;
-  getContactsByStatus(status: string): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
   getContactByPhoneNumber(phoneNumber: string): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
-  searchContacts(query: string, status?: string): Promise<Contact[]>;
+  searchContacts(query: string): Promise<Contact[]>;
 
   // Campaigns
   getCampaigns(): Promise<Campaign[]>;
@@ -127,10 +125,8 @@ export interface IStorage {
     deliveryRateChange: number | null;
   }>;
   getAnalytics(range: 'thisMonth' | 'lastMonth' | 'thisWeek' | 'lastWeek'): Promise<Analytics[]>;
-  getContactStats(status?: string): Promise<{
+  getContactStats(): Promise<{
     allContacts: number;
-    inactive: number;
-    activeContacts: number;
   }>;
   getCampaignStats(): Promise<{
     activeCampaigns: number;
@@ -186,43 +182,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(contacts.createdAt));
   }
 
-  async getContactsBySegment(segment: string): Promise<Contact[]> {
-    if (segment === "all") {
-      return await this.getContacts();
-    }
-    if (segment === "inactive" || segment === "active") {
-      const businessId = this.requireBusinessId();
-      return await db
-        .select()
-        .from(contacts)
-        .where(
-          sql`${contacts.status} = ${segment} AND ${contacts.businessId} = ${businessId}`,
-        )
-        .orderBy(desc(contacts.createdAt));
-    }
-    const businessId = this.requireBusinessId();
-    return await db
-      .select()
-      .from(contacts)
-      .where(
-        sql`${contacts.segment} = ${segment} AND ${contacts.businessId} = ${businessId}`,
-      )
-      .orderBy(desc(contacts.createdAt));
-  }
-
-  async getContactsByStatus(status: string): Promise<Contact[]> {
-    if (status === "all") {
-      return await this.getContacts();
-    }
-    const businessId = this.requireBusinessId();
-    return await db
-      .select()
-      .from(contacts)
-      .where(
-        sql`${contacts.status} = ${status} AND ${contacts.businessId} = ${businessId}`,
-      )
-      .orderBy(desc(contacts.createdAt));
-  }
 
   async getContact(id: number): Promise<Contact | undefined> {
     const businessId = this.requireBusinessId();
@@ -285,12 +244,9 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async searchContacts(query: string, status?: string): Promise<Contact[]> {
+  async searchContacts(query: string): Promise<Contact[]> {
     const searchSql = sql`${contacts.firstName} ILIKE ${"%" + query + "%"} OR ${contacts.lastName} ILIKE ${"%" + query + "%"} OR ${contacts.phoneNumber} ILIKE ${"%" + query + "%"} OR ${contacts.email} ILIKE ${"%" + query + "%"}`;
-    const whereClause =
-      status && status !== "all"
-        ? sql`(${searchSql}) AND ${contacts.status} = ${status}`
-        : searchSql;
+    const whereClause = searchSql;
     const businessId = this.requireBusinessId();
     return await db
       .select()
@@ -770,53 +726,15 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getContactStats(status?: string): Promise<{
+  async getContactStats(): Promise<{
     allContacts: number;
-    inactive: number;
-    activeContacts: number;
   }> {
     const businessId = this.requireBusinessId();
-    if (status === "active") {
-      const [active] = await db
-        .select({ count: count() })
-        .from(contacts)
-        .where(
-          sql`${contacts.status} = 'active' AND ${contacts.businessId} = ${businessId}`,
-        );
-      return { allContacts: active.count, inactive: 0, activeContacts: active.count };
-    }
-    if (status === "inactive") {
-      const [inactive] = await db
-        .select({ count: count() })
-        .from(contacts)
-        .where(
-          sql`${contacts.status} = 'inactive' AND ${contacts.businessId} = ${businessId}`,
-        );
-      return { allContacts: inactive.count, inactive: inactive.count, activeContacts: 0 };
-    }
-
     const [allContacts] = await db
       .select({ count: count() })
       .from(contacts)
       .where(eq(contacts.businessId, businessId));
-    const [inactiveContacts] = await db
-      .select({ count: count() })
-      .from(contacts)
-      .where(
-        sql`${contacts.status} = 'inactive' AND ${contacts.businessId} = ${businessId}`,
-      );
-    const [activeContacts] = await db
-      .select({ count: count() })
-      .from(contacts)
-      .where(
-        sql`${contacts.status} = 'active' AND ${contacts.businessId} = ${businessId}`,
-      );
-
-    return {
-      allContacts: allContacts.count,
-      inactive: inactiveContacts.count,
-      activeContacts: activeContacts.count,
-    };
+    return { allContacts: allContacts.count };
   }
 
   async getCampaignStats(): Promise<{

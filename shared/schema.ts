@@ -18,8 +18,6 @@ export const contacts = pgTable("contacts", {
   lastName: text("last_name").notNull(),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
   email: text("email"),
-  segment: text("segment").notNull().default("all"), // all, active, inactive
-  status: text("status").notNull().default("active"), // active, inactive
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
