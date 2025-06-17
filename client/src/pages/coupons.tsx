@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 import type { Coupon, CouponRedemption } from "@shared/schema";
 import RedemptionTable from "@/components/coupons/redemption-table";
 
@@ -51,6 +52,7 @@ export default function Coupons() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const { toast } = useToast();
+  const { data: setup } = useSetupStatus();
 
   const { data: coupons, isLoading } = useQuery<Coupon[]>({
     queryKey: [
@@ -262,6 +264,7 @@ export default function Coupons() {
             <CouponTable
               coupons={coupons || []}
               isLoading={isLoading}
+              hasCoupons={!!setup?.hasCoupons}
               onRedeem={(c) => {
                 setSelectedCoupon(c);
                 setIsRedeemOpen(true);

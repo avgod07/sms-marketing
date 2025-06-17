@@ -127,6 +127,9 @@ export interface IStorage {
   getContactStats(): Promise<{
     allContacts: number;
   }>;
+  getCouponStats(): Promise<{
+    allCoupons: number;
+  }>;
   getCampaignStats(): Promise<{
     activeCampaigns: number;
     messagesThisMonth: number;
@@ -740,6 +743,17 @@ export class DatabaseStorage implements IStorage {
       .from(contacts)
       .where(eq(contacts.businessId, businessId));
     return { allContacts: allContacts.count };
+  }
+
+  async getCouponStats(): Promise<{
+    allCoupons: number;
+  }> {
+    const businessId = this.requireBusinessId();
+    const [allCoupons] = await db
+      .select({ count: count() })
+      .from(coupons)
+      .where(eq(coupons.businessId, businessId));
+    return { allCoupons: allCoupons.count };
   }
 
   async getCampaignStats(): Promise<{
