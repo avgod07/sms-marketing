@@ -43,7 +43,6 @@ export default function Campaigns() {
       const payload: Record<string, any> = {
         name: data.name,
         message: data.message,
-        audience: data.audience,
       };
       if (data.sendTime === "scheduled" && data.scheduledAt) {
         payload.scheduledAt = data.scheduledAt;
@@ -187,7 +186,6 @@ export default function Campaigns() {
                     ? {
                         name: editingCampaign.name,
                         message: editingCampaign.message,
-                        audience: editingCampaign.audience,
                         frequency: editingCampaign.scheduledAt ? "one-time" : "recurring",
                         sendTime: editingCampaign.scheduledAt ? "scheduled" : "immediate",
                         scheduledAt: editingCampaign.scheduledAt

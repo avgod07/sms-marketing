@@ -22,7 +22,6 @@ export const campaignSchema = z
       .string()
       .min(1, "Message is required")
       .max(160, "Message must be 160 characters or less"),
-    audience: z.string().min(1, "Audience is required"),
     frequency: z.enum(["one-time", "recurring"]),
     sendTime: z.enum(["immediate", "scheduled"]),
     scheduledAt: z.string().optional(),
@@ -62,7 +61,6 @@ export default function CampaignForm({
     defaultValues: {
       name: "",
       message: "",
-      audience: "all",
       frequency: "one-time",
       sendTime: "immediate",
       scheduledAt: "",
@@ -84,25 +82,6 @@ export default function CampaignForm({
           <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
           {form.formState.errors.name && (
             <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="audience">Audience</Label>
-          <Select
-            onValueChange={(value) => form.setValue("audience", value)}
-            value={form.watch("audience")}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select audience" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Contacts</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="active">Active Contacts</SelectItem>
-            </SelectContent>
-          </Select>
-          {form.formState.errors.audience && (
-            <p className="text-sm text-red-600 mt-1">{form.formState.errors.audience.message}</p>
           )}
         </div>
         <div>

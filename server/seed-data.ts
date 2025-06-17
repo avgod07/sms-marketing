@@ -87,19 +87,16 @@ export async function seedData() {
       {
         name: "Black Friday Sale",
         message: "🔥 BLACK FRIDAY: 50% OFF everything! Use code BF50. Limited time only. Shop now: bit.ly/shop50",
-        audience: "all",
         status: "completed",
       },
       {
         name: "Welcome Series",
         message: "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
-        audience: "active",
         status: "in_progress",
       },
       {
         name: "VIP Exclusive",
         message: "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
-        audience: "active",
         status: "in_progress",
       },
     ];

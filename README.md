@@ -19,7 +19,7 @@ This project relies on Node.js and Docker for local development. Follow these st
 
    You can create a free account at [Twilio](https://www.twilio.com/). After verifying your phone number, retrieve the **Account SID**, **Auth Token**, and a phone number from the Twilio Console. Add these values to your `.env` file.
 
-   Once configured, campaigns will automatically send SMS messages to their audience when created.
+   Once configured, campaigns will automatically send SMS messages to all contacts when created.
 
 3. **Database migration**
 
@@ -94,8 +94,8 @@ When calling `POST /api/coupons/:code/redeem`, include the customer's `phoneNumb
 The server normalizes this number before looking up the contact so formats like
 `(555) 123-4567` or `+1 555-123-4567` are accepted.
 You may optionally provide a `note` field which will be stored with the
-redemption. The server verifies that the contact was part of the original
-audience and records the redemption alongside the contact for auditing purposes.
+redemption. The server verifies that the contact was part of the campaign's
+recipients and records the redemption alongside the contact for auditing purposes.
 
 ## Devcontainer
 
