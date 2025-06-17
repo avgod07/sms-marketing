@@ -11,8 +11,6 @@ export interface DashboardStats {
 
 export interface ContactStats {
   allContacts: number;
-  inactive: number;
-  activeContacts: number;
 }
 
 export interface CampaignStats {

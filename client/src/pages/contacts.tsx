@@ -27,7 +27,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Contact } from "@shared/schema";
-import type { ContactStats, ContactRedemption } from "@shared/api-types";
+import type { ContactRedemption } from "@shared/api-types";
 import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
 
 export default function Contacts() {

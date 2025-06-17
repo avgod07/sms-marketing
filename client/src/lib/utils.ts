@@ -51,23 +51,6 @@ export function formatPhoneNumber(phone: string): string {
   return phone;
 }
 
-export function getSegmentColor(segment: string): string {
-  switch (segment) {
-    case 'inactive':
-      return 'bg-gray-100 text-gray-700';
-    case 'active':
-      return 'bg-green-100 text-green-700';
-    case 'lead':
-      return 'bg-blue-100 text-blue-700';
-    default:
-      return 'bg-blue-100 text-blue-700';
-  }
-}
-
-export function formatSegment(segment: string): string {
-  if (segment === 'all') return 'Customer';
-  return segment.charAt(0).toUpperCase() + segment.slice(1);
-}
 
 export function getStatusColor(status: string): string {
   switch (status) {
