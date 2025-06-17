@@ -43,7 +43,9 @@ export const messages = pgTable("messages", {
   businessId: integer("business_id")
     .references(() => businesses.id)
     .notNull(),
-  campaignId: integer("campaign_id").references(() => campaigns.id),
+  campaignId: integer("campaign_id").references(() => campaigns.id, {
+    onDelete: "cascade",
+  }),
   contactId: integer("contact_id").references(() => contacts.id).notNull(),
   content: text("content").notNull(),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
@@ -93,7 +95,7 @@ export const couponRecipients = pgTable("coupon_recipients", {
     .references(() => coupons.id)
     .notNull(),
   campaignId: integer("campaign_id")
-    .references(() => campaigns.id)
+    .references(() => campaigns.id, { onDelete: "cascade" })
     .notNull(),
   contactId: integer("contact_id")
     .references(() => contacts.id)
