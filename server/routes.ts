@@ -669,7 +669,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const copy = await biz(req).createCampaign({
         name: `${campaign.name} (Copy)`,
         message: campaign.message,
-        audience: campaign.audience,
         status: "in_progress",
         scheduledAt: campaign.scheduledAt || null,
       });
