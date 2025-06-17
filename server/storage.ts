@@ -199,6 +199,7 @@ export class DatabaseStorage implements IStorage {
       .insert(contacts)
       .values({
         ...contact,
+        phoneNumber: normalizePhoneNumber(contact.phoneNumber),
         businessId,
         updatedAt: new Date(),
       })
@@ -211,12 +212,16 @@ export class DatabaseStorage implements IStorage {
     contact: Partial<InsertContact>,
   ): Promise<Contact> {
     const businessId = this.requireBusinessId();
+    const updateData = {
+      ...contact,
+      ...(contact.phoneNumber
+        ? { phoneNumber: normalizePhoneNumber(contact.phoneNumber) }
+        : {}),
+      updatedAt: new Date(),
+    };
     const [updatedContact] = await db
       .update(contacts)
-      .set({
-        ...contact,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(
         sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`,
       )
