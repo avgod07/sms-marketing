@@ -53,11 +53,6 @@ import { encrypt, decrypt } from "./utils/encryption";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
-  const allBiz = await db.select({ id: businesses.id }).from(businesses);
-  for (const b of allBiz) {
-    await storage.forBusiness(b.id).normalizeCampaignStatuses();
-  }
-
   function biz(req: any) {
     return storage.forBusiness(req.user.businessId);
   }
