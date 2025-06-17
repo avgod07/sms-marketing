@@ -1,7 +1,13 @@
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatPhoneNumber } from "@/lib/utils";
 import { Contact } from "@shared/schema";
-import { Mail, Phone } from "lucide-react";
-import ContactActionMenu from "./contact-action-menu";
+import { MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
 
 interface ContactTableProps {
   contacts: Contact[];
@@ -84,12 +90,27 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
                 )}
               </td>
               <td className="py-4 px-4">
-                <ContactActionMenu
-                  contact={contact}
-                  onEdit={onEdit}
-                  onViewRedemptions={onViewRedemptions}
-                  onDelete={onDelete}
-                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onEdit(contact)}>
+                      <Edit className="mr-2 h-4 w-4" /> Edit Contact
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onViewRedemptions(contact)}>
+                      View Redemptions
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => onDelete(contact)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </td>
             </tr>
           ))}
