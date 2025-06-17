@@ -22,6 +22,7 @@ export interface CampaignStats {
 export interface SetupStatus {
   phoneConfigured: boolean;
   hasContacts: boolean;
+  hasCoupons: boolean;
 }
 
 export interface ContactRedemption {
