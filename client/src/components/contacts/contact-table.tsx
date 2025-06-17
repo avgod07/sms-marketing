@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatPhoneNumber } from "@/lib/utils";
 import { Contact } from "@shared/schema";
-import { MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Mail, Phone, Edit, Trash2, History } from "lucide-react";
 
 interface ContactTableProps {
   contacts: Contact[];
@@ -101,7 +101,7 @@ export default function ContactTable({ contacts, isLoading, onEdit, onViewRedemp
                       <Edit className="mr-2 h-4 w-4" /> Edit Contact
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onViewRedemptions(contact)}>
-                      View Redemptions
+                      <History className="mr-2 h-4 w-4" /> View Redemptions
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => onDelete(contact)}
