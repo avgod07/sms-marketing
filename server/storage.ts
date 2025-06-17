@@ -358,9 +358,23 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCampaign(id: number): Promise<void> {
     const businessId = this.requireBusinessId();
-    await db
-      .delete(campaigns)
-      .where(sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`);
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(messages)
+        .where(
+          sql`${messages.campaignId} = ${id} AND ${messages.businessId} = ${businessId}`,
+        );
+      await tx
+        .delete(couponRecipients)
+        .where(
+          sql`${couponRecipients.campaignId} = ${id} AND ${couponRecipients.businessId} = ${businessId}`,
+        );
+      await tx
+        .delete(campaigns)
+        .where(
+          sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`,
+        );
+    });
   }
 
 
