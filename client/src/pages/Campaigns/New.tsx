@@ -21,7 +21,6 @@ export default function NewCampaignPage() {
       const payload: Record<string, any> = {
         name: data.name,
         message: data.message,
-        audience: data.audience,
       };
       if (data.sendTime === "scheduled" && data.scheduledAt) {
         payload.scheduledAt = data.scheduledAt;

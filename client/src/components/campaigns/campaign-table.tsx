@@ -62,7 +62,6 @@ export default function CampaignTable({
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-medium text-gray-500">Campaign</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Audience</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Date</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Sent</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Delivered</th>
@@ -95,15 +94,6 @@ export default function CampaignTable({
                     </div>
                   </div>
                 </div>
-              </td>
-              <td className="py-4 px-4">
-                <span className="text-gray-900 capitalize">
-                  {campaign.audience === 'all'
-                    ? 'All Contacts'
-                    : campaign.audience === 'inactive'
-                    ? 'Inactive Users'
-                    : campaign.audience}
-                </span>
               </td>
               <td className="py-4 px-4">
                 <span className="text-gray-900">{formatDate(campaign.createdAt)}</span>
