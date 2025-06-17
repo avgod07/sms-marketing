@@ -39,20 +39,12 @@ export default function Campaigns() {
 
 
   const updateCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormValues) => {
-      const payload: Record<string, any> = {
-        name: data.name,
-        message: data.message,
-      };
-      if (data.sendTime === "scheduled" && data.scheduledAt) {
-        payload.scheduledAt = data.scheduledAt;
-      }
-      return apiRequest({
+    mutationFn: (data: CampaignFormValues) =>
+      apiRequest({
         method: "PATCH",
         url: `/api/campaigns/${editingCampaign!.id}`,
-        data: payload,
-      });
-    },
+        data: { name: data.name, message: data.message },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
@@ -186,11 +178,6 @@ export default function Campaigns() {
                     ? {
                         name: editingCampaign.name,
                         message: editingCampaign.message,
-                        frequency: editingCampaign.scheduledAt ? "one-time" : "recurring",
-                        sendTime: editingCampaign.scheduledAt ? "scheduled" : "immediate",
-                        scheduledAt: editingCampaign.scheduledAt
-                          ? new Date(editingCampaign.scheduledAt).toISOString().slice(0, 16)
-                          : "",
                       }
                     : undefined
                 }

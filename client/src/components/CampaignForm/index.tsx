@@ -6,14 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export const campaignSchema = z
   .object({
@@ -22,18 +14,6 @@ export const campaignSchema = z
       .string()
       .min(1, "Message is required")
       .max(160, "Message must be 160 characters or less"),
-    frequency: z.enum(["one-time", "recurring"]),
-    sendTime: z.enum(["immediate", "scheduled"]),
-    scheduledAt: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.sendTime === "scheduled" && !data.scheduledAt) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please select a date and time",
-        path: ["scheduledAt"],
-      });
-    }
   });
 
 export type CampaignFormValues = z.infer<typeof campaignSchema>;
@@ -61,9 +41,6 @@ export default function CampaignForm({
     defaultValues: {
       name: "",
       message: "",
-      frequency: "one-time",
-      sendTime: "immediate",
-      scheduledAt: "",
       ...initialValues,
     },
   });
@@ -101,51 +78,6 @@ export default function CampaignForm({
               {form.watch("message")?.length || 0}/160
             </p>
           </div>
-        </div>
-        <div>
-          <Label>Frequency</Label>
-          <RadioGroup
-            value={form.watch("frequency")}
-            onValueChange={(val) => form.setValue("frequency", val as "one-time" | "recurring")}
-            className="flex space-x-4 mt-2"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem id="freq-once" value="one-time" />
-              <Label htmlFor="freq-once">One-time</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem id="freq-recurring" value="recurring" />
-              <Label htmlFor="freq-recurring">Recurring</Label>
-            </div>
-          </RadioGroup>
-        </div>
-        <div>
-          <Label>Send Time</Label>
-          <RadioGroup
-            value={form.watch("sendTime")}
-            onValueChange={(val) => form.setValue("sendTime", val as "immediate" | "scheduled")}
-            className="flex space-x-4 mt-2"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem id="send-now" value="immediate" />
-              <Label htmlFor="send-now">Immediate</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem id="send-scheduled" value="scheduled" />
-              <Label htmlFor="send-scheduled">Scheduled</Label>
-            </div>
-          </RadioGroup>
-          {form.watch("sendTime") === "scheduled" && (
-            <Input
-              id="scheduledAt"
-              type="datetime-local"
-              className="mt-2"
-              {...form.register("scheduledAt")}
-            />
-          )}
-          {form.formState.errors.scheduledAt && (
-            <p className="text-sm text-red-600 mt-1">{form.formState.errors.scheduledAt.message}</p>
-          )}
         </div>
         <div className="flex space-x-2">
           <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
