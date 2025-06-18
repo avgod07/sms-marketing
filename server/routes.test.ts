@@ -135,4 +135,23 @@ describe('routes', () => {
     expect(mockForBusiness.deleteCampaign).toHaveBeenCalledWith(3);
     expect(res.status).toBe(204);
   });
+
+  it('public contact signup creates contact', async () => {
+    mockForBusiness.createContact = vi.fn().mockResolvedValue({ id: 5 });
+    const app = await setupApp();
+
+    const res = await request(app)
+      .post('/public/contacts')
+      .send({
+        businessId: 2,
+        firstName: 'John',
+        lastName: 'Doe',
+        phoneNumber: '+15551234567',
+        email: 'j@example.com',
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockStorage.forBusiness).toHaveBeenCalledWith(2);
+    expect(mockForBusiness.createContact).toHaveBeenCalled();
+  });
 });
