@@ -1,6 +1,6 @@
 import twilio from "twilio";
 import type { TwilioCredential } from "@shared/schema";
-import { decrypt } from "../utils/encryption";
+import { decrypt } from "../utils/encryption.util";
 
 // Global fallback configuration for development/testing
 const fallbackSid = process.env.TWILIO_ACCOUNT_SID || "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";

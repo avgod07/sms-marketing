@@ -4,11 +4,11 @@ import {
   storage,
   findTwilioCredentialByAccountSid,
   findBusinessIdByPhoneNumber,
-} from "./storage";
-import { db } from "./db";
+} from "../db/storage";
+import { db } from "../config/db.config";
 import { businesses } from "@shared/schema";
-import { normalizePhoneNumber } from "./phone.js";
-import { TwilioService } from "./services/twilio.js";
+import { normalizePhoneNumber } from "../utils/normalize.util.js";
+import { TwilioService } from "../services/twilio.js";
 import {
   insertContactSchema,
   insertMessageSchema,
@@ -46,16 +46,16 @@ const simpleCampaignSchema = z.object({
     .max(160, { message: "Message must be 160 characters or less" }),
 });
 import twilio from "twilio";
-import { executeCampaign } from "./services/campaign.js";
-import { registerBusinessForA2P } from "./services/a2p.js";
+import { executeCampaign } from "../services/campaign.js";
+import { registerBusinessForA2P } from "../services/a2p.js";
 import passport from "passport";
 import bcrypt from "bcryptjs";
-import { ensureAuthenticated } from "./auth";
-import { logError, logInfo } from "./logger";
+import { ensureAuthenticated } from "../middlewares/auth.middleware";
+import { logError, logInfo } from "../utils/logger.util";
 import { nanoid } from "nanoid";
-import { createRateLimiter } from "./rate-limit";
-import { validateCoupon } from "./coupon-middleware";
-import { encrypt, decrypt } from "./utils/encryption";
+import { createRateLimiter } from "../middlewares/rate-limit.middleware";
+import { validateCoupon } from "../middlewares/coupon.middleware";
+import { encrypt, decrypt } from "../utils/encryption.util";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
