@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface JoinPageProps {
@@ -34,7 +34,8 @@ export default function JoinPage({ params }: JoinPageProps) {
           email: email || undefined,
         },
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       setSubmitted(true);
     },
     onError: (err: any) => {
