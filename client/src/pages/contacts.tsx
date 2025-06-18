@@ -24,6 +24,7 @@ import ContactTable from "@/components/contacts/contact-table";
 import ContactForm, { type ContactFormValues } from "@/components/contacts/contact-form";
 import { Search, Plus } from "lucide-react";
 import QRCode from "react-qr-code";
+import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -185,9 +186,11 @@ export default function Contacts() {
                       <DialogTitle>Join Link QR Code</DialogTitle>
                     </DialogHeader>
                     <div className="flex justify-center py-4">
-                      <QRCode
-                        value={`https://app.example.com/join/${user?.businessId ?? ""}`}
-                      />
+                      {user?.businessId ? (
+                        <QRCode value={`${window.location.origin}/join/${user.businessId}`} />
+                      ) : (
+                        <Skeleton className="h-40 w-40" />
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
