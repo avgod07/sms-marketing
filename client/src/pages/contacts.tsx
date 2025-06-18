@@ -47,6 +47,7 @@ export default function Contacts() {
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts", { search: debouncedSearch }],
+    keepPreviousData: true,
   });
 
   const { data: setup } = useSetupStatus();
