@@ -31,9 +31,7 @@ const loginSchema = z.object({
   password: passwordSchema,
 });
 
-const signupSchema = loginSchema.extend({
-  businessName: z.string().min(1, { message: "Business name is required" }),
-});
+const signupSchema = loginSchema;
 
 const businessProfileSchema = insertBusinessProfileSchema.extend({
   businessName: z.string(),
@@ -66,13 +64,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/signup", async (req, res) => {
     try {
-      const { username, password, businessName } = signupSchema.parse(req.body);
+      const { username, password } = signupSchema.parse(req.body);
       const existing = await storage.getUserByUsername(username);
       if (existing) {
         return res.status(400).json({ message: "User already exists" });
       }
       const passwordHash = await bcrypt.hash(password, 10);
-      const business = await storage.createBusiness({ name: businessName });
+      const defaultBusinessName = username.split("@")[0] || "Untitled";
+      const business = await storage.createBusiness({ name: defaultBusinessName });
       const user = await storage.forBusiness(business.id).createUser({ username, passwordHash });
       try {
         await new Promise<void>((resolve, reject) => {
