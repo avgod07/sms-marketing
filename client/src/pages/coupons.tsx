@@ -67,6 +67,7 @@ export default function Coupons() {
         endDate,
       },
     ],
+    keepPreviousData: true,
   });
 
   const {
