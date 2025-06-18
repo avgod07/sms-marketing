@@ -3,15 +3,14 @@ import { logInfo } from "./logger";
 import { db, pool } from "./db";
 import { businesses } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { encrypt } from "./utils/encryption";
 import bcrypt from "bcryptjs";
 
 export async function seedData() {
   try {
     // Ensure a demo business and user exist for testing
-    const demoBusinessName = "Demo Business";
+    const demoBusinessName = "Seeded Business";
     const demoUsername = "demo";
-    const demoPassword = "demo";
+    const demoPassword = "demo123";
 
     let [business] = await db
       .select()
@@ -24,9 +23,10 @@ export async function seedData() {
 
     const biz = storage.forBusiness(business.id);
 
+    const passwordHash = await bcrypt.hash(demoPassword, 10);
+
     let existingUser = await biz.getUserByUsername(demoUsername);
     if (!existingUser) {
-      const passwordHash = await bcrypt.hash(demoPassword, 10);
       existingUser = await biz.createUser({ username: demoUsername, passwordHash });
       logInfo(`Created demo user \"${demoUsername}\"`);
     }
@@ -144,14 +144,38 @@ export async function seedData() {
       await biz.createCoupon(coupon);
     }
 
-    // Seed dummy Twilio credentials for testing
-    await biz.upsertTwilioCredentials({
-      accountSid: "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      authTokenEncrypted: encrypt("auth_token"),
-      messagingServiceSid: "MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-    });
-
     logInfo("Sample data seeded successfully!");
+
+    // ----- Optional second business for multi-tenant testing -----
+    const secondBusinessName = "Second Seeded Business";
+    const secondUsername = "demo2";
+
+    let [business2] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.name, secondBusinessName));
+
+    if (!business2) {
+      business2 = await storage.createBusiness({ name: secondBusinessName });
+    }
+
+    const biz2 = storage.forBusiness(business2.id);
+
+    let secondUser = await biz2.getUserByUsername(secondUsername);
+    if (!secondUser) {
+      secondUser = await biz2.createUser({ username: secondUsername, passwordHash });
+      logInfo(`Created demo user \"${secondUsername}\"`);
+    }
+
+    const existingSecondContacts = await biz2.getContacts();
+    if (existingSecondContacts.length === 0) {
+      await biz2.createContact({
+        firstName: "Jane",
+        lastName: "Doe",
+        phoneNumber: "+15550000000",
+        email: "jane@example.com",
+      });
+    }
   } catch (error) {
     console.error("Error seeding data:", error);
   }
