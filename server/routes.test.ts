@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import { vi, describe, it, expect, afterEach, beforeAll } from 'vitest';
+import { vi, describe, it, expect, afterEach, beforeAll, beforeEach } from 'vitest';
 var mockForBusiness: any;
 var mockStorage: any;
 var registerRoutes: any;
@@ -185,5 +185,90 @@ describe('routes', () => {
     expect(mockForBusiness.searchContacts).toHaveBeenCalledWith('Sarah J');
     expect(res.status).toBe(200);
     expect(res.body).toEqual(contacts);
+  });
+
+  describe('multi-tenant isolation', () => {
+    let biz1: any;
+    let biz2: any;
+
+    beforeEach(() => {
+      biz1 = {
+        getContacts: vi.fn().mockResolvedValue([{ id: 1, firstName: 'A' }]),
+        getCampaigns: vi.fn().mockResolvedValue([{ id: 1, name: 'C1' }]),
+        searchCoupons: vi.fn().mockResolvedValue([{ id: 1, code: 'X1' }]),
+        getDashboardStats: vi.fn().mockResolvedValue({
+          totalContacts: 1,
+          messagesSent: 2,
+          activeCampaigns: 1,
+          deliveryRate: 0.5,
+          contactsChange: null,
+          messagesChange: null,
+          campaignsChange: null,
+          deliveryRateChange: null,
+        }),
+      };
+      biz2 = {
+        getContacts: vi.fn().mockResolvedValue([{ id: 2, firstName: 'B' }]),
+        getCampaigns: vi.fn().mockResolvedValue([{ id: 2, name: 'C2' }]),
+        searchCoupons: vi.fn().mockResolvedValue([{ id: 2, code: 'X2' }]),
+        getDashboardStats: vi.fn().mockResolvedValue({
+          totalContacts: 5,
+          messagesSent: 6,
+          activeCampaigns: 2,
+          deliveryRate: 0.9,
+          contactsChange: null,
+          messagesChange: null,
+          campaignsChange: null,
+          deliveryRateChange: null,
+        }),
+      };
+      mockStorage.forBusiness.mockImplementation((id: number) =>
+        id === 1 ? biz1 : biz2,
+      );
+    });
+
+    it('returns only contacts for the authenticated business', async () => {
+      const app1 = await setupApp({ businessId: 1 });
+      const app2 = await setupApp({ businessId: 2 });
+
+      const res1 = await request(app1).get('/api/contacts');
+      const res2 = await request(app2).get('/api/contacts');
+
+      expect(res1.body).toEqual([{ id: 1, firstName: 'A' }]);
+      expect(res2.body).toEqual([{ id: 2, firstName: 'B' }]);
+    });
+
+    it('returns only campaigns for the authenticated business', async () => {
+      const app1 = await setupApp({ businessId: 1 });
+      const app2 = await setupApp({ businessId: 2 });
+
+      const res1 = await request(app1).get('/api/campaigns');
+      const res2 = await request(app2).get('/api/campaigns');
+
+      expect(res1.body).toEqual([{ id: 1, name: 'C1' }]);
+      expect(res2.body).toEqual([{ id: 2, name: 'C2' }]);
+    });
+
+    it('returns only coupons for the authenticated business', async () => {
+      const app1 = await setupApp({ businessId: 1 });
+      const app2 = await setupApp({ businessId: 2 });
+
+      const res1 = await request(app1).get('/api/coupons');
+      const res2 = await request(app2).get('/api/coupons');
+
+      expect(res1.body).toEqual([{ id: 1, code: 'X1' }]);
+      expect(res2.body).toEqual([{ id: 2, code: 'X2' }]);
+    });
+
+    it('returns stats for the authenticated business only', async () => {
+      const app1 = await setupApp({ businessId: 1 });
+      const app2 = await setupApp({ businessId: 2 });
+
+      const res1 = await request(app1).get('/api/dashboard/stats');
+      const res2 = await request(app2).get('/api/dashboard/stats');
+
+      expect(res1.body.totalContacts).toBe(1);
+      expect(res2.body.totalContacts).toBe(5);
+    });
   });
 });
