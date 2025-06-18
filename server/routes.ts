@@ -14,6 +14,7 @@ import {
   insertMessageSchema,
   insertCouponSchema,
   insertBusinessProfileSchema,
+  type InsertBusinessProfile,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -34,7 +35,7 @@ const loginSchema = z.object({
 const signupSchema = loginSchema;
 
 const businessProfileSchema = insertBusinessProfileSchema.extend({
-  businessName: z.string(),
+  name: z.string().optional(),
 });
 
 const simpleCampaignSchema = z.object({
@@ -372,9 +373,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/business-profile", async (req, res) => {
     try {
       const data = businessProfileSchema.parse(req.body);
-      await biz(req).updateBusiness({ name: data.businessName });
-      const profile = await biz(req).upsertBusinessProfile(data);
-      res.json(profile);
+      const { name, ...profile } = data as { name?: string } & InsertBusinessProfile;
+      if (name) {
+        await biz(req).updateBusiness({ name });
+      }
+      const saved = await biz(req).upsertBusinessProfile(profile);
+      res.json(saved);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
