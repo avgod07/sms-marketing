@@ -22,7 +22,20 @@ export default function Signup() {
         data: { username, password, businessName },
       }),
     onSuccess: async () => {
+      queryClient.clear();
+      [
+        "onboardingComplete",
+        "onboardingStep",
+        "onboardingData",
+        "twilioConnected",
+        "numbersConfigured",
+      ].forEach((k) => localStorage.removeItem(k));
+      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
       toast({ title: "Account Created" });
       navigate("/");
     },
