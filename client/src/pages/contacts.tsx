@@ -27,12 +27,14 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { Contact } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -44,7 +46,7 @@ export default function Contacts() {
 
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts", { search: searchQuery }],
+    queryKey: ["/api/contacts", { search: debouncedSearch }],
   });
 
   const { data: setup } = useSetupStatus();
