@@ -33,6 +33,7 @@ import {
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { Coupon, CouponRedemption } from "@shared/schema";
 import RedemptionTable from "@/components/coupons/redemption-table";
 
@@ -47,6 +48,7 @@ export default function Coupons() {
   const [deletingCoupon, setDeletingCoupon] = useState<Coupon | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
@@ -58,7 +60,7 @@ export default function Coupons() {
     queryKey: [
       "/api/coupons",
       {
-        search: searchQuery,
+        search: debouncedSearch,
         status: statusFilter,
         type: typeFilter,
         startDate,
