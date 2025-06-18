@@ -169,6 +169,57 @@ export default function Contacts() {
     URL.revokeObjectURL(url);
   };
 
+  const loadHtml2Pdf = () => {
+    if ((window as any).html2pdf) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js";
+      script.onload = () => resolve();
+      script.onerror = () => reject();
+      document.body.appendChild(script);
+    });
+  };
+
+  const downloadQrPdf = async () => {
+    const svg = document.getElementById("business-qr-code") as SVGSVGElement | null;
+    if (!svg) return;
+    try {
+      await loadHtml2Pdf();
+      const container = document.createElement("div");
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.alignItems = "center";
+      container.style.justifyContent = "center";
+      container.style.padding = "40px";
+      const title = document.createElement("div");
+      title.textContent = "Scan to Join";
+      title.style.fontSize = "24px";
+      title.style.marginBottom = "20px";
+      title.style.textAlign = "center";
+      container.appendChild(title);
+      const cloned = svg.cloneNode(true) as SVGSVGElement;
+      cloned.style.width = "200px";
+      cloned.style.height = "200px";
+      container.appendChild(cloned);
+      (window as any).html2pdf()
+        .from(container)
+        .set({
+          margin: 1,
+          filename: "join-qr-code.pdf",
+          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        })
+        .save()
+        .finally(() => {
+          container.remove();
+        });
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -211,14 +262,22 @@ export default function Contacts() {
                         <Skeleton className="h-40 w-40" />
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={downloadQrCode}
-                      className="mt-2"
-                    >
-                      Download QR Code
-                    </Button>
+                    <div className="flex flex-col items-center space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadQrCode}
+                      >
+                        Download QR Code
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadQrPdf}
+                      >
+                        Download as PDF
+                      </Button>
+                    </div>
                   </DialogContent>
                 </Dialog>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
