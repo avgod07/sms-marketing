@@ -22,12 +22,15 @@ import {
 
 import ContactTable from "@/components/contacts/contact-table";
 import ContactForm, { type ContactFormValues } from "@/components/contacts/contact-form";
-import { Search, Plus, Download, Upload } from "lucide-react";
+import { Search, Plus } from "lucide-react";
+import QRCode from "react-qr-code";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useAuth } from "@/hooks/use-auth";
+import type { User } from "@shared/schema";
 import type { Contact } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
@@ -42,6 +45,8 @@ export default function Contacts() {
   const [historyContact, setHistoryContact] = useState<Contact | null>(null);
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const { data: user } = useAuth() as { data: User | null };
   const { toast } = useToast();
 
 
@@ -171,14 +176,21 @@ export default function Contacts() {
                 <span>Contact Management</span>
               </CardTitle>
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import
-                </Button>
+                <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">Show QR Code</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-sm text-center">
+                    <DialogHeader>
+                      <DialogTitle>Join Link QR Code</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex justify-center py-4">
+                      <QRCode
+                        value={`https://app.example.com/join/${user?.businessId ?? ""}`}
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
