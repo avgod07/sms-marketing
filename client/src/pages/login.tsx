@@ -18,6 +18,7 @@ export default function Login() {
       apiRequest({ method: "POST", url: "/api/login", data: { username, password } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "Logged in" });
       navigate("/");
     },

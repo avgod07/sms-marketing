@@ -39,6 +39,7 @@ export default function Sidebar() {
     mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "Signed out" });
       navigate("/login");
     },

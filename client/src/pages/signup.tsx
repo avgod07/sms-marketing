@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation, Link } from "wouter";
 
 export default function Signup() {
@@ -22,6 +22,7 @@ export default function Signup() {
         data: { username, password, businessName },
       }),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "Account Created" });
       navigate("/");
     },
