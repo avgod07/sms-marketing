@@ -16,7 +16,6 @@ import Coupons from "@/pages/coupons";
 import JoinPage from "@/pages/join";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
-import MagicLogin from "@/pages/magic";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -25,7 +24,7 @@ function Router() {
   const { data: user, isLoading } = useAuth();
 
   const isAuthPage =
-    location === "/login" || location === "/signup" || location.startsWith("/magic");
+    location === "/login" || location === "/signup";
   const isPublicPage = location.startsWith("/join/");
 
   useEffect(() => {
@@ -44,7 +43,6 @@ function Router() {
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
-          <Route path="/magic" component={MagicLogin} />
           <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/" component={Dashboard} />
           <Route path="/contacts" component={Contacts} />
