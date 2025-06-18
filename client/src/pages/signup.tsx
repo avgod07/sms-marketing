@@ -12,14 +12,13 @@ export default function Signup() {
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [businessName, setBusinessName] = useState("");
 
   const signupMutation = useMutation({
     mutationFn: () =>
       apiRequest({
         method: "POST",
         url: "/api/signup",
-        data: { username, password, businessName },
+        data: { username, password },
       }),
     onSuccess: async () => {
       queryClient.clear();
@@ -46,15 +45,6 @@ export default function Signup() {
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md space-y-6">
         <h1 className="text-2xl font-bold text-center">Create Account</h1>
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="businessName">Business Name</Label>
-            <Input
-              id="businessName"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="Your business"
-            />
-          </div>
           <div>
             <Label htmlFor="username">Username</Label>
             <Input
