@@ -13,6 +13,7 @@ export default function Dashboard() {
     isError,
   } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+    staleTime: 0,
   });
 
   const dashboardStats: DashboardStats = {
