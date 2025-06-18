@@ -91,7 +91,6 @@ describe('routes', () => {
       .send({
         username: 'a@b.com',
         password: 'Password1!',
-        businessName: 'Biz',
       });
 
     expect(res.status).toBe(201);
@@ -107,7 +106,6 @@ describe('routes', () => {
       .send({
         username: 'a@b.com',
         password: 'Password1!',
-        businessName: 'Biz',
       });
 
     expect(res.status).toBe(400);
