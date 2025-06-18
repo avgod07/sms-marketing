@@ -13,6 +13,7 @@ import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
 import Help from "@/pages/help";
 import Coupons from "@/pages/coupons";
+import JoinPage from "@/pages/join";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import OnboardingPage from "@/pages/onboarding";
@@ -27,13 +28,14 @@ function Router() {
 
   const isAuthPage = location === "/login" || location === "/signup";
   const isOnboardingPage = location.startsWith("/onboarding");
+  const isPublicPage = location.startsWith("/join/");
   const onboardingDone = localStorage.getItem("onboardingComplete") === "true";
   const needsOnboarding =
     user && !onboardingDone &&
     setup && (!setup.phoneConfigured || !setup.hasContacts);
 
   useEffect(() => {
-    if (!isLoading && !user && !isAuthPage) {
+    if (!isLoading && !user && !isAuthPage && !isPublicPage) {
       navigate("/login");
     }
     if (!isLoading && !setupLoading && user) {
@@ -47,12 +49,13 @@ function Router() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {!isAuthPage && !isOnboardingPage && <Sidebar />}
+      {!isAuthPage && !isOnboardingPage && !isPublicPage && <Sidebar />}
       <main className="flex-1 overflow-y-auto">
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
           <Route path="/onboarding" component={OnboardingPage} />
+          <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/" component={Dashboard} />
           <Route path="/contacts" component={Contacts} />
           <Route path="/campaigns/new" component={NewCampaignPage} />
