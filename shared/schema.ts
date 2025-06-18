@@ -28,16 +28,11 @@ export const contacts = pgTable(
       .notNull(),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
-    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
     email: text("email"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => ({
-    phoneNumberIdx: uniqueIndex(
-      "contacts_business_id_phone_number_idx",
-    ).on(table.businessId, table.phoneNumber),
-  }),
 );
 
 export const campaigns = pgTable("campaigns", {
