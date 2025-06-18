@@ -252,9 +252,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchContacts(query: string): Promise<Contact[]> {
-    const searchSql = sql`${contacts.firstName} ILIKE ${"%" + query + "%"} OR ${contacts.lastName} ILIKE ${"%" + query + "%"} OR ${contacts.phoneNumber} ILIKE ${"%" + query + "%"} OR ${contacts.email} ILIKE ${"%" + query + "%"}`;
-    const whereClause = searchSql;
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return this.getContacts();
+    }
+
+    const tokens = trimmed.split(/\s+/);
     const businessId = this.requireBusinessId();
+
+    const clauses = tokens.map((token) =>
+      sql`${contacts.firstName} ILIKE ${"%" + token + "%"} OR ${contacts.lastName} ILIKE ${"%" + token + "%"} OR ${contacts.phoneNumber} ILIKE ${"%" + token + "%"} OR ${contacts.email} ILIKE ${"%" + token + "%"} OR concat(${contacts.firstName}, ' ', ${contacts.lastName}) ILIKE ${"%" + token + "%"}`,
+    );
+
+    let whereClause = clauses[0];
+    for (let i = 1; i < clauses.length; i++) {
+      whereClause = sql`(${whereClause}) AND (${clauses[i]})`;
+    }
+
     return await db
       .select()
       .from(contacts)
