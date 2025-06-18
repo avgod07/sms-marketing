@@ -39,13 +39,6 @@ export default function Sidebar() {
     mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
     onSuccess: async () => {
       queryClient.clear();
-      [
-        "onboardingComplete",
-        "onboardingStep",
-        "onboardingData",
-        "twilioConnected",
-        "numbersConfigured",
-      ].forEach((k) => localStorage.removeItem(k));
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
