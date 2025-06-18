@@ -144,7 +144,7 @@ export async function seedData() {
       await biz.createCoupon(coupon);
     }
 
-    // Seed dummy Twilio credentials so onboarding shows connected state
+    // Seed dummy Twilio credentials for testing
     await biz.upsertTwilioCredentials({
       accountSid: "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       authTokenEncrypted: encrypt("auth_token"),
