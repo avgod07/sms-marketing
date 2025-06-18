@@ -154,6 +154,21 @@ export default function Contacts() {
     deleteContactMutation.mutate();
   };
 
+  const downloadQrCode = () => {
+    const svg = document.getElementById("business-qr-code") as SVGSVGElement | null;
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([svgData], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "qr-code.svg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -188,11 +203,22 @@ export default function Contacts() {
                     </DialogHeader>
                     <div className="flex justify-center py-4">
                       {user?.businessId ? (
-                        <QRCode value={`${window.location.origin}/join/${user.businessId}`} />
+                        <QRCode
+                          id="business-qr-code"
+                          value={`${window.location.origin}/join/${user.businessId}`}
+                        />
                       ) : (
                         <Skeleton className="h-40 w-40" />
                       )}
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadQrCode}
+                      className="mt-2"
+                    >
+                      Download QR Code
+                    </Button>
                   </DialogContent>
                 </Dialog>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
