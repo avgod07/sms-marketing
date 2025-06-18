@@ -25,10 +25,12 @@ export async function seedData() {
 
     const passwordHash = await bcrypt.hash(demoPassword, 10);
 
-    let existingUser = await biz.getUserByUsername(demoUsername);
+    let existingUser = await storage.getUserByUsername(demoUsername);
     if (!existingUser) {
       existingUser = await biz.createUser({ username: demoUsername, passwordHash });
       logInfo(`Created demo user \"${demoUsername}\"`);
+    } else {
+      logInfo(`User "${demoUsername}" already exists. Skipping user creation.`);
     }
 
     logInfo(
@@ -161,10 +163,12 @@ export async function seedData() {
 
     const biz2 = storage.forBusiness(business2.id);
 
-    let secondUser = await biz2.getUserByUsername(secondUsername);
+    let secondUser = await storage.getUserByUsername(secondUsername);
     if (!secondUser) {
       secondUser = await biz2.createUser({ username: secondUsername, passwordHash });
       logInfo(`Created demo user \"${secondUsername}\"`);
+    } else {
+      logInfo(`User "${secondUsername}" already exists. Skipping user creation.`);
     }
 
     const existingSecondContacts = await biz2.getContacts();
