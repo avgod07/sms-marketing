@@ -39,6 +39,7 @@ import ContactRedemptionTable from "@/components/contacts/contact-redemption-tab
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
+  const trimmedSearch = debouncedSearch.trim();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -52,7 +53,7 @@ export default function Contacts() {
 
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts", { search: debouncedSearch }],
+    queryKey: ["/api/contacts", { search: trimmedSearch }],
   });
 
   const { data: setup } = useSetupStatus();

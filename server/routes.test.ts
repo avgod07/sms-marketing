@@ -154,4 +154,36 @@ describe('routes', () => {
     expect(mockStorage.forBusiness).toHaveBeenCalledWith(2);
     expect(mockForBusiness.createContact).toHaveBeenCalled();
   });
+
+  it('searches contacts with multiple tokens', async () => {
+    const contacts = [
+      { id: 1, firstName: 'David', lastName: 'Wilson' },
+    ];
+    mockForBusiness.searchContacts = vi.fn().mockResolvedValue(contacts);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app)
+      .get('/api/contacts')
+      .query({ search: 'David Wi' });
+
+    expect(mockForBusiness.searchContacts).toHaveBeenCalledWith('David Wi');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(contacts);
+  });
+
+  it('searches contacts by first and last name', async () => {
+    const contacts = [
+      { id: 2, firstName: 'Sarah', lastName: 'Johnson' },
+    ];
+    mockForBusiness.searchContacts = vi.fn().mockResolvedValue(contacts);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app)
+      .get('/api/contacts')
+      .query({ search: 'Sarah J' });
+
+    expect(mockForBusiness.searchContacts).toHaveBeenCalledWith('Sarah J');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(contacts);
+  });
 });
