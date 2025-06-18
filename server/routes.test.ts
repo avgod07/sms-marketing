@@ -97,6 +97,42 @@ describe('routes', () => {
     expect(res.body).toEqual({ message: 'Signed up' });
   });
 
+  it('signup assigns a unique business for each new user', async () => {
+    const bizA = { createUser: vi.fn().mockResolvedValue({ id: 1 }) };
+    const bizB = { createUser: vi.fn().mockResolvedValue({ id: 2 }) };
+    mockStorage.getUserByUsername
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    mockStorage.createBusiness
+      .mockResolvedValueOnce({ id: 11 })
+      .mockResolvedValueOnce({ id: 22 });
+    mockStorage.forBusiness
+      .mockImplementationOnce(() => bizA)
+      .mockImplementationOnce(() => bizB);
+
+    const app = await setupApp();
+
+    await request(app)
+      .post('/api/signup')
+      .send({ username: 'u1@example.com', password: 'Password1!' });
+
+    await request(app)
+      .post('/api/signup')
+      .send({ username: 'u2@example.com', password: 'Password1!' });
+
+    expect(mockStorage.createBusiness).toHaveBeenCalledTimes(2);
+    expect(mockStorage.forBusiness).toHaveBeenNthCalledWith(1, 11);
+    expect(mockStorage.forBusiness).toHaveBeenNthCalledWith(2, 22);
+    expect(bizA.createUser).toHaveBeenCalledWith({
+      username: 'u1@example.com',
+      passwordHash: 'hashed',
+    });
+    expect(bizB.createUser).toHaveBeenCalledWith({
+      username: 'u2@example.com',
+      passwordHash: 'hashed',
+    });
+  });
+
   it('signup rejects existing user', async () => {
     mockStorage.getUserByUsername.mockResolvedValue({ id: 1 });
 
@@ -151,6 +187,16 @@ describe('routes', () => {
     expect(res.status).toBe(201);
     expect(mockStorage.forBusiness).toHaveBeenCalledWith(2);
     expect(mockForBusiness.createContact).toHaveBeenCalled();
+  });
+
+  it('scopes routes using the businessId from the session', async () => {
+    mockForBusiness.getContacts = vi.fn().mockResolvedValue([]);
+    const app = await setupApp({ businessId: 42 });
+
+    await request(app).get('/api/contacts');
+
+    expect(mockStorage.forBusiness).toHaveBeenCalledWith(42);
+    expect(mockForBusiness.getContacts).toHaveBeenCalled();
   });
 
   it('searches contacts with multiple tokens', async () => {
