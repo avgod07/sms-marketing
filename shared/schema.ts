@@ -1,4 +1,14 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, decimal } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  boolean,
+  timestamp,
+  varchar,
+  decimal,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -9,18 +19,26 @@ export const businesses = pgTable("businesses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const contacts = pgTable("contacts", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
-  email: text("email"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    email: text("email"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    phoneNumberIdx: uniqueIndex(
+      "contacts_business_id_phone_number_idx",
+    ).on(table.businessId, table.phoneNumber),
+  }),
+);
 
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
@@ -55,22 +73,31 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const coupons = pgTable("coupons", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
-  code: text("code").notNull().unique(),
-  label: text("label"),
-  type: text("type").notNull(), // percent, amount
-  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
-  usageCount: integer("usage_count").default(0),
-  expirationDate: timestamp("expiration_date"),
-  validDays: integer("valid_days"),
-  status: text("status").notNull().default("active"), // active, expired, disabled
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    code: text("code").notNull(),
+    label: text("label"),
+    type: text("type").notNull(), // percent, amount
+    value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+    usageCount: integer("usage_count").default(0),
+    expirationDate: timestamp("expiration_date"),
+    validDays: integer("valid_days"),
+    status: text("status").notNull().default("active"), // active, expired, disabled
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    codeIdx: uniqueIndex("coupons_business_id_code_idx").on(
+      table.businessId,
+      table.code,
+    ),
+  }),
+);
 
 export const couponRedemptions = pgTable("coupon_redemptions", {
   id: serial("id").primaryKey(),
