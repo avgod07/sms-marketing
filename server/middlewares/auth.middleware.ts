@@ -3,7 +3,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { storage } from "./storage";
+import { storage } from "../db/storage";
 import type { User } from "@shared/schema";
 
 export function setupAuth(app: Express) {
