@@ -154,20 +154,6 @@ export default function Contacts() {
     deleteContactMutation.mutate();
   };
 
-  const downloadQrCode = () => {
-    const svg = document.getElementById("business-qr-code") as SVGSVGElement | null;
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([svgData], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "qr-code.svg";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
 
   const loadHtml2Pdf = () => {
     if ((window as any).html2pdf) {
@@ -194,12 +180,6 @@ export default function Contacts() {
       container.style.alignItems = "center";
       container.style.justifyContent = "center";
       container.style.padding = "40px";
-      const title = document.createElement("div");
-      title.textContent = "Scan to Join";
-      title.style.fontSize = "24px";
-      title.style.marginBottom = "20px";
-      title.style.textAlign = "center";
-      container.appendChild(title);
       const cloned = svg.cloneNode(true) as SVGSVGElement;
       cloned.style.width = "200px";
       cloned.style.height = "200px";
@@ -266,16 +246,9 @@ export default function Contacts() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={downloadQrCode}
-                      >
-                        Download QR Code
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
                         onClick={downloadQrPdf}
                       >
-                        Download as PDF
+                        Download
                       </Button>
                     </div>
                   </DialogContent>
