@@ -55,6 +55,7 @@ import { nanoid } from "nanoid";
 import { createRateLimiter } from "./rate-limit";
 import { validateCoupon } from "./coupon-middleware";
 import { encrypt, decrypt } from "./utils/encryption";
+import { createMagicToken, verifyMagicToken } from "./magic-link.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
@@ -101,6 +102,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Logged in" });
     },
   );
+
+  // Magic link authentication
+  app.post("/api/auth/magic-link", async (req, res) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      let user = await storage.getUserByUsername(email);
+      if (!user) {
+        const passwordHash = await bcrypt.hash(nanoid(), 10);
+        const bizName = email.split("@")[0] || "Untitled";
+        const business = await storage.createBusiness({ name: bizName });
+        user = await storage
+          .forBusiness(business.id)
+          .createUser({ username: email, passwordHash });
+      }
+      const token = createMagicToken(user.id, user.businessId);
+      const url = `${req.protocol}://${req.get("host")}/magic?token=${token}`;
+      logInfo(`Magic link for ${email}: ${url}`);
+      res.json({ message: "Magic link sent", token });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error sending magic link:", error);
+      res.status(500).json({ message: "Failed to send magic link" });
+    }
+  });
+
+  app.post("/api/auth/magic-login", async (req, res) => {
+    try {
+      const { token } = z.object({ token: z.string() }).parse(req.body);
+      const info = verifyMagicToken(token);
+      if (!info) {
+        return res.status(400).json({ message: "Invalid or expired token" });
+      }
+      const user = await storage.getUserById(info.userId);
+      if (!user) {
+        return res.status(400).json({ message: "Invalid token" });
+      }
+      await new Promise<void>((resolve, reject) => {
+        req.login(user, err => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+      res.json({ message: "Logged in" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error logging in with magic token:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
 
   // Return current authenticated user or null
   app.get("/api/me", (req, res) => {
