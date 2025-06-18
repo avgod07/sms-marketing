@@ -18,13 +18,6 @@ export default function Login() {
       apiRequest({ method: "POST", url: "/api/login", data: { username, password } }),
     onSuccess: async () => {
       queryClient.clear();
-      [
-        "onboardingComplete",
-        "onboardingStep",
-        "onboardingData",
-        "twilioConnected",
-        "numbersConfigured",
-      ].forEach((k) => localStorage.removeItem(k));
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
