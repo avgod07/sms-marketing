@@ -4,24 +4,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLocation, Link } from "wouter";
 
 export default function Login() {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-  const sendMutation = useMutation({
+  const loginMutation = useMutation({
     mutationFn: () =>
-      apiRequest({ method: "POST", url: "/api/auth/magic-link", data: { email } }),
-    onSuccess: () => {
-      setSent(true);
-      toast({ title: "Magic link sent" });
+      apiRequest({ method: "POST", url: "/api/login", data: { username, password } }),
+    onSuccess: async () => {
+      queryClient.clear();
+      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      toast({ title: "Logged in" });
+      navigate("/");
     },
-    onError: (err: any) => {
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: err.message || "Failed to send link",
+        title: "Login Failed",
+        description: error.message || "Unable to sign in",
         variant: "destructive",
       });
     },
@@ -32,25 +41,38 @@ export default function Login() {
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md space-y-6">
         <h1 className="text-2xl font-bold text-center">Sign In</h1>
         <div className="space-y-4">
-          <Button className="w-full" disabled>
-            Continue with Google
-          </Button>
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+            />
+          </div>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
             />
           </div>
           <Button
             className="w-full"
-            onClick={() => sendMutation.mutate()}
-            disabled={sendMutation.isPending || sent}
+            onClick={() => loginMutation.mutate()}
+            disabled={loginMutation.isPending}
           >
-            {sendMutation.isPending ? "Sending..." : sent ? "Link Sent" : "Send Magic Link"}
+            {loginMutation.isPending ? "Signing in..." : "Sign In"}
           </Button>
+          <p className="text-center text-sm">
+            Don't have an account?{' '}
+            <Link href="/signup" className="text-primary hover:underline">
+              Sign up
+            </Link>
+          </p>
         </div>
       </div>
     </div>
