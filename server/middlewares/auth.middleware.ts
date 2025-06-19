@@ -1,5 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "../config/db.config";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
@@ -24,6 +26,7 @@ export function setupAuth(app: Express) {
       secret: envSecret || "secret",
       resave: false,
       saveUninitialized: false,
+      store: new (connectPgSimple(session))({ pool }),
     }),
   );
   app.use(passport.initialize());
