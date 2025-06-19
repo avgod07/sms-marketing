@@ -6,5 +6,3 @@ logs/*
 !logs/.gitkeep
 vite.config.ts.*
 *.tar.gz
-client/.env
-server/.env
