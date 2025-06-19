@@ -69,7 +69,26 @@ This project relies on Node.js and Docker for local development. Follow these st
    ./scripts/reset-db.sh [--seed]
    ```
 
-   Pass `--seed` to automatically populate the database with the sample data.
+ Pass `--seed` to automatically populate the database with the sample data.
+
+## Server Structure
+
+The `server` directory is organized by responsibility:
+
+```
+server/
+  config/         - database configuration
+  db/             - storage layer and seed/reset scripts
+  middlewares/    - Express middleware functions
+  routes/         - API route registrations
+  services/       - business logic and external integrations
+  utils/          - shared utility modules
+  index.ts        - application entry point
+  vite.ts         - development server setup
+```
+
+This layout separates concerns so that adding new features or updating
+existing ones is easier to reason about.
 
 ## Authentication
 

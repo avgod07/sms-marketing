@@ -36,10 +36,10 @@ import {
   type InsertBusinessPhoneNumber,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
-import { db } from "./db";
+import { db } from "../config/db.config";
 import { eq, desc, count, sql } from "drizzle-orm";
-import { normalizePhoneNumber } from "./phone";
-import { logError } from "./logger";
+import { normalizePhoneNumber } from "../utils/normalize.util";
+import { logError } from "../utils/logger.util";
 
 export interface IStorage {
   forBusiness(businessId: number): IStorage;
