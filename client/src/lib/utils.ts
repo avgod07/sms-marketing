@@ -100,3 +100,8 @@ export function getCouponStatusColor(status: string): string {
       return 'bg-gray-100 text-gray-700';
   }
 }
+
+export function timeAgo(date: string | Date): string {
+  const { formatDistanceToNow } = require('date-fns') as typeof import('date-fns');
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
