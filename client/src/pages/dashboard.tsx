@@ -55,12 +55,6 @@ export default function Dashboard() {
               Welcome back! Here's an overview of your messaging platform.
             </p>
           </div>
-          <Button asChild className="flex items-center space-x-2">
-            <Link href="/campaigns">
-              <Plus className="w-4 h-4" />
-              <span>Create Campaign</span>
-            </Link>
-          </Button>
         </div>
       </header>
 

@@ -161,9 +161,6 @@ export default function Campaigns() {
               Create and manage your SMS campaigns.
             </p>
           </div>
-          <Button asChild variant="default" size="sm" className="ml-auto">
-            <Link href="/campaigns/new">+ Create Campaign</Link>
-          </Button>
           <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
