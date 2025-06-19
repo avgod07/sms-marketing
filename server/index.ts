@@ -1,12 +1,9 @@
 import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
-import { logInfo } from "./utils/logger.util";
-import { setupAuth } from "./middlewares/auth.middleware";
-import {
-  errorHandler,
-  setupGlobalErrorHandling,
-} from "./middlewares/error.middleware";
+import { logInfo } from "./logger";
+import { setupAuth } from "./auth";
+import { errorHandler, setupGlobalErrorHandling } from "./error-middleware";
 
 const app = express();
 setupGlobalErrorHandling();
