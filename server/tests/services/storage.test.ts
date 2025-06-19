@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DatabaseStorage } from './storage';
+import { DatabaseStorage } from '../../db/storage';
 import { campaigns, couponRecipients, messages } from '@shared/schema';
 
 let insertMock: any;
@@ -11,7 +11,7 @@ let returningMock: any;
 let deleteMock: any;
 let transactionMock: any;
 
-vi.mock('../config/db.config', () => ({
+vi.mock('../../config/db.config', () => ({
   db: {
     insert: (...args: any[]) => insertMock(...args),
     update: (...args: any[]) => updateMock(...args),
