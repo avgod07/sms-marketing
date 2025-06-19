@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { contacts } from './schema';
+import { contacts } from '../schema';
 
 describe('contacts schema', () => {
   it('enforces global uniqueness for phoneNumber', () => {
