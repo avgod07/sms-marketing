@@ -1,4 +1,4 @@
-import type { IStorage } from "../storage";
+import type { IStorage } from "../db/storage";
 import { TwilioService } from "./twilio";
 
 export async function executeCampaign(bizStorage: IStorage, campaignId: number) {

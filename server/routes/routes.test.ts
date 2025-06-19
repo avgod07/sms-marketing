@@ -5,7 +5,7 @@ var mockForBusiness: any;
 var mockStorage: any;
 var registerRoutes: any;
 
-vi.mock('./db', () => ({
+vi.mock('../config/db.config', () => ({
   db: {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockResolvedValue([]),
@@ -13,7 +13,7 @@ vi.mock('./db', () => ({
   },
 }));
 
-vi.mock('./storage', () => {
+vi.mock('../db/storage', () => {
   mockForBusiness = {
     createUser: vi.fn(),
   };
@@ -52,7 +52,7 @@ vi.mock('passport', () => ({
 }));
 
 beforeAll(async () => {
-  registerRoutes = (await import('./routes')).registerRoutes;
+  registerRoutes = (await import('./index')).registerRoutes;
 });
 
 afterEach(() => {
@@ -72,7 +72,7 @@ async function setupApp(user?: any) {
     next();
   });
   if (!registerRoutes) {
-    registerRoutes = (await import('./routes')).registerRoutes;
+    registerRoutes = (await import('./index')).registerRoutes;
   }
   await registerRoutes(app);
   return app;
