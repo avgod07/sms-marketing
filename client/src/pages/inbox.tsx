@@ -71,8 +71,8 @@ export default function Inbox() {
   };
 
   return (
-    <div className="fade-in mx-auto h-full w-full max-w-screen-xl px-4 sm:px-6 lg:px-8">
-      <div className="flex h-full w-full divide-x divide-gray-200">
+    <div className="fade-in mx-auto h-full w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
+      <div className="flex h-full w-full">
       {/* Conversations Sidebar */}
       <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
         <div className="p-4 border-b">
@@ -151,8 +151,6 @@ export default function Inbox() {
         </div>
       </section>
 
-      {/* Right Pane Placeholder */}
-      <aside className="hidden lg:block w-[260px] border-l border-gray-200"></aside>
       </div>
     </div>
   );
