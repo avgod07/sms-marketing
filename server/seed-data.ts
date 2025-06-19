@@ -1,6 +1,6 @@
 import { storage } from "./storage";
-import { logInfo } from "../utils/logger.util";
-import { db, pool } from "../config/db.config";
+import { logInfo } from "./logger";
+import { db, pool } from "./db";
 import { businesses } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
