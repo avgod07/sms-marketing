@@ -1,0 +1,9 @@
+{
+  "name": "server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx index.ts",
+    "seed": "tsx db/seed-data.ts"
+  }
+}
