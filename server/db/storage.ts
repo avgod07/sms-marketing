@@ -604,10 +604,18 @@ export class DatabaseStorage implements IStorage {
   ): Promise<Message> {
     const businessId = this.requireBusinessId();
     const [existing] = await db
-      .select({ status: messages.status, campaignId: messages.campaignId })
+      .select()
       .from(messages)
       .where(sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`)
       .limit(1);
+
+    if (!existing) {
+      throw new Error("Message not found");
+    }
+
+    if (existing.status === status) {
+      return existing;
+    }
 
     const updateData: any = { status };
     if (deliveredAt) {
