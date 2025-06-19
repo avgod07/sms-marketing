@@ -19,8 +19,9 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
-  { name: "Campaigns", href: "/campaigns", icon: Send },
+  // Create campaign is surfaced before listing campaigns for quick access
   { name: "Create Campaign", href: "/campaigns/new", icon: Plus },
+  { name: "Campaigns", href: "/campaigns", icon: Send },
   { name: "Coupons", href: "/coupons", icon: Tag },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
@@ -76,7 +77,7 @@ export default function Sidebar() {
       <nav className="flex-1 p-4">
         <div className="space-y-2">
           {navigation.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const isActive = location === item.href;
             const Icon = item.icon;
             
             return (
@@ -87,7 +88,8 @@ export default function Sidebar() {
                   "flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors",
                   isActive
                     ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    : "text-gray-700 hover:bg-gray-100",
+                  item.name === "Create Campaign" && "border-b-2 border-blue-600"
                 )}
               >
                 <Icon className="w-5 h-5" />
