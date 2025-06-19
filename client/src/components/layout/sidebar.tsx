@@ -13,7 +13,8 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  MessageSquare
+  MessageSquare,
+  MessageSquareText
 } from "lucide-react";
 
 const navigation = [
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Campaigns", href: "/campaigns", icon: Send },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Coupons", href: "/coupons", icon: Tag },
+  { name: "Inbox", href: "/inbox", icon: MessageSquareText },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
