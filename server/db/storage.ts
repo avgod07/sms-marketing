@@ -110,7 +110,13 @@ export interface IStorage {
     id: number,
     status: string,
     deliveredAt?: Date,
+    errorCode?: number,
   ): Promise<Message>;
+  updateMessageStatusBySid(
+    sid: string,
+    status: string,
+    errorCode?: number,
+  ): Promise<Message | undefined>;
 
   // Analytics
   getDashboardStats(): Promise<{
@@ -594,6 +600,7 @@ export class DatabaseStorage implements IStorage {
     id: number,
     status: string,
     deliveredAt?: Date,
+    errorCode?: number,
   ): Promise<Message> {
     const businessId = this.requireBusinessId();
     const [existing] = await db
@@ -605,6 +612,9 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = { status };
     if (deliveredAt) {
       updateData.deliveredAt = deliveredAt;
+    }
+    if (errorCode !== undefined) {
+      updateData.errorCode = errorCode;
     }
     if (status === "sent") {
       updateData.sentAt = new Date();
@@ -640,9 +650,61 @@ export class DatabaseStorage implements IStorage {
             sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
           );
       }
+
+      const [total] = await db
+        .select({ count: count() })
+        .from(messages)
+        .where(
+          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId}`,
+        );
+      const [terminal] = await db
+        .select({ count: count() })
+        .from(messages)
+        .where(
+          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} IN ('sent','delivered','failed')`,
+        );
+
+      if (total.count > 0 && terminal.count === total.count) {
+        const [failedCount] = await db
+          .select({ count: count() })
+          .from(messages)
+          .where(
+            sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} = 'failed'`,
+          );
+
+        const failureRate = failedCount.count / total.count;
+        const newStatus = failureRate >= 0.8 ? 'failed' : 'completed';
+        await db
+          .update(campaigns)
+          .set({ status: newStatus })
+          .where(
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+          );
+      }
     }
 
     return updatedMessage;
+  }
+
+  async updateMessageStatusBySid(
+    sid: string,
+    status: string,
+    errorCode?: number,
+  ): Promise<Message | undefined> {
+    const businessId = this.requireBusinessId();
+    const [row] = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        sql`${messages.messageSid} = ${sid} AND ${messages.businessId} = ${businessId}`,
+      );
+    if (!row) return undefined;
+    return this.updateMessageStatus(
+      row.id,
+      status,
+      status === 'delivered' ? new Date() : undefined,
+      errorCode,
+    );
   }
 
   // Analytics

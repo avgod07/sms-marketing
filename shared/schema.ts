@@ -7,6 +7,7 @@ import {
   timestamp,
   varchar,
   decimal,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -63,10 +64,17 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
   status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
+  messageSid: varchar("message_sid", { length: 64 }),
+  errorCode: integer("error_code"),
   sentAt: timestamp("sent_at"),
   deliveredAt: timestamp("delivered_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  statusIdx: index("messages_status_idx").on(table.status),
+  errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
+  sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
+  deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),
+}));
 
 export const coupons = pgTable(
   "coupons",
@@ -263,7 +271,7 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   createdAt: true,
   sentAt: true,
   deliveredAt: true,
-});
+}).partial({ messageSid: true, errorCode: true });
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
   id: true,
@@ -328,6 +336,7 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type CampaignStatus = 'in_progress' | 'completed' | 'failed';
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
