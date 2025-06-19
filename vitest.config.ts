@@ -7,7 +7,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'client', 'src'),
       '@shared': path.resolve(__dirname, 'shared'),
       '@assets': path.resolve(__dirname, 'attached_assets'),
-      'connect-pg-simple': path.resolve(__dirname, 'stubs', 'connect-pg-simple.ts'),
     },
   },
   test: {
