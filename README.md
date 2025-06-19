@@ -11,6 +11,7 @@ This project relies on Node.js and Docker for local development. Follow these st
 
    ```bash
    npm install
+   npm install connect-pg-simple
    ```
 
 2. **Configure environment variables**
@@ -95,6 +96,8 @@ existing ones is easier to reason about.
 The API uses session-based authentication with Passport's `passport-local` strategy.
 You can create an account and log in directly from the web interface. The signup page collects the user's email and password and posts this data to `/api/signup`, which creates both the business and owner account.
 To log in later, send your username (the email you signed up with) and password to `/api/login`. Once logged in, all other `/api` routes require an authenticated session. You can sign out via the UI or by calling `POST /api/logout`.
+
+Sessions are persisted in PostgreSQL using the [`connect-pg-simple`](https://www.npmjs.com/package/connect-pg-simple) store. A database-backed store is required in production so that login state survives server restarts and scales across multiple instances.
 
 ## Twilio Webhook Configuration
 
