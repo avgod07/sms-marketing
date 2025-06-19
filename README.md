@@ -179,3 +179,31 @@ You can run this command inside the dev container now that the Docker CLI is ava
 
 The server writes JSON logs to `logs/app.log` by default. Set the `LOG_FILE` environment variable to change the path or `LOG_SERVICE_URL` to POST logs to a remote service.
 Control verbosity with `LOG_LEVEL` (`error`, `warn`, `info`, or `debug`).
+
+## Tests
+
+All test files live under the `tests/` folders in the client and server.
+
+```bash
+# run every test
+npm test
+```
+
+Add component or page tests in `client/tests` and backend tests in
+`server/tests`.
+
+## Adding Pages and Routes
+
+Frontend pages belong in `client/src/pages` with accompanying tests in
+`client/tests/pages`. New API routes should be added under
+`server/routes` with tests in `server/tests/routes`.
+
+Shared types and utilities reside in the `shared/` directory. Static assets are
+served from `client/public/assets`. All logging goes through
+`server/utils/logger.util.ts`.
+
+## Deployment Checklist
+
+1. Run database migrations: `npm run db:push`
+2. Build the client: `cd client && npm run build`
+3. Build and start the server: `cd server && npm run build && npm start`
