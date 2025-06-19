@@ -60,6 +60,8 @@ export function getStatusColor(status: string): string {
       return 'bg-green-100 text-green-700';
     case 'completed':
       return 'bg-blue-100 text-blue-700';
+    case 'failed':
+      return 'bg-red-100 text-red-700';
     case 'inactive':
       return 'bg-gray-100 text-gray-700';
     case 'lead':
@@ -75,6 +77,8 @@ export function formatCampaignStatus(status: string): string {
       return 'In Progress';
     case 'completed':
       return 'Completed';
+    case 'failed':
+      return 'Failed';
     case 'active':
     case 'paused':
       return 'In Progress';

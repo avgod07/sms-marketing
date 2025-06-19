@@ -56,6 +56,7 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
       content: campaign.message,
       status: result.success ? "sent" : "failed",
       campaignId: campaign.id,
+      messageSid: result.messageSid,
     };
 
     await bizStorage.createMessage(messageData);
@@ -67,7 +68,7 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
   }
 
   await bizStorage.updateCampaign(campaignId, {
-    status: "completed",
+    status: "in_progress",
     sentCount: (campaign.sentCount || 0) + sentCount,
     deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
   });

@@ -165,6 +165,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // New Twilio status callback using message SID
+  app.post("/api/webhooks/twilio/status-callback", async (req, res) => {
+    try {
+      const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
+        req.body as any;
+
+      let creds = await findTwilioCredentialByAccountSid(AccountSid);
+      let businessId = creds?.businessId;
+      if (!businessId && To) {
+        businessId = await findBusinessIdByPhoneNumber(To);
+        if (businessId) {
+          creds = await storage.forBusiness(businessId).getTwilioCredentials();
+        }
+      }
+
+      if (!businessId || !creds) {
+        logError("Unknown status webhook", { AccountSid, To });
+        return res.status(400).send("Unknown account");
+      }
+
+      const signature = req.get("x-twilio-signature") || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+      const token = decrypt(creds.authTokenEncrypted);
+      const isValid = twilio.validateRequest(token, signature, url, req.body);
+      if (!isValid) {
+        return res.status(403).json({ message: "Invalid Twilio signature" });
+      }
+
+      if (!MessageSid) {
+        return res.status(400).send("Missing MessageSid");
+      }
+
+      let status = "sent";
+      if (MessageStatus === "delivered") status = "delivered";
+      else if (MessageStatus === "failed" || MessageStatus === "undelivered")
+        status = "failed";
+
+      const bizStore = storage.forBusiness(businessId);
+      await bizStore.updateMessageStatusBySid(
+        MessageSid,
+        status,
+        ErrorCode ? parseInt(ErrorCode, 10) : undefined,
+      );
+
+      res.status(200).send("OK");
+    } catch (error) {
+      logError("Error processing Twilio webhook:", error);
+      res.status(500).json({ message: "Failed to process webhook" });
+    }
+  });
+
   // Inbound message webhook for all businesses
   app.post("/webhooks/twilio-inbound", async (req, res) => {
     try {
@@ -946,8 +997,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/messages/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status, deliveredAt } = req.body;
-      const message = await biz(req).updateMessageStatus(id, status, deliveredAt ? new Date(deliveredAt) : undefined);
+      const { status, deliveredAt, errorCode } = req.body;
+      const message = await biz(req).updateMessageStatus(
+        id,
+        status,
+        deliveredAt ? new Date(deliveredAt) : undefined,
+        errorCode,
+      );
       res.json(message);
     } catch (error) {
       logError("Error updating message status:", error);
