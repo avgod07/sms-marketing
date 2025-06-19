@@ -34,39 +34,31 @@ This project relies on Node.js and Docker for local development. Follow these st
    Populate the database with sample contacts, campaigns and coupons:
 
    ```bash
-   cd server && npm run seed
+   npm run seed
    ```
 
    This command also creates a demo account with username `demo` and
    password `demo123` tied to the `Seeded Business` for testing.
 
-5. **Development servers**
+5. **Development server**
 
-   Start the API server and client separately:
-
-   ```bash
-   cd server && npm run dev
-   ```
-
-   In another terminal:
+   Start the dev server with:
 
    ```bash
-   cd client && npm run dev
+   npm run dev
    ```
 
-   The Vite dev server forwards port `5001` on your host to port `5000` in the container. Open `http://localhost:5001` to view the app.
+   The Vite dev server runs inside the container and forwards port `5001` on your host to port `5000` in the container.
+   Open `http://localhost:5001` in your browser to view the app.
 
 6. **Production build**
 
    To create a production build and start it locally:
 
    ```bash
-   cd client && npm run build
-   ```
-
-   ```bash
-   cd server && npm run build && npm start
-   ```
+  npm run build
+  npm start
+  ```
 
 7. **Reset the database**
 
