@@ -11,7 +11,7 @@ let returningMock: any;
 let deleteMock: any;
 let transactionMock: any;
 
-vi.mock('../config/db.config', () => ({
+vi.mock('./db', () => ({
   db: {
     insert: (...args: any[]) => insertMock(...args),
     update: (...args: any[]) => updateMock(...args),

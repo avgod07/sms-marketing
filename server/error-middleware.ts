@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { ApiError } from "../utils/errors";
-import { logError } from "../utils/logger.util";
+import { ApiError } from "./errors";
+import { logError } from "./logger";
 
 export function formatStack(stack?: string): string[] | undefined {
   return stack?.split("\n").map((l) => l.trim());

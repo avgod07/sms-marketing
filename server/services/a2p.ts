@@ -1,5 +1,5 @@
 import twilio from "twilio";
-import { decrypt } from "../utils/encryption.util";
+import { decrypt } from "../utils/encryption";
 import type { BusinessProfile, Business, TwilioCredential } from "@shared/schema";
 
 export interface A2PRegistrationResult {
