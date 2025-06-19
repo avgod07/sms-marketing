@@ -17,11 +17,11 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Contacts", href: "/contacts", icon: Users },
-  // Create campaign is surfaced before listing campaigns for quick access
+  // Create campaign is surfaced first for quick access
   { name: "Create Campaign", href: "/campaigns/new", icon: Plus },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Campaigns", href: "/campaigns", icon: Send },
+  { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Coupons", href: "/coupons", icon: Tag },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
