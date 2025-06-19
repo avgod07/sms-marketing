@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { storage } from '../db/storage';
+import { storage } from './storage';
 
 export async function validateCoupon(req: Request, res: Response, next: NextFunction) {
   try {
