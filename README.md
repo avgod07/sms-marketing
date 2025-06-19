@@ -69,7 +69,43 @@ This project relies on Node.js and Docker for local development. Follow these st
    ./scripts/reset-db.sh [--seed]
    ```
 
- Pass `--seed` to automatically populate the database with the sample data.
+Pass `--seed` to automatically populate the database with the sample data.
+
+## Project Structure
+
+The repository is organized into three main pieces:
+
+```
+client/   - React application source
+server/   - Express API and backend services
+shared/   - TypeScript types and utilities shared by both
+migrations/ - Database migration files
+```
+
+Keeping the frontend and backend in their own folders makes it easier to work on
+each piece independently while still sharing code through the `shared` directory.
+
+## Running the client and server separately
+
+During development you can start the API and the React app in their own
+processes:
+
+```bash
+# terminal 1 – start the API server
+npm run dev
+
+# terminal 2 – start the Vite dev server
+npx vite
+```
+
+The client is served on <http://localhost:5173> by default while the API listens
+on port `5000`. When you're ready for production, build the client and start the
+server:
+
+```bash
+npm run build
+npm start
+```
 
 ## Server Structure
 
