@@ -71,8 +71,8 @@ export default function Inbox() {
   };
 
   return (
-    <div className="fade-in flex h-full w-full justify-center px-4 md:px-6">
-      <div className="flex h-full w-full max-w-[1280px] divide-x divide-gray-200">
+    <div className="fade-in flex h-full w-full px-4 md:px-6">
+      <div className="mx-auto flex h-full w-full max-w-[1280px] divide-x divide-gray-200">
       {/* Conversations Sidebar */}
       <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
         <div className="p-4 border-b">
