@@ -133,7 +133,6 @@ export interface IStorage {
   getCampaignStats(): Promise<{
     activeCampaigns: number;
     messagesThisMonth: number;
-    avgClickRate: number;
   }>;
 
   // Users
@@ -596,6 +595,13 @@ export class DatabaseStorage implements IStorage {
     status: string,
     deliveredAt?: Date,
   ): Promise<Message> {
+    const businessId = this.requireBusinessId();
+    const [existing] = await db
+      .select({ status: messages.status, campaignId: messages.campaignId })
+      .from(messages)
+      .where(sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`)
+      .limit(1);
+
     const updateData: any = { status };
     if (deliveredAt) {
       updateData.deliveredAt = deliveredAt;
@@ -607,10 +613,35 @@ export class DatabaseStorage implements IStorage {
     const [updatedMessage] = await db
       .update(messages)
       .set(updateData)
-      .where(
-        sql`${messages.id} = ${id} AND ${messages.businessId} = ${this.requireBusinessId()}`,
-      )
+      .where(sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`)
       .returning();
+
+    if (existing && existing.campaignId) {
+      if (existing.status !== "sent" && status === "sent") {
+        await db
+          .update(campaigns)
+          .set({ sentCount: sql`${campaigns.sentCount} + 1` })
+          .where(
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+          );
+      }
+      if (existing.status !== "delivered" && status === "delivered") {
+        await db
+          .update(campaigns)
+          .set({ deliveredCount: sql`${campaigns.deliveredCount} + 1` })
+          .where(
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+          );
+      } else if (existing.status === "delivered" && status !== "delivered") {
+        await db
+          .update(campaigns)
+          .set({ deliveredCount: sql`${campaigns.deliveredCount} - 1` })
+          .where(
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+          );
+      }
+    }
+
     return updatedMessage;
   }
 
@@ -773,7 +804,6 @@ export class DatabaseStorage implements IStorage {
   async getCampaignStats(): Promise<{
     activeCampaigns: number;
     messagesThisMonth: number;
-    avgClickRate: number;
   }> {
     const businessId = this.requireBusinessId();
     const [activeCampaigns] = await db
@@ -790,24 +820,9 @@ export class DatabaseStorage implements IStorage {
       .from(messages)
       .where(sql`${messages.createdAt} >= ${firstDayOfMonth} AND ${messages.businessId} = ${businessId}`);
 
-    const campaignsList = await db
-      .select()
-      .from(campaigns)
-      .where(eq(campaigns.businessId, businessId));
-    const totalClickRate = campaignsList.reduce(
-      (sum, campaign) => sum + (campaign.clickCount || 0),
-      0,
-    );
-    const totalSent = campaignsList.reduce(
-      (sum, campaign) => sum + (campaign.sentCount || 0),
-      0,
-    );
-    const avgClickRate = totalSent > 0 ? (totalClickRate / totalSent) * 100 : 0;
-
     return {
       activeCampaigns: activeCampaigns.count,
       messagesThisMonth: messagesThisMonth.count,
-      avgClickRate: Math.round(avgClickRate * 100) / 100,
     };
   }
 
