@@ -8,12 +8,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
-import { MoreHorizontal, Edit, Copy, Trash2, Play } from "lucide-react";
+import { MoreHorizontal, Copy, Trash2, Play } from "lucide-react";
 
 interface CampaignTableProps {
   campaigns: Campaign[];
   isLoading: boolean;
-  onEdit: (campaign: Campaign) => void;
   onDuplicate: (campaign: Campaign) => void;
   onDelete: (campaign: Campaign) => void;
 }
@@ -21,7 +20,6 @@ interface CampaignTableProps {
 export default function CampaignTable({
   campaigns,
   isLoading,
-  onEdit,
   onDuplicate,
   onDelete,
 }: CampaignTableProps) {
@@ -64,7 +62,6 @@ export default function CampaignTable({
             <th className="text-left py-3 px-4 font-medium text-gray-500">Date</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Sent</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Delivered</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Clicks</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
@@ -98,9 +95,6 @@ export default function CampaignTable({
               <td className="py-4 px-4">
                 <span className="text-gray-900">{formatNumber(campaign.deliveredCount || 0)}</span>
               </td>
-              <td className="py-4 px-4">
-                <span className="text-gray-900">{formatNumber(campaign.clickCount || 0)}</span>
-              </td>
               <td className="py-4 px-4 align-middle">
                 <StatusBadge
                   status={campaign.status}
@@ -111,14 +105,6 @@ export default function CampaignTable({
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(campaign)}
-                    disabled={campaign.status === 'completed'}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">

@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import CampaignForm, { type CampaignFormValues } from "@/components/CampaignForm";
 import CampaignTable from "@/components/campaigns/campaign-table";
-import { Plus, Send, Target, BarChart3 } from "lucide-react";
+import { Plus, Send, Target } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { Campaign } from "@shared/schema";
 import type { CampaignStats } from "@shared/api-types";
@@ -23,8 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 export default function Campaigns() {
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { toast } = useToast();
@@ -38,28 +34,6 @@ export default function Campaigns() {
   });
 
 
-  const updateCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormValues) =>
-      apiRequest({
-        method: "PATCH",
-        url: `/api/campaigns/${editingCampaign!.id}`,
-        data: { name: data.name, message: data.message },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
-      setIsEditOpen(false);
-      setEditingCampaign(null);
-      toast({ title: "Campaign Updated" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update campaign",
-        variant: "destructive",
-      });
-    },
-  });
 
   const deleteCampaignMutation = useMutation({
     mutationFn: () =>
@@ -101,15 +75,6 @@ export default function Campaigns() {
   });
 
 
-  const handleEditSubmit = (data: CampaignFormValues) => {
-    updateCampaignMutation.mutate(data);
-  };
-
-  const handleEdit = (campaign: Campaign) => {
-    if (campaign.status === 'completed') return;
-    setEditingCampaign(campaign);
-    setIsEditOpen(true);
-  };
 
   const handleDuplicate = (campaign: Campaign) => {
     duplicateCampaignMutation.mutate(campaign);
@@ -140,13 +105,6 @@ export default function Campaigns() {
       color: "text-blue-600",
       bgColor: "bg-blue-50",
     },
-    {
-      title: "Avg. Click Rate",
-      value: `${campaignStats?.avgClickRate || 0}%`,
-      icon: BarChart3,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-    },
   ];
 
 
@@ -161,27 +119,6 @@ export default function Campaigns() {
               Create and manage your SMS campaigns.
             </p>
           </div>
-          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Edit Campaign</DialogTitle>
-              </DialogHeader>
-              <CampaignForm
-                initialValues={
-                  editingCampaign
-                    ? {
-                        name: editingCampaign.name,
-                        message: editingCampaign.message,
-                      }
-                    : undefined
-                }
-                onSubmit={handleEditSubmit}
-                onCancel={() => setIsEditOpen(false)}
-                pending={updateCampaignMutation.isPending}
-                submitLabel="Save Changes"
-              />
-            </DialogContent>
-          </Dialog>
           <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -202,7 +139,7 @@ export default function Campaigns() {
       {/* Content */}
       <div className="p-8">
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -243,7 +180,6 @@ export default function Campaigns() {
             <CampaignTable
               campaigns={campaigns || []}
               isLoading={campaignsLoading}
-              onEdit={handleEdit}
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}
             />
