@@ -16,7 +16,6 @@ export interface ContactStats {
 export interface CampaignStats {
   activeCampaigns: number;
   messagesThisMonth: number;
-  avgClickRate: number;
 }
 
 export interface SetupStatus {
