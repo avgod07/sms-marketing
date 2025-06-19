@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { formatDistanceToNow } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -102,6 +103,5 @@ export function getCouponStatusColor(status: string): string {
 }
 
 export function timeAgo(date: string | Date): string {
-  const { formatDistanceToNow } = require('date-fns') as typeof import('date-fns');
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
