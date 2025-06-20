@@ -1028,7 +1028,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messageSid: result.messageSid,
       });
 
-      socketService?.broadcast("message:send", message);
 
       res.status(201).json(message);
     } catch (error) {
