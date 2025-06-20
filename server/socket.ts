@@ -42,6 +42,13 @@ export class SocketService {
   }
 }
 
+let socketService: SocketService | null = null;
+
 export function setupSocket(server: Server) {
-  return new SocketService(server);
+  socketService = new SocketService(server);
+  return socketService;
+}
+
+export function getSocketService() {
+  return socketService;
 }
