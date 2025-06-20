@@ -5,7 +5,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 import { useCredits } from "@/hooks/use-credits";
-import { Badge } from "@/components/ui/badge";
 import { 
   LayoutDashboard,
   Users,
@@ -79,8 +78,8 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4">
-        <div className="space-y-2">
+      <nav className="flex flex-col flex-1 p-4">
+        <div className="flex-1 space-y-2">
           {navigation.map((item) => {
             const isActive = location === item.href;
             const Icon = item.icon;
@@ -105,7 +104,7 @@ export default function Sidebar() {
         </div>
 
         {/* Account Section */}
-        <div className="mt-8">
+        <div className="mt-auto pt-8">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
             ACCOUNT
           </p>
@@ -149,7 +148,9 @@ export default function Sidebar() {
               );
             })}
           </div>
-          <CreditsDisplay />
+          <div className="mt-4">
+            <CreditsDisplay />
+          </div>
         </div>
       </nav>
 
@@ -160,8 +161,8 @@ export default function Sidebar() {
 function CreditsDisplay() {
   const { data: credits } = useCredits();
   return (
-    <div className="mt-2 flex justify-center">
-      <Badge>{`Credits: ${credits ?? "--"}`}</Badge>
+    <div className="w-full rounded-md bg-primary py-2 text-center text-sm font-medium text-white">
+      {`Credits: ${credits ?? "--"}`}
     </div>
   );
 }
