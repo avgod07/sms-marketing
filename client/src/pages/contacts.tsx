@@ -26,6 +26,7 @@ import { Search, Plus } from "lucide-react";
 import QRCode from "react-qr-code";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
@@ -83,7 +84,7 @@ export default function Contacts() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add contact",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -113,7 +114,7 @@ export default function Contacts() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update contact",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -139,7 +140,7 @@ export default function Contacts() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete contact",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },

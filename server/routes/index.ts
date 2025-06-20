@@ -704,6 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         campaign,
         sentCount: results.sentCount,
+        failedCount: results.failedCount,
         totalContacts: results.totalContacts,
       });
     } catch (error) {
@@ -782,6 +783,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         message: "Campaign sent successfully",
         sentCount: results.sentCount,
+        failedCount: results.failedCount,
         totalContacts: results.totalContacts,
       });
     } catch (error) {
