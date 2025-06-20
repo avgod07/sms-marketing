@@ -8,6 +8,7 @@ import { formatPhoneNumber, timeAgo } from "@/lib/utils";
 import { Search, MessageSquareText } from "lucide-react";
 import { emitMessageSend } from "@/lib/socket";
 import { useMessageSocket } from "@/hooks/use-message-socket";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { Message as ApiMessage } from "@shared/schema";
 
 interface Message {
@@ -31,10 +32,18 @@ export default function Inbox() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reply, setReply] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const trimmedSearch = debouncedSearch.trim().toLowerCase();
   const selected =
     selectedId !== null
       ? conversations.find((c) => c.id === selectedId) || null
       : null;
+  const filteredConversations = conversations.filter((c) => {
+    if (!trimmedSearch) return true;
+    const target = `${c.contactName ?? ""} ${c.phone}`.toLowerCase();
+    return target.includes(trimmedSearch);
+  });
 
   useEffect(() => {
     async function loadConversations() {
@@ -228,14 +237,40 @@ export default function Inbox() {
           </h2>
           <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="Search..." className="pl-10" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {conversations.map((conv) => {
-            const last = conv.messages[conv.messages.length - 1];
-            if (!last) return null;
-            const isActive = conv.id === selectedId;
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                {conversations.length === 0 ? (
+                  <MessageSquareText className="w-6 h-6 text-gray-400" />
+                ) : (
+                  <Search className="w-6 h-6 text-gray-400" />
+                )}
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {conversations.length === 0
+                  ? "No conversations yet"
+                  : "No conversations match your search"}
+              </h3>
+              <p className="text-gray-500">
+                {conversations.length === 0
+                  ? "Messages will appear here when customers reply"
+                  : "Try adjusting your search"}
+              </p>
+            </div>
+          ) : (
+            filteredConversations.map((conv) => {
+              const last = conv.messages[conv.messages.length - 1];
+              if (!last) return null;
+              const isActive = conv.id === selectedId;
             return (
               <button
                 key={conv.id}
@@ -271,7 +306,8 @@ export default function Inbox() {
                 )}
               </button>
             );
-          })}
+          })
+          )}
         </div>
       </aside>
 
