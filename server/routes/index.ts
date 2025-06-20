@@ -1016,7 +1016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: validatedData.content,
         from,
         messagingServiceSid: creds?.messagingServiceSid || undefined,
-        campaignId: validatedData.campaignId,
+        campaignId: validatedData.campaignId ?? undefined,
         contactId: validatedData.contactId,
       });
 
