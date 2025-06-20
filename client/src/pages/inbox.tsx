@@ -15,6 +15,7 @@ interface Message {
   text: string;
   timestamp: Date;
   incoming: boolean;
+  status?: string;
 }
 
 interface Conversation {
@@ -55,6 +56,7 @@ export default function Inbox() {
                     text: c.lastMessage.content,
                     timestamp: new Date(c.lastMessage.createdAt),
                     incoming: c.lastMessage.status === "received",
+                    status: c.lastMessage.status,
                   },
                 ]
               : [],
@@ -89,6 +91,7 @@ export default function Inbox() {
                       text: m.content,
                       timestamp: new Date(m.createdAt as any),
                       incoming: m.status === "received",
+                      status: m.status,
                     })),
                   }
                 : c,
@@ -118,7 +121,8 @@ export default function Inbox() {
               id: data.id,
               text: data.content,
               timestamp: new Date((data as any).createdAt ?? Date.now()),
-              incoming: true,
+              incoming: data.status === 'received',
+              status: data.status,
             },
           ],
           hasUnread: conv.id === selectedId ? false : true,
@@ -127,6 +131,17 @@ export default function Inbox() {
         copy[idx] = updated;
         return copy;
       });
+    },
+    onStatus: data => {
+      setConversations(prev =>
+        prev.map(conv => {
+          const msgIdx = conv.messages.findIndex(m => m.id === data.id);
+          if (msgIdx === -1) return conv;
+          const messages = conv.messages.slice();
+          messages[msgIdx] = { ...messages[msgIdx], status: data.status };
+          return { ...conv, messages };
+        }),
+      );
     },
   });
 
@@ -138,6 +153,7 @@ export default function Inbox() {
       text: reply,
       timestamp: new Date(),
       incoming: false,
+      status: 'sent',
     };
     setConversations((prev) =>
       prev.map((c) =>
@@ -176,6 +192,7 @@ export default function Inbox() {
                     text: saved.content,
                     timestamp: new Date((saved as any).createdAt ?? Date.now()),
                     incoming: false,
+                    status: saved.status,
                   }
                 : m,
             ),
@@ -273,6 +290,7 @@ export default function Inbox() {
                 message={msg.text}
                 incoming={msg.incoming}
                 timestamp={timeAgo(msg.timestamp)}
+                status={msg.status}
               />
             ))}
           </div>

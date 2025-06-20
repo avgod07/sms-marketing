@@ -16,6 +16,7 @@ vi.mock('./db/storage', () => {
     getContactByPhoneNumber: vi.fn(),
     createContact: vi.fn(),
     createMessage: vi.fn(),
+    updateMessageStatusBySid: vi.fn(),
   };
   mockStorage = {
     forBusiness: vi.fn(() => mockForBusiness),
@@ -116,5 +117,35 @@ describe('SocketService', () => {
     const payload = JSON.parse(msgs[0]);
     expect(payload.event).toBe('message:send');
     expect(payload.data).toEqual(saved);
+  });
+
+  it('broadcasts status callback updates', async () => {
+    mockFindCred.mockResolvedValue({ businessId: 1, authTokenEncrypted: 'enc' });
+    const updated = { id: 5, status: 'delivered' };
+    mockForBusiness.updateMessageStatusBySid.mockResolvedValue(updated);
+
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws`);
+    await new Promise(resolve => ws1.once('open', resolve));
+
+    const msgs: string[] = [];
+    ws1.on('message', data => msgs.push(data.toString()));
+
+    const res = await request(`http://localhost:${port}`)
+      .post('/api/webhooks/twilio/status-callback')
+      .set('x-twilio-signature', 'sig')
+      .send({
+        AccountSid: 'AC123',
+        MessageSid: 'SM1',
+        MessageStatus: 'delivered',
+        To: '+15559876543',
+      });
+    expect(res.status).toBe(200);
+
+    await new Promise(r => setTimeout(r, 20));
+
+    expect(msgs.length).toBe(1);
+    const payload = JSON.parse(msgs[0]);
+    expect(payload.event).toBe('message:status');
+    expect(payload.data).toEqual(updated);
   });
 });
