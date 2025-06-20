@@ -1,6 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { useState } from "react";
 import CampaignForm, { type CampaignFormValues } from "@/components/CampaignForm";
+import SmsPreview from "@/components/CampaignForm/SmsPreview";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft } from "lucide-react";
@@ -11,6 +14,7 @@ import type { SetupStatus } from "@shared/api-types";
 export default function NewCampaignPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [previewMessage, setPreviewMessage] = useState("");
 
   const { data: setup } = useQuery<SetupStatus>({
     queryKey: ["/api/setup/status"],
@@ -63,7 +67,7 @@ export default function NewCampaignPage() {
           </Button>
         </div>
       </header>
-      <div className="p-8 max-w-md mx-auto">
+      <div className="p-8 max-w-4xl mx-auto">
         {disabled && (
           <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
             <AlertTitle>Finish Setup</AlertTitle>
@@ -90,13 +94,19 @@ export default function NewCampaignPage() {
             </AlertDescription>
           </Alert>
         )}
-        <CampaignForm
-          onSubmit={handleSubmit}
-          onCancel={() => navigate("/campaigns")}
-          pending={createCampaignMutation.isPending}
-          submitLabel="Create Campaign"
-          disabled={disabled}
-        />
+        <Card className="flex flex-col lg:flex-row gap-8 p-6 shadow-md">
+          <div className="flex-1">
+            <CampaignForm
+              onSubmit={handleSubmit}
+              onCancel={() => navigate("/campaigns")}
+              pending={createCampaignMutation.isPending}
+              submitLabel="Create Campaign"
+              disabled={disabled}
+              onMessageChange={setPreviewMessage}
+            />
+          </div>
+          <SmsPreview message={previewMessage} />
+        </Card>
       </div>
     </div>
   );
