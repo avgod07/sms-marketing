@@ -6,12 +6,13 @@ interface Message {
   phoneNumber: string;
   content: string;
   createdAt: string;
+  status: string;
 }
 
 interface Conversation {
   id: number;
   phone: string;
-  messages: { id: number; text: string }[];
+  messages: { id: number; text: string; status?: string }[];
   hasUnread?: boolean;
 }
 
@@ -21,12 +22,22 @@ function applyMessage(prev: Conversation[], data: Message, selectedId: number | 
   const conv = prev[idx];
   const updated: Conversation = {
     ...conv,
-    messages: [...conv.messages, { id: data.id, text: data.content }],
+    messages: [...conv.messages, { id: data.id, text: data.content, status: data.status }],
     hasUnread: conv.id === selectedId ? false : true,
   };
   const copy = prev.slice();
   copy[idx] = updated;
   return copy;
+}
+
+function applyStatus(prev: Conversation[], id: number, status: string): Conversation[] {
+  return prev.map(c => {
+    const idx = c.messages.findIndex(m => m.id === id);
+    if (idx === -1) return c;
+    const msgs = c.messages.slice();
+    msgs[idx] = { ...msgs[idx], status };
+    return { ...c, messages: msgs };
+  });
 }
 
 describe('inbox message handler', () => {
@@ -38,9 +49,16 @@ describe('inbox message handler', () => {
       phoneNumber: '+123',
       content: 'hello',
       createdAt: new Date().toISOString(),
+      status: 'received',
     };
     const updated = applyMessage(convs, msg, null);
     expect(updated[0].messages[0].text).toBe('hello');
     expect(updated[0].hasUnread).toBe(true);
+  });
+
+  it('updates message status', () => {
+    const convs: Conversation[] = [{ id: 1, phone: '+123', messages: [{ id: 2, text: 'hi' }] }];
+    const updated = applyStatus(convs, 2, 'delivered');
+    expect(updated[0].messages[0].status).toBe('delivered');
   });
 });

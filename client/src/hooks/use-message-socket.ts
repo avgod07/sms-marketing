@@ -4,9 +4,10 @@ import type { Message } from '@shared/schema';
 
 interface Options {
   onMessage: (message: Message) => void;
+  onStatus?: (message: Message) => void;
 }
 
-export function useMessageSocket({ onMessage }: Options) {
+export function useMessageSocket({ onMessage, onStatus }: Options) {
   useEffect(() => {
     const socket = connectSocket();
     const handler = (ev: MessageEvent) => {
@@ -18,6 +19,8 @@ export function useMessageSocket({ onMessage }: Options) {
         };
         if (event === 'message:send') {
           onMessage(data);
+        } else if (event === 'message:status') {
+          onStatus?.(data);
         }
       } catch {
         console.warn('Invalid socket message');
@@ -25,5 +28,5 @@ export function useMessageSocket({ onMessage }: Options) {
     };
     socket.addEventListener('message', handler);
     return () => socket.removeEventListener('message', handler);
-  }, [onMessage]);
+  }, [onMessage, onStatus]);
 }
