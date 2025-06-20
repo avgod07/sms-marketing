@@ -365,6 +365,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/credits", async (_req, res) => {
+    try {
+      // TODO: replace with real credit lookup
+      const credits = 100;
+      res.json(credits);
+    } catch (error) {
+      logError("Error fetching credits:", error);
+      res.status(500).json({ message: "Failed to fetch credits" });
+    }
+  });
+
   app.get("/api/business-profile", async (req, res) => {
     try {
       const profile = await biz(req).getBusinessProfile();
