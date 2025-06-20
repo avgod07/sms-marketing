@@ -25,6 +25,7 @@ interface CampaignFormProps {
   pending?: boolean;
   submitLabel?: string;
   disabled?: boolean;
+  onMessageChange?: (message: string) => void;
 }
 
 export default function CampaignForm({
@@ -34,6 +35,7 @@ export default function CampaignForm({
   pending,
   submitLabel = "Save",
   disabled = false,
+  onMessageChange,
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
@@ -50,6 +52,15 @@ export default function CampaignForm({
       form.reset(initialValues);
     }
   }, [initialValues, form]);
+
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "message" && onMessageChange) {
+        onMessageChange(value.message || "");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, onMessageChange]);
 
 
   return (
