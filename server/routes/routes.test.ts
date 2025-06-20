@@ -5,6 +5,9 @@ var mockForBusiness: any;
 var mockStorage: any;
 var registerRoutes: any;
 var mockSendSMS: any;
+var mockFindCred: any;
+var mockFindBizId: any;
+var mockBroadcast: any;
 
 vi.mock('../config/db.config', () => ({
   db: {
@@ -25,8 +28,8 @@ vi.mock('../db/storage', () => {
   };
   return {
     storage: mockStorage,
-    findTwilioCredentialByAccountSid: vi.fn(),
-    findBusinessIdByPhoneNumber: vi.fn(),
+    findTwilioCredentialByAccountSid: (mockFindCred = vi.fn()),
+    findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
   };
 });
 
@@ -34,6 +37,20 @@ vi.mock('../services/twilio.js', () => {
   mockSendSMS = vi.fn();
   return { TwilioService: { sendSMS: mockSendSMS } };
 });
+
+vi.mock('../socket', () => ({
+  socketService: { broadcast: (mockBroadcast = vi.fn()) },
+}));
+
+vi.mock('../utils/encryption.util', () => ({
+  decrypt: vi.fn(() => 'token'),
+  encrypt: vi.fn(),
+}));
+
+vi.mock('twilio', () => ({
+  default: { validateRequest: vi.fn(() => true) },
+  validateRequest: vi.fn(() => true),
+}));
 
 vi.mock('bcryptjs', () => ({
   default: { hash: vi.fn(() => Promise.resolve('hashed')) },
@@ -303,6 +320,42 @@ describe('routes', () => {
         messageSid: 'SM789',
       }),
     );
+  });
+
+  it('handles inbound webhook and broadcasts message', async () => {
+    mockFindCred.mockResolvedValue({ businessId: 1, authTokenEncrypted: 'enc' });
+    mockForBusiness.getContactByPhoneNumber = vi.fn().mockResolvedValue(undefined);
+    mockForBusiness.createContact = vi.fn().mockResolvedValue({ id: 2 });
+    const saved = {
+      id: 5,
+      phoneNumber: '+15551234567',
+      contactId: 2,
+      content: 'hello',
+      status: 'received',
+    };
+    mockForBusiness.createMessage = vi.fn().mockResolvedValue(saved);
+
+    const app = await setupApp();
+
+    const res = await request(app)
+      .post('/webhooks/twilio-inbound')
+      .set('x-twilio-signature', 'sig')
+      .send({
+        AccountSid: 'AC123',
+        From: '+15551234567',
+        To: '+15550001111',
+        Body: 'hello',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockForBusiness.createContact).toHaveBeenCalled();
+    expect(mockForBusiness.createMessage).toHaveBeenCalledWith({
+      phoneNumber: '+15551234567',
+      contactId: 2,
+      content: 'hello',
+      status: 'received',
+    });
+    expect(mockBroadcast).toHaveBeenCalledWith('message:send', saved);
   });
 
   describe('multi-tenant isolation', () => {
