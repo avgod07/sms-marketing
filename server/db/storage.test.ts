@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DatabaseStorage } from './storage';
-import { campaigns, couponRecipients, messages } from '@shared/schema';
+import { campaigns, couponRecipients, messages, coupons } from '@shared/schema';
 
 let insertMock: any;
 let updateMock: any;
+let selectMock: any;
+let fromMock: any;
+let selectWhereMock: any;
+let orderByMock: any;
 let valuesMock: any;
 let setMock: any;
 let whereMock: any;
@@ -15,6 +19,7 @@ vi.mock('../config/db.config', () => ({
   db: {
     insert: (...args: any[]) => insertMock(...args),
     update: (...args: any[]) => updateMock(...args),
+    select: (...args: any[]) => selectMock(...args),
     delete: (...args: any[]) => deleteMock(...args),
     transaction: (...args: any[]) => transactionMock(...args),
   },
@@ -24,6 +29,11 @@ beforeEach(() => {
   returningMock = vi.fn().mockResolvedValue([{ id: 1 }]);
   valuesMock = vi.fn(() => ({ returning: returningMock }));
   insertMock = vi.fn(() => ({ values: valuesMock }));
+
+  orderByMock = vi.fn().mockResolvedValue([]);
+  selectWhereMock = vi.fn(() => ({ orderBy: orderByMock }));
+  fromMock = vi.fn(() => ({ where: selectWhereMock }));
+  selectMock = vi.fn(() => ({ from: fromMock }));
 
   whereMock = vi.fn(() => ({ returning: returningMock }));
   setMock = vi.fn(() => ({ where: whereMock }));
@@ -68,5 +78,31 @@ describe('DatabaseStorage.deleteCampaign', () => {
     expect(deleteMock.mock.calls[0][0]).toBe(messages);
     expect(deleteMock.mock.calls[1][0]).toBe(couponRecipients);
     expect(deleteMock.mock.calls[2][0]).toBe(campaigns);
+  });
+});
+
+describe('DatabaseStorage.getMessagesByContact', () => {
+  it('queries by contact and orders ascending', async () => {
+    const storage = new DatabaseStorage(3);
+    await storage.getMessagesByContact(7);
+
+    expect(selectMock).toHaveBeenCalled();
+    expect(fromMock).toHaveBeenCalledWith(messages);
+    expect(selectWhereMock).toHaveBeenCalled();
+    expect(orderByMock).toHaveBeenCalled();
+  });
+});
+
+describe('Coupons unique index', () => {
+  it('allows same code for different businesses', async () => {
+    const s1 = new DatabaseStorage(1);
+    const s2 = new DatabaseStorage(2);
+
+    await s1.createCoupon({ code: 'SALE', type: 'percent', value: '10' });
+    await s2.createCoupon({ code: 'SALE', type: 'percent', value: '10' });
+
+    expect(insertMock).toHaveBeenCalledTimes(2);
+    expect(valuesMock.mock.calls[0][0].businessId).toBe(1);
+    expect(valuesMock.mock.calls[1][0].businessId).toBe(2);
   });
 });
