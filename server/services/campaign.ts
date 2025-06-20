@@ -1,7 +1,16 @@
 import type { IStorage } from "../db/storage";
 import { TwilioService } from "./twilio";
 
-export async function executeCampaign(bizStorage: IStorage, campaignId: number) {
+export interface CampaignExecutionResult {
+  sentCount: number;
+  failedCount: number;
+  totalContacts: number;
+}
+
+export async function executeCampaign(
+  bizStorage: IStorage,
+  campaignId: number,
+): Promise<CampaignExecutionResult> {
   const campaign = await bizStorage.getCampaign(campaignId);
   if (!campaign) {
     throw new Error("Campaign not found");
@@ -10,7 +19,7 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
   const contacts = await bizStorage.getContacts();
 
   if (contacts.length === 0) {
-    return { sentCount: 0, totalContacts: 0 };
+    return { sentCount: 0, failedCount: 0, totalContacts: 0 };
   }
 
   const allCoupons = await bizStorage.getCoupons();
@@ -45,6 +54,7 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
 
   let sentCount = 0;
   let deliveredCount = 0;
+  let failedCount = 0;
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -64,6 +74,8 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
     if (result.success) {
       sentCount++;
       deliveredCount++; // Assume delivered until webhook updates
+    } else {
+      failedCount++;
     }
   }
 
@@ -73,5 +85,5 @@ export async function executeCampaign(bizStorage: IStorage, campaignId: number) 
     deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
   });
 
-  return { sentCount, totalContacts: contacts.length };
+  return { sentCount, failedCount, totalContacts: contacts.length };
 }

@@ -19,6 +19,7 @@ import type { Campaign } from "@shared/schema";
 import type { CampaignStats } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 
 export default function Campaigns() {
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
@@ -51,7 +52,7 @@ export default function Campaigns() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete campaign",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -68,7 +69,7 @@ export default function Campaigns() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to duplicate campaign",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },

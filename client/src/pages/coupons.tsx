@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -109,7 +110,7 @@ export default function Coupons() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create coupon",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -135,7 +136,7 @@ export default function Coupons() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to redeem coupon",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -154,7 +155,7 @@ export default function Coupons() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete coupon",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
