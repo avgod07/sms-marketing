@@ -9,9 +9,12 @@ export default function SmsPreview({ message }: SmsPreviewProps) {
   const showWarning = message.length > 160;
   return (
     <div className="w-[300px] mx-auto lg:mx-0">
-      <div className="bg-gray-100 p-4 rounded-xl border">
-        <div className="h-[500px] bg-white rounded-lg p-4 flex flex-col justify-end">
-          <ChatBubble message={truncated || "Your message preview"} incoming />
+      <div className="bg-black p-4 rounded-3xl">
+        <div className="relative h-[500px] bg-gray-900 rounded-2xl flex flex-col justify-end">
+          <span className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gray-700 rounded-full" />
+          <div className="px-4 pb-4 flex justify-end">
+            <ChatBubble message={truncated || "Your message preview will appear here"} className="text-sm" />
+          </div>
         </div>
       </div>
       {showWarning && (
