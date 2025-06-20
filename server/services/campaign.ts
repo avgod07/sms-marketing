@@ -79,8 +79,12 @@ export async function executeCampaign(
     }
   }
 
+  const totalAttempts = sentCount + failedCount;
+  const failureRate = totalAttempts > 0 ? failedCount / totalAttempts : 0;
+  const status = sentCount === 0 || failureRate >= 0.8 ? "failed" : "in_progress";
+
   await bizStorage.updateCampaign(campaignId, {
-    status: "in_progress",
+    status,
     sentCount: (campaign.sentCount || 0) + sentCount,
     deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
   });
