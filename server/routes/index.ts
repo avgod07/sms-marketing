@@ -9,7 +9,7 @@ import { db } from "../config/db.config";
 import { businesses } from "@shared/schema";
 import { normalizePhoneNumber } from "../utils/normalize.util.js";
 import { TwilioService } from "../services/twilio.js";
-import { getSocketService } from "../socket";
+import { socketService } from "../socket";
 import {
   insertContactSchema,
   insertMessageSchema,
@@ -255,12 +255,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      await bizStore.createMessage({
+      const message = await bizStore.createMessage({
         phoneNumber: normalizedFrom,
         contactId: contact.id,
         content: Body || "",
         status: "received",
       });
+
+      socketService?.broadcast("message:send", message);
 
       res.status(200).send("OK");
     } catch (error) {
@@ -1026,7 +1028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messageSid: result.messageSid,
       });
 
-      getSocketService()?.broadcast("message:send", message);
+      socketService?.broadcast("message:send", message);
 
       res.status(201).json(message);
     } catch (error) {
