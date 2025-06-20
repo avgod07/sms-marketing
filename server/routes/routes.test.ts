@@ -4,6 +4,7 @@ import { vi, describe, it, expect, afterEach, beforeAll, beforeEach } from 'vite
 var mockForBusiness: any;
 var mockStorage: any;
 var registerRoutes: any;
+var mockSendSMS: any;
 
 vi.mock('../config/db.config', () => ({
   db: {
@@ -27,6 +28,11 @@ vi.mock('../db/storage', () => {
     findTwilioCredentialByAccountSid: vi.fn(),
     findBusinessIdByPhoneNumber: vi.fn(),
   };
+});
+
+vi.mock('../services/twilio.js', () => {
+  mockSendSMS = vi.fn();
+  return { TwilioService: { sendSMS: mockSendSMS } };
 });
 
 vi.mock('bcryptjs', () => ({
@@ -253,6 +259,50 @@ describe('routes', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(msgs);
     expect(mockForBusiness.getMessagesByContact).toHaveBeenCalledWith(3);
+  });
+
+  it('sends sms and saves message', async () => {
+    const creds = {
+      accountSid: 'AC123',
+      authTokenEncrypted: 'enc',
+      messagingServiceSid: 'MG456',
+    };
+    mockForBusiness.getTwilioCredentials = vi.fn().mockResolvedValue(creds);
+    mockForBusiness.getPhoneNumbers = vi
+      .fn()
+      .mockResolvedValue([{ phoneNumber: '+15550001111', isDefault: true }]);
+    mockSendSMS.mockResolvedValue({ success: true, messageSid: 'SM789' });
+    mockForBusiness.createMessage = vi
+      .fn()
+      .mockResolvedValue({ id: 7, content: 'hi' });
+
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app)
+      .post('/api/messages')
+      .send({
+        phoneNumber: '+15551234567',
+        content: 'hello',
+        contactId: 4,
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockSendSMS).toHaveBeenCalledWith(creds, {
+      to: '+15551234567',
+      message: 'hello',
+      from: '+15550001111',
+      messagingServiceSid: 'MG456',
+      campaignId: undefined,
+      contactId: 4,
+    });
+    expect(mockForBusiness.createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phoneNumber: '+15551234567',
+        content: 'hello',
+        status: 'sent',
+        messageSid: 'SM789',
+      }),
+    );
   });
 
   describe('multi-tenant isolation', () => {
