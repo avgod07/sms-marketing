@@ -9,7 +9,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { SetupStatus } from "@shared/api-types";
+import { handleApiError } from "@/lib/handleApiError";
+import type { SetupStatus, CampaignSendSummary } from "@shared/api-types";
 
 export default function NewCampaignPage() {
   const [, navigate] = useLocation();
@@ -21,26 +22,32 @@ export default function NewCampaignPage() {
   });
 
   const createCampaignMutation = useMutation({
-    mutationFn: (data: CampaignFormValues) =>
-      apiRequest({
+    mutationFn: async (
+      data: CampaignFormValues,
+    ): Promise<CampaignSendSummary & { campaign: any }> => {
+      const res = await apiRequest({
         method: "POST",
         url: "/api/campaigns",
         data: { name: data.name, message: data.message },
-      }),
-    onSuccess: () => {
+      });
+      return await res.json();
+    },
+    onSuccess: (data: CampaignSendSummary) => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      const sent = data.sentCount ?? 0;
+      const failed = data.failedCount ?? 0;
       toast({
         title: "Campaign Created",
-        description: "Your SMS campaign has been created successfully.",
+        description: `Campaign completed: ${sent} sent, ${failed} failed.`,
       });
       navigate("/campaigns");
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create campaign",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },

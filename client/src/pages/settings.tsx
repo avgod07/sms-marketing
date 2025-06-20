@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings as SettingsIcon, Save, Key, MessageSquare } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 import type { TwilioSettings } from "@shared/api-types";
 
@@ -49,7 +50,7 @@ export default function Settings() {
     onError: (err: any) => {
       toast({
         title: "Error",
-        description: err.message || "Failed to update SMS settings",
+        description: handleApiError(err),
         variant: "destructive",
       });
     },

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useLocation, Link } from "wouter";
 
 export default function Login() {
@@ -30,7 +31,7 @@ export default function Login() {
     onError: (error: any) => {
       toast({
         title: "Login Failed",
-        description: error.message || "Unable to sign in",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },

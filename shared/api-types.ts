@@ -38,3 +38,9 @@ export interface TwilioSettings {
   messagingServiceSid: string | null;
   phoneNumber: string | null;
 }
+
+export interface CampaignSendSummary {
+  sentCount: number;
+  failedCount: number;
+  totalContacts: number;
+}

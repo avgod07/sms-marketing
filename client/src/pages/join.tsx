@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { handleApiError } from "@/lib/handleApiError";
 
 interface JoinPageProps {
   params: {
@@ -41,7 +42,7 @@ export default function JoinPage({ params }: JoinPageProps) {
     onError: (err: any) => {
       toast({
         title: "Error",
-        description: err.message || "Failed to join",
+        description: handleApiError(err),
         variant: "destructive",
       });
     },

@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 import { 
   LayoutDashboard,
@@ -54,7 +55,7 @@ export default function Sidebar() {
     onError: (error: any) => {
       toast({
         title: "Sign Out Failed",
-        description: error.message || "Unable to sign out",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
