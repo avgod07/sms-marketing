@@ -9,6 +9,7 @@ import { db } from "../config/db.config";
 import { businesses } from "@shared/schema";
 import { normalizePhoneNumber } from "../utils/normalize.util.js";
 import { TwilioService } from "../services/twilio.js";
+import { getSocketService } from "../socket";
 import {
   insertContactSchema,
   insertMessageSchema,
@@ -1005,7 +1006,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/messages", async (req, res) => {
     try {
       const validatedData = insertMessageSchema.parse(req.body);
-      const message = await biz(req).createMessage({ ...validatedData });
+
+      const creds = await biz(req).getTwilioCredentials();
+      const numbers = await biz(req).getPhoneNumbers();
+      const from = numbers.find(n => n.isDefault)?.phoneNumber;
+
+      const result = await TwilioService.sendSMS(creds, {
+        to: validatedData.phoneNumber,
+        message: validatedData.content,
+        from,
+        messagingServiceSid: creds?.messagingServiceSid || undefined,
+        campaignId: validatedData.campaignId,
+        contactId: validatedData.contactId,
+      });
+
+      const message = await biz(req).createMessage({
+        ...validatedData,
+        status: result.success ? "sent" : "failed",
+        messageSid: result.messageSid,
+      });
+
+      getSocketService()?.broadcast("message:send", message);
+
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
