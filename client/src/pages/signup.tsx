@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useLocation, Link } from "wouter";
 
 export default function Signup() {
@@ -34,7 +35,7 @@ export default function Signup() {
     onError: (error: any) => {
       toast({
         title: "Sign Up Failed",
-        description: error.message || "Unable to sign up",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },

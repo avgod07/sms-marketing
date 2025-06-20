@@ -9,6 +9,8 @@ import { Search, MessageSquareText } from "lucide-react";
 import { emitMessageSend } from "@/lib/socket";
 import { useMessageSocket } from "@/hooks/use-message-socket";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useToast } from "@/hooks/use-toast";
+import { handleApiError } from "@/lib/handleApiError";
 import type { Message as ApiMessage } from "@shared/schema";
 
 interface Message {
@@ -33,6 +35,7 @@ export default function Inbox() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reply, setReply] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
   const debouncedSearch = useDebounce(searchQuery, 300);
   const trimmedSearch = debouncedSearch.trim().toLowerCase();
   const selected =
@@ -77,7 +80,11 @@ export default function Inbox() {
           }
         }
       } catch (err) {
-        console.error(err);
+        toast({
+          title: "Failed to load conversations",
+          description: handleApiError(err),
+          variant: "destructive",
+        });
       }
     }
     loadConversations();
@@ -108,7 +115,11 @@ export default function Inbox() {
           );
         }
       } catch (err) {
-        console.error(err);
+        toast({
+          title: "Failed to load messages",
+          description: handleApiError(err),
+          variant: "destructive",
+        });
       }
     }
     loadMessages();
@@ -213,7 +224,11 @@ export default function Inbox() {
         emitMessageSend(saved);
       }
     } catch (err) {
-      console.error(err);
+      toast({
+        title: "Failed to send message",
+        description: handleApiError(err),
+        variant: "destructive",
+      });
     }
   };
 
