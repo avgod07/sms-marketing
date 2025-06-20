@@ -37,7 +37,7 @@ import {
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc, asc, count, sql } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
 import { logError } from "../utils/logger.util";
 
@@ -105,6 +105,8 @@ export interface IStorage {
   // Messages
   getMessages(): Promise<Message[]>;
   getMessagesByCampaign(campaignId: number): Promise<Message[]>;
+  getMessagesByContact(contactId: number): Promise<Message[]>;
+  getConversationSummaries(): Promise<any[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   updateMessageStatus(
     id: number,
@@ -585,6 +587,45 @@ export class DatabaseStorage implements IStorage {
         sql`${messages.campaignId} = ${campaignId} AND ${messages.businessId} = ${businessId}`,
       )
       .orderBy(desc(messages.createdAt));
+  }
+
+  async getMessagesByContact(contactId: number): Promise<Message[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(messages)
+      .where(
+        sql`${messages.contactId} = ${contactId} AND ${messages.businessId} = ${businessId}`,
+      )
+      .orderBy(asc(messages.createdAt));
+  }
+
+  async getConversationSummaries(): Promise<any[]> {
+    const businessId = this.requireBusinessId();
+    const contactsList = await this.getContacts();
+    const allMessages = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.businessId, businessId))
+      .orderBy(desc(messages.createdAt));
+
+    const seen = new Set<number>();
+    const summaries: any[] = [];
+    for (const msg of allMessages) {
+      if (seen.has(msg.contactId)) continue;
+      const contact = contactsList.find(c => c.id === msg.contactId);
+      if (contact) {
+        summaries.push({
+          id: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          phoneNumber: contact.phoneNumber,
+          lastMessage: msg,
+        });
+        seen.add(msg.contactId);
+      }
+    }
+    return summaries;
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {

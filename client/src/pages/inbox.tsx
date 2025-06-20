@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,45 +25,82 @@ interface Conversation {
   hasUnread?: boolean;
 }
 
-const initialConversations: Conversation[] = [
-  {
-    id: 1,
-    contactName: "John Doe",
-    phone: "1234567890",
-    hasUnread: false,
-    messages: [
-      { id: 1, text: "Hey there!", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), incoming: true },
-      { id: 2, text: "Hi John, how can I help you?", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2 + 60000), incoming: false },
-    ],
-  },
-  {
-    id: 2,
-    contactName: "Jane Smith",
-    phone: "9876543210",
-    hasUnread: false,
-    messages: [
-      { id: 1, text: "I would like to know more about your services.", timestamp: new Date(Date.now() - 1000 * 60 * 30), incoming: true },
-    ],
-  },
-  {
-    id: 3,
-    phone: "5551237890",
-    hasUnread: false,
-    messages: [
-      { id: 1, text: "Is this the right number to contact support?", timestamp: new Date(Date.now() - 1000 * 60 * 5), incoming: true },
-    ],
-  },
-];
 
 export default function Inbox() {
-  const [conversations, setConversations] = useState<Conversation[]>(
-    initialConversations,
-  );
-  const [selectedId, setSelectedId] = useState<number>(
-    initialConversations[0].id,
-  );
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reply, setReply] = useState("");
-  const selected = conversations.find((c) => c.id === selectedId)!;
+  const selected =
+    selectedId !== null
+      ? conversations.find((c) => c.id === selectedId) || null
+      : null;
+
+  useEffect(() => {
+    async function loadConversations() {
+      try {
+        const res = await fetch("/api/conversations");
+        if (res.ok) {
+          const data = await res.json();
+          const convs: Conversation[] = data.map((c: any) => ({
+            id: c.id,
+            contactName:
+              c.firstName || c.lastName
+                ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()
+                : undefined,
+            phone: c.phoneNumber,
+            messages: c.lastMessage
+              ? [
+                  {
+                    id: c.lastMessage.id,
+                    text: c.lastMessage.content,
+                    timestamp: new Date(c.lastMessage.createdAt),
+                    incoming: c.lastMessage.status === "received",
+                  },
+                ]
+              : [],
+            hasUnread: false,
+          }));
+          setConversations(convs);
+          if (convs.length && selectedId === null) {
+            setSelectedId(convs[0].id);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
+    if (selectedId === null) return;
+    async function loadMessages() {
+      try {
+        const res = await fetch(`/api/conversations/${selectedId}/messages`);
+        if (res.ok) {
+          const data: ApiMessage[] = await res.json();
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === selectedId
+                ? {
+                    ...c,
+                    messages: data.map((m) => ({
+                      id: m.id,
+                      text: m.content,
+                      timestamp: new Date(m.createdAt as any),
+                      incoming: m.status === "received",
+                    })),
+                  }
+                : c,
+            ),
+          );
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadMessages();
+  }, [selectedId]);
 
   useMessageSocket({
     onMessage: (data) => {
@@ -94,7 +131,7 @@ export default function Inbox() {
   });
 
   const handleSend = async () => {
-    if (!reply.trim()) return;
+    if (!reply.trim() || !selected) return;
     const tempId = Date.now();
     const localMessage = {
       id: tempId,
@@ -180,6 +217,7 @@ export default function Inbox() {
         <div className="flex-1 overflow-y-auto">
           {conversations.map((conv) => {
             const last = conv.messages[conv.messages.length - 1];
+            if (!last) return null;
             const isActive = conv.id === selectedId;
             return (
               <button
@@ -221,37 +259,39 @@ export default function Inbox() {
       </aside>
 
       {/* Chat Panel */}
-      <section className="flex flex-1 flex-col">
-        <div className="p-4 border-b flex items-center">
-          <h2 className="font-semibold">
-            {selected.contactName || formatPhoneNumber(selected.phone)}
-          </h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {selected.messages.map((msg) => (
-            <ChatBubble
-              key={msg.id}
-              message={msg.text}
-              incoming={msg.incoming}
-              timestamp={timeAgo(msg.timestamp)}
-            />
-          ))}
-        </div>
-        <div className="p-4 border-t">
-          <div className="flex items-end space-x-2">
-            <Textarea
-              placeholder="Type a message"
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex-1 resize-none"
-            />
-            <Button onClick={handleSend} disabled={!reply.trim()}>
-              Send
-            </Button>
+      {selected && (
+        <section className="flex flex-1 flex-col">
+          <div className="p-4 border-b flex items-center">
+            <h2 className="font-semibold">
+              {selected.contactName || formatPhoneNumber(selected.phone)}
+            </h2>
           </div>
-        </div>
-      </section>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {selected.messages.map((msg) => (
+              <ChatBubble
+                key={msg.id}
+                message={msg.text}
+                incoming={msg.incoming}
+                timestamp={timeAgo(msg.timestamp)}
+              />
+            ))}
+          </div>
+          <div className="p-4 border-t">
+            <div className="flex items-end space-x-2">
+              <Textarea
+                placeholder="Type a message"
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="flex-1 resize-none"
+              />
+              <Button onClick={handleSend} disabled={!reply.trim()}>
+                Send
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
         </div>
       </Card>
