@@ -204,11 +204,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status = "failed";
 
       const bizStore = storage.forBusiness(businessId);
-      await bizStore.updateMessageStatusBySid(
+      const updated = await bizStore.updateMessageStatusBySid(
         MessageSid,
         status,
         ErrorCode ? parseInt(ErrorCode, 10) : undefined,
       );
+
+      if (updated) {
+        socketService?.broadcast('message:status', updated);
+      }
 
       res.status(200).send("OK");
     } catch (error) {
