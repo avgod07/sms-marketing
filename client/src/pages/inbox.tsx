@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -162,9 +161,8 @@ export default function Inbox() {
   };
 
   return (
-    <div className="fade-in h-full p-8">
-      <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
-        <div className="flex h-full w-full">
+    <div className="fade-in mx-auto h-full w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
+      <div className="flex h-full w-full">
       {/* Conversations Sidebar */}
       <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
         <div className="p-4 border-b">
@@ -253,8 +251,7 @@ export default function Inbox() {
         </div>
       </section>
 
-        </div>
-      </Card>
+      </div>
     </div>
   );
 }
