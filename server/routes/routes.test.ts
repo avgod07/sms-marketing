@@ -231,6 +231,30 @@ describe('routes', () => {
     expect(res.body).toEqual(contacts);
   });
 
+  it('lists conversation summaries', async () => {
+    const convs = [{ id: 1 }];
+    mockForBusiness.getConversationSummaries = vi.fn().mockResolvedValue(convs);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app).get('/api/conversations');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(convs);
+    expect(mockForBusiness.getConversationSummaries).toHaveBeenCalled();
+  });
+
+  it('fetches messages for contact', async () => {
+    const msgs = [{ id: 1 }];
+    mockForBusiness.getMessagesByContact = vi.fn().mockResolvedValue(msgs);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app).get('/api/conversations/3/messages');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(msgs);
+    expect(mockForBusiness.getMessagesByContact).toHaveBeenCalledWith(3);
+  });
+
   describe('multi-tenant isolation', () => {
     let biz1: any;
     let biz2: any;

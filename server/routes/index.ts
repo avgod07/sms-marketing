@@ -961,6 +961,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Conversation routes
+  app.get("/api/conversations", async (req, res) => {
+    try {
+      const convs = await biz(req).getConversationSummaries();
+      res.json(convs);
+    } catch (error) {
+      logError("Error fetching conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.get("/api/conversations/:contactId/messages", async (req, res) => {
+    try {
+      const contactId = parseInt(req.params.contactId);
+      const msgs = await biz(req).getMessagesByContact(contactId);
+      res.json(msgs);
+    } catch (error) {
+      logError("Error fetching messages by contact:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
   // Message routes
   app.get("/api/messages", async (req, res) => {
     try {
