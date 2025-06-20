@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import ChatBubble from "@/components/shared/ChatBubble";
 import { formatPhoneNumber, timeAgo } from "@/lib/utils";
 import { Search, MessageSquareText } from "lucide-react";
+import { emitMessageSend } from "@/lib/socket";
+import { useMessageSocket } from "@/hooks/use-message-socket";
+import type { Message as ApiMessage } from "@shared/schema";
 
 interface Message {
   id: number;
@@ -19,13 +22,15 @@ interface Conversation {
   contactName?: string;
   phone: string;
   messages: Message[];
+  hasUnread?: boolean;
 }
 
-const mockConversations: Conversation[] = [
+const initialConversations: Conversation[] = [
   {
     id: 1,
     contactName: "John Doe",
     phone: "1234567890",
+    hasUnread: false,
     messages: [
       { id: 1, text: "Hey there!", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), incoming: true },
       { id: 2, text: "Hi John, how can I help you?", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2 + 60000), incoming: false },
@@ -35,6 +40,7 @@ const mockConversations: Conversation[] = [
     id: 2,
     contactName: "Jane Smith",
     phone: "9876543210",
+    hasUnread: false,
     messages: [
       { id: 1, text: "I would like to know more about your services.", timestamp: new Date(Date.now() - 1000 * 60 * 30), incoming: true },
     ],
@@ -42,6 +48,7 @@ const mockConversations: Conversation[] = [
   {
     id: 3,
     phone: "5551237890",
+    hasUnread: false,
     messages: [
       { id: 1, text: "Is this the right number to contact support?", timestamp: new Date(Date.now() - 1000 * 60 * 5), incoming: true },
     ],
@@ -49,19 +56,102 @@ const mockConversations: Conversation[] = [
 ];
 
 export default function Inbox() {
-  const [selectedId, setSelectedId] = useState<number>(mockConversations[0].id);
+  const [conversations, setConversations] = useState<Conversation[]>(
+    initialConversations,
+  );
+  const [selectedId, setSelectedId] = useState<number>(
+    initialConversations[0].id,
+  );
   const [reply, setReply] = useState("");
-  const selected = mockConversations.find((c) => c.id === selectedId)!;
+  const selected = conversations.find((c) => c.id === selectedId)!;
 
-  const handleSend = () => {
+  useMessageSocket({
+    onMessage: (data) => {
+      const contactId = (data as any).contactId as number | undefined;
+      const phone = (data as any).phoneNumber as string | undefined;
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c.id === contactId || c.phone === phone);
+        if (idx === -1) return prev;
+        const conv = prev[idx];
+        const updated: Conversation = {
+          ...conv,
+          messages: [
+            ...conv.messages,
+            {
+              id: data.id,
+              text: data.content,
+              timestamp: new Date((data as any).createdAt ?? Date.now()),
+              incoming: true,
+            },
+          ],
+          hasUnread: conv.id === selectedId ? false : true,
+        };
+        const copy = prev.slice();
+        copy[idx] = updated;
+        return copy;
+      });
+    },
+  });
+
+  const handleSend = async () => {
     if (!reply.trim()) return;
-    selected.messages.push({
-      id: Date.now(),
+    const tempId = Date.now();
+    const localMessage = {
+      id: tempId,
       text: reply,
       timestamp: new Date(),
       incoming: false,
-    });
+    };
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === selectedId
+          ? { ...c, messages: [...c.messages, localMessage] }
+          : c,
+      ),
+    );
     setReply("");
+
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contactId: selected.id,
+          phoneNumber: selected.phone,
+          content: reply,
+          status: "sent",
+        }),
+      });
+      if (res.ok) {
+        const saved: ApiMessage = await res.json();
+        setConversations((prev) => {
+          const idxConv = prev.findIndex((c) => c.id === selectedId);
+          if (idxConv === -1) return prev;
+          const conv = prev[idxConv];
+          const msgIdx = conv.messages.findIndex((m) => m.id === tempId);
+          if (msgIdx === -1) return prev;
+          const updatedConv: Conversation = {
+            ...conv,
+            messages: conv.messages.map((m, i) =>
+              i === msgIdx
+                ? {
+                    id: saved.id,
+                    text: saved.content,
+                    timestamp: new Date((saved as any).createdAt ?? Date.now()),
+                    incoming: false,
+                  }
+                : m,
+            ),
+          };
+          const copy = prev.slice();
+          copy[idxConv] = updatedConv;
+          return copy;
+        });
+        emitMessageSend(saved);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -88,13 +178,20 @@ export default function Inbox() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {mockConversations.map((conv) => {
+          {conversations.map((conv) => {
             const last = conv.messages[conv.messages.length - 1];
             const isActive = conv.id === selectedId;
             return (
               <button
                 key={conv.id}
-                onClick={() => setSelectedId(conv.id)}
+                onClick={() => {
+                  setSelectedId(conv.id);
+                  setConversations(prev =>
+                    prev.map(c =>
+                      c.id === conv.id ? { ...c, hasUnread: false } : c,
+                    ),
+                  );
+                }}
                 className={
                   "w-full text-left px-4 py-3 flex space-x-3 hover:bg-gray-100 " +
                   (isActive ? "bg-muted" : "")
@@ -114,6 +211,9 @@ export default function Inbox() {
                 <div className="ml-2 shrink-0 text-xs text-gray-400">
                   {timeAgo(last.timestamp)}
                 </div>
+                {conv.hasUnread && !isActive && (
+                  <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full" />
+                )}
               </button>
             );
           })}
