@@ -65,6 +65,7 @@ export default function Settings() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/twilio/credentials"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       toast({ title: "Success", description: "SMS settings updated" });
     },
     onError: (err: any) => {
