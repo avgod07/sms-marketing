@@ -83,8 +83,11 @@ export default function ContactTable({
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">
-                      {contact.firstName} {contact.lastName}
+                    <p className="font-medium text-gray-900 flex items-center space-x-2">
+                      <span>{contact.firstName} {contact.lastName}</span>
+                      {!contact.active && (
+                        <span className="ml-2 rounded px-1 text-xs bg-gray-100 text-gray-700">Inactive</span>
+                      )}
                     </p>
                   </div>
                 </div>

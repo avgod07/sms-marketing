@@ -60,7 +60,10 @@ export interface IStorage {
   getContact(id: number): Promise<Contact | undefined>;
   getContactByPhoneNumber(phoneNumber: string): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
-  updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
+  updateContact(
+    id: number,
+    contact: Partial<InsertContact> & { active?: boolean }
+  ): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
   searchContacts(query: string): Promise<Contact[]>;
 
@@ -219,7 +222,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateContact(
     id: number,
-    contact: Partial<InsertContact>,
+    contact: Partial<InsertContact> & { active?: boolean },
   ): Promise<Contact> {
     const businessId = this.requireBusinessId();
     const updateData = {
@@ -620,6 +623,7 @@ export class DatabaseStorage implements IStorage {
           firstName: contact.firstName,
           lastName: contact.lastName,
           phoneNumber: contact.phoneNumber,
+          active: contact.active,
           lastMessage: msg,
         });
         seen.add(msg.contactId);
