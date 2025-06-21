@@ -242,17 +242,22 @@ export default function Inbox() {
   };
 
   return (
-    <div className="fade-in h-full p-8">
-      <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
-        <div className="flex h-full w-full">
+    <div className="fade-in h-full flex flex-col">
+      {/* Page Header */}
+      <header className="bg-white border-b border-gray-200 px-8 py-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
+          <p className="text-gray-600 mt-1">View and reply to incoming messages</p>
+        </div>
+      </header>
+
+      <div className="flex-1 p-8">
+        <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
+          <div className="flex h-full w-full">
       {/* Conversations Sidebar */}
       <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold flex items-center space-x-2">
-            <MessageSquareText className="w-5 h-5" />
-            <span>Inbox</span>
-          </h2>
-          <div className="relative mt-4">
+          <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               placeholder="Search..."
@@ -370,6 +375,7 @@ export default function Inbox() {
 
         </div>
       </Card>
+    </div>
     </div>
   );
 }
