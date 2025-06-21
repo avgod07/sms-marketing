@@ -11,6 +11,7 @@ import Campaigns from "@/pages/Campaigns";
 import NewCampaignPage from "@/pages/Campaigns/New";
 import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
+import Billing from "@/pages/billing";
 import Help from "@/pages/help";
 import Coupons from "@/pages/coupons";
 import Inbox from "@/pages/inbox";
@@ -52,6 +53,7 @@ function Router() {
           <Route path="/coupons" component={Coupons} />
           <Route path="/inbox" component={Inbox} />
           <Route path="/analytics" component={Analytics} />
+          <Route path="/settings/billing" component={Billing} />
           <Route path="/settings" component={Settings} />
           <Route path="/help" component={Help} />
           <Route component={NotFound} />
