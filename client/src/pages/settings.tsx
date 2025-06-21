@@ -19,7 +19,6 @@ import {
 import {
   Settings as SettingsIcon,
   Save,
-  Key,
   MessageSquare,
   CreditCard,
 } from "lucide-react";
@@ -133,31 +132,6 @@ export default function Settings() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Key className="w-5 h-5" />
-                    <span>API Settings</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="api-key">API Key</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        id="api-key"
-                        type="password"
-                        value="tk_••••••••••••••••••••••••••••••••"
-                        readOnly
-                      />
-                      <Button variant="outline">Regenerate</Button>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Use this API key to integrate with external services
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
