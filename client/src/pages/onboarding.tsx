@@ -38,9 +38,6 @@ function Content() {
             <h1 className="text-2xl font-bold text-gray-900">Onboarding</h1>
             <p className="text-gray-600 mt-1">Let's set up your account.</p>
           </div>
-          <Button variant="outline" onClick={handleClose}>
-            Save &amp; Close
-          </Button>
         </div>
       </header>
 
