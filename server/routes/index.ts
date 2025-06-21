@@ -259,12 +259,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      const bodyText = (Body || "").trim();
+
       const message = await bizStore.createMessage({
         phoneNumber: normalizedFrom,
         contactId: contact.id,
-        content: Body || "",
+        content: bodyText,
         status: "received",
       });
+
+      if (bodyText.toLowerCase() === "stop") {
+        if (contact.active) {
+          await bizStore.updateContact(contact.id, { active: false });
+        }
+        const numbers = await bizStore.getPhoneNumbers();
+        const from = numbers.find(n => n.isDefault)?.phoneNumber;
+        await TwilioService.sendSMS(creds, {
+          to: normalizedFrom,
+          message:
+            "You\u2019ve been removed from our list. You will no longer receive messages from us.",
+          from,
+          messagingServiceSid: creds?.messagingServiceSid || undefined,
+          contactId: contact.id,
+        });
+      }
 
       socketService?.broadcast("message:send", message);
 
@@ -1025,6 +1043,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/messages", async (req, res) => {
     try {
       const validatedData = insertMessageSchema.parse(req.body);
+
+      const contact = await biz(req).getContact(validatedData.contactId);
+      if (!contact || !contact.active) {
+        return res.status(400).json({ message: 'Contact is inactive' });
+      }
 
       const creds = await biz(req).getTwilioCredentials();
       const numbers = await biz(req).getPhoneNumbers();
