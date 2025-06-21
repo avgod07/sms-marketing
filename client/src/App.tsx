@@ -13,6 +13,7 @@ import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
 import Help from "@/pages/help";
 import Coupons from "@/pages/coupons";
+import OnboardingPage from "@/pages/onboarding";
 import Inbox from "@/pages/inbox";
 import JoinPage from "@/pages/join";
 import Login from "@/pages/login";
@@ -46,6 +47,7 @@ function Router() {
           <Route path="/signup" component={Signup} />
           <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/" component={Dashboard} />
+          <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/contacts" component={Contacts} />
           <Route path="/campaigns/new" component={NewCampaignPage} />
           <Route path="/campaigns" component={Campaigns} />
