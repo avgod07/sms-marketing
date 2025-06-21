@@ -230,7 +230,7 @@ export default function BusinessInfoForm({
               Save &amp; Close
             </Button>
           )}
-          <Button type="submit" disabled={!form.formState.isValid}">
+          <Button type="submit" disabled={!form.formState.isValid}>
             Next
           </Button>
         </div>
