@@ -620,6 +620,7 @@ export class DatabaseStorage implements IStorage {
           firstName: contact.firstName,
           lastName: contact.lastName,
           phoneNumber: contact.phoneNumber,
+          active: contact.active,
           lastMessage: msg,
         });
         seen.add(msg.contactId);

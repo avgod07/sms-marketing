@@ -16,7 +16,7 @@ export async function executeCampaign(
     throw new Error("Campaign not found");
   }
 
-  const contacts = await bizStorage.getContacts();
+  const contacts = (await bizStorage.getContacts()).filter(c => c.active);
 
   if (contacts.length === 0) {
     return { sentCount: 0, failedCount: 0, totalContacts: 0 };
