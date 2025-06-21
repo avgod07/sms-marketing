@@ -9,8 +9,8 @@ function createMockStorage() {
   return {
     getCampaign: vi.fn().mockResolvedValue({ id: 1, message: 'hi' }),
     getContacts: vi.fn().mockResolvedValue([
-      { id: 1, phoneNumber: '+10000000001' },
-      { id: 2, phoneNumber: '+10000000002' },
+      { id: 1, phoneNumber: '+10000000001', active: true },
+      { id: 2, phoneNumber: '+10000000002', active: true },
     ]),
     getCoupons: vi.fn().mockResolvedValue([]),
     createCouponRecipient: vi.fn(),
@@ -38,6 +38,25 @@ describe('executeCampaign', () => {
       sentCount: 0,
       deliveredCount: 0,
     });
+  });
+
+  it('sends only to active contacts', async () => {
+    const { executeCampaign } = await import('./campaign');
+    const storage = createMockStorage();
+    storage.getContacts = vi.fn().mockResolvedValue([
+      { id: 1, phoneNumber: '+10000000001', active: true },
+      { id: 2, phoneNumber: '+10000000002', active: false },
+    ]);
+
+    mockSendBulkSMS = vi.fn().mockResolvedValue([{ success: true }]);
+
+    const result = await executeCampaign(storage, 1);
+
+    expect(mockSendBulkSMS).toHaveBeenCalled();
+    const messages = mockSendBulkSMS.mock.calls[0][1];
+    expect(messages).toHaveLength(1);
+    expect(messages[0].contactId).toBe(1);
+    expect(result.totalContacts).toBe(1);
   });
 });
 

@@ -27,6 +27,7 @@ interface Conversation {
   phone: string;
   messages: Message[];
   hasUnread?: boolean;
+  active: boolean;
 }
 
 
@@ -61,6 +62,7 @@ export default function Inbox() {
                 ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()
                 : undefined,
             phone: c.phoneNumber,
+            active: c.active !== false,
             messages: c.lastMessage
               ? [
                   {
@@ -166,7 +168,7 @@ export default function Inbox() {
   });
 
   const handleSend = async () => {
-    if (!reply.trim() || !selected) return;
+    if (!reply.trim() || !selected || !selected.active) return;
     const tempId = Date.now();
     const localMessage = {
       id: tempId,
@@ -329,10 +331,13 @@ export default function Inbox() {
       {/* Chat Panel */}
       {selected && (
         <section className="flex flex-1 flex-col">
-          <div className="p-4 border-b flex items-center">
+          <div className="p-4 border-b flex items-center space-x-2">
             <h2 className="font-semibold">
               {selected.contactName || formatPhoneNumber(selected.phone)}
             </h2>
+            {!selected.active && (
+              <span className="rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs">Inactive</span>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {selected.messages.map((msg) => (
@@ -353,8 +358,9 @@ export default function Inbox() {
                 onChange={(e) => setReply(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="flex-1 resize-none"
+                disabled={!selected.active}
               />
-              <Button onClick={handleSend} disabled={!reply.trim()}>
+              <Button onClick={handleSend} disabled={!reply.trim() || !selected.active}>
                 Send
               </Button>
             </div>

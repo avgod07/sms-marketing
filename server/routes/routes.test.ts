@@ -288,6 +288,7 @@ describe('routes', () => {
     mockForBusiness.getPhoneNumbers = vi
       .fn()
       .mockResolvedValue([{ phoneNumber: '+15550001111', isDefault: true }]);
+    mockForBusiness.getContact = vi.fn().mockResolvedValue({ id: 4, active: true });
     mockSendSMS.mockResolvedValue({ success: true, messageSid: 'SM789' });
     mockForBusiness.createMessage = vi
       .fn()
