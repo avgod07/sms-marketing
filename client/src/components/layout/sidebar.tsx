@@ -15,7 +15,6 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  CreditCard,
   MessageSquare,
   MessageSquareText
 } from "lucide-react";
@@ -33,7 +32,6 @@ const navigation = [
 
 const account = [
   { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Billing", href: "/settings/billing", icon: CreditCard },
   { name: "Help", href: "/help", icon: HelpCircle },
   { name: "Sign Out", href: "#", icon: LogOut },
 ];
