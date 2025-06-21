@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useCredits } from "@/hooks/use-credits";
 import { differenceInCalendarDays, format } from "date-fns";
+
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
@@ -218,15 +219,16 @@ export default function Settings() {
               </Card>
             </div>
           </TabsContent>
-
           <TabsContent value="billing">
             <BillingTab />
           </TabsContent>
+
         </Tabs>
       </div>
     </div>
   );
 }
+
 
 function BillingTab() {
   const { data: credits } = useCredits();
@@ -271,3 +273,4 @@ function BillingTab() {
     </div>
   );
 }
+
