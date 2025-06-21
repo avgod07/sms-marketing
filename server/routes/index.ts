@@ -575,10 +575,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
       const page = parseInt((req.query.page as string) || "0", 10);
-      const numbers = await client
+      const pageResult = await client
         .availablePhoneNumbers("US")
-        .tollFree.list({ pageSize: 12, pageNumber: page });
-      res.json(numbers.map((n: any) => n.phoneNumber));
+        .tollFree.page({ pageSize: 12, pageNumber: page });
+      res.json(pageResult.instances.map((n: any) => n.phoneNumber));
     } catch (error) {
       logError("Error fetching toll-free numbers:", error);
       res.status(500).json({ message: "Failed to fetch toll-free numbers" });
