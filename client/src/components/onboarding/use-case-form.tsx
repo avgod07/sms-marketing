@@ -33,9 +33,16 @@ export interface UseCaseFormValues {
 interface UseCaseFormProps {
   initialValues?: UseCaseFormValues;
   onSubmit: (data: UseCaseFormValues) => void;
+  onBack?: () => void;
+  onCancel?: () => void;
 }
 
-export default function UseCaseForm({ initialValues, onSubmit }: UseCaseFormProps) {
+export default function UseCaseForm({
+  initialValues,
+  onSubmit,
+  onBack,
+  onCancel,
+}: UseCaseFormProps) {
   const form = useForm<UseCaseFormValues>({
     resolver: zodResolver(schema),
     mode: "onChange",
@@ -80,8 +87,20 @@ export default function UseCaseForm({ initialValues, onSubmit }: UseCaseFormProp
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.useCases.message}</p>
         )}
       </div>
-      <div className="pt-4 text-right">
-        <Button type="submit" disabled={!form.formState.isValid}>Next</Button>
+      <div className="pt-4 flex items-center justify-between">
+        {onBack && (
+          <Button type="button" variant="outline" onClick={onBack}>
+            Back
+          </Button>
+        )}
+        <div className="ml-auto space-x-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Save &amp; Close
+            </Button>
+          )}
+          <Button type="submit" disabled={!form.formState.isValid}>Next</Button>
+        </div>
       </div>
     </form>
   );
