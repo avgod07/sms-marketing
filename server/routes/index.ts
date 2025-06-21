@@ -567,6 +567,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/twilio/available-tollfree", async (req, res) => {
+    try {
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const page = parseInt((req.query.page as string) || "0", 10);
+      const numbers = await client
+        .availablePhoneNumbers("US")
+        .tollFree.list({ pageSize: 12, pageNumber: page });
+      res.json(numbers.map((n: any) => n.phoneNumber));
+    } catch (error) {
+      logError("Error fetching toll-free numbers:", error);
+      res.status(500).json({ message: "Failed to fetch toll-free numbers" });
+    }
+  });
+
+  const tollFreeSchema = z.object({ phoneNumber: z.string() });
+
+  app.post("/api/twilio/tollfree", async (req, res) => {
+    try {
+      const { phoneNumber } = tollFreeSchema.parse(req.body);
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const num = await client.incomingPhoneNumbers.create({
+        phoneNumber,
+        smsUrl: webhookUrl,
+      });
+      if (creds.messagingServiceSid) {
+        await client.messaging
+          .services(creds.messagingServiceSid)
+          .phoneNumbers.create({ phoneNumberSid: num.sid });
+      }
+      const [record] = await biz(req).setPhoneNumbers([
+        { phoneNumber: num.phoneNumber, isDefault: true },
+      ]);
+      res.json(record);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error purchasing toll-free number:", error);
+      res.status(500).json({ message: "Failed to purchase toll-free number" });
+    }
+  });
+
   app.post("/api/twilio/a2p/register", async (req, res) => {
     try {
       const creds = await biz(req).getTwilioCredentials();
