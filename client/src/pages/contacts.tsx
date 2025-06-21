@@ -78,6 +78,7 @@ export default function Contacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       setIsCreateOpen(false);
       toast({ title: "Contact Added" });
     },
@@ -107,6 +108,7 @@ export default function Contacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       setIsEditOpen(false);
       setEditingContact(null);
       toast({ title: "Contact Updated" });
@@ -133,6 +135,7 @@ export default function Contacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       setIsDeleteOpen(false);
       setDeletingContact(null);
       toast({ title: "Contact Deleted" });

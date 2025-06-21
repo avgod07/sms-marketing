@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 import { useCredits } from "@/hooks/use-credits";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 import { 
   LayoutDashboard,
   Users,
@@ -17,6 +18,7 @@ import {
   LogOut,
   MessageSquare,
   MessageSquareText
+  , ListChecks
 } from "lucide-react";
 
 const navigation = [
@@ -39,6 +41,9 @@ const account = [
 export default function Sidebar() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { data: setup } = useSetupStatus();
+  const showOnboarding =
+    !setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons;
 
   const signOutMutation = useMutation({
     mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
@@ -79,17 +84,31 @@ export default function Sidebar() {
 
       {/* Navigation Menu */}
       <nav className="flex flex-col flex-1 p-4">
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 space-y-1.5">
+          {showOnboarding && (
+            <Link
+              href="/onboarding"
+              className={cn(
+                "flex items-center space-x-3 px-4 py-[0.625rem] rounded-lg font-medium transition-colors text-[0.8125rem]",
+                location === "/onboarding"
+                  ? "bg-primary text-white"
+                  : "text-gray-700 hover:bg-gray-100"
+              )}
+            >
+              <ListChecks className="w-5 h-5" />
+              <span>Onboarding</span>
+            </Link>
+          )}
           {navigation.map((item) => {
             const isActive = location === item.href;
             const Icon = item.icon;
-            
+
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors",
+                  "flex items-center space-x-3 px-4 py-[0.625rem] rounded-lg font-medium transition-colors text-[0.8125rem]",
                   isActive
                     ? "bg-primary text-white"
                     : "text-gray-700 hover:bg-gray-100",
@@ -108,7 +127,7 @@ export default function Sidebar() {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
             ACCOUNT
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {account.map((item) => {
               const isActive = location === item.href;
               const Icon = item.icon;
@@ -119,7 +138,7 @@ export default function Sidebar() {
                     key={item.name}
                     onClick={() => signOutMutation.mutate()}
                     className={cn(
-                      "flex w-full items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                      "flex w-full items-center space-x-3 px-4 py-[0.625rem] rounded-lg transition-colors text-[0.8125rem]",
                       "text-gray-700 hover:bg-gray-100",
                     )}
                   >
@@ -136,7 +155,7 @@ export default function Sidebar() {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                    "flex items-center space-x-3 px-4 py-[0.625rem] rounded-lg transition-colors text-[0.8125rem]",
                     isActive
                       ? "bg-primary text-white"
                       : "text-gray-700 hover:bg-gray-100",
