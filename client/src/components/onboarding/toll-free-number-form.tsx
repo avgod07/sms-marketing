@@ -8,9 +8,15 @@ import { handleApiError } from "@/lib/handleApiError";
 
 interface TollFreeNumberFormProps {
   onSuccess: () => void;
+  onBack?: () => void;
+  onCancel?: () => void;
 }
 
-export default function TollFreeNumberForm({ onSuccess }: TollFreeNumberFormProps) {
+export default function TollFreeNumberForm({
+  onSuccess,
+  onBack,
+  onCancel,
+}: TollFreeNumberFormProps) {
   const { toast } = useToast();
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -68,10 +74,22 @@ export default function TollFreeNumberForm({ onSuccess }: TollFreeNumberFormProp
       <Button type="button" variant="outline" onClick={() => setPage((p) => p + 1)} disabled={isFetching}>
         See more numbers
       </Button>
-      <div className="pt-4 text-right">
-        <Button type="submit" disabled={!selected || mutation.isPending}>
-          {mutation.isPending ? "Submitting..." : "Submit"}
-        </Button>
+      <div className="pt-4 flex items-center justify-between">
+        {onBack && (
+          <Button type="button" variant="outline" onClick={onBack}>
+            Back
+          </Button>
+        )}
+        <div className="ml-auto space-x-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Save &amp; Close
+            </Button>
+          )}
+          <Button type="submit" disabled={!selected || mutation.isPending}>
+            {mutation.isPending ? "Submitting..." : "Submit"}
+          </Button>
+        </div>
       </div>
     </form>
   );
