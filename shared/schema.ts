@@ -31,6 +31,7 @@ export const contacts = pgTable(
     lastName: text("last_name").notNull(),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
     email: text("email"),
+    active: boolean("active").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -253,6 +254,7 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   businessId: true,
   createdAt: true,
   updatedAt: true,
+  active: true,
 });
 
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({

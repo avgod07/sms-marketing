@@ -9,8 +9,8 @@ function createMockStorage() {
   return {
     getCampaign: vi.fn().mockResolvedValue({ id: 1, message: 'hi' }),
     getContacts: vi.fn().mockResolvedValue([
-      { id: 1, phoneNumber: '+10000000001' },
-      { id: 2, phoneNumber: '+10000000002' },
+      { id: 1, phoneNumber: '+10000000001', active: true },
+      { id: 2, phoneNumber: '+10000000002', active: true },
     ]),
     getCoupons: vi.fn().mockResolvedValue([]),
     createCouponRecipient: vi.fn(),
