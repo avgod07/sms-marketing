@@ -52,6 +52,14 @@ export function formatPhoneNumber(phone: string): string {
   return phone;
 }
 
+export function formatTollFree(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '').replace(/^1/, '');
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  return phone;
+}
+
 
 export function getStatusColor(status: string): string {
   switch (status) {
