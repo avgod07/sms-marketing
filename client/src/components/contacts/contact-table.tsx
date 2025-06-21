@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatPhoneNumber } from "@/lib/utils";
+import StatusBadge from "@/components/status-badge";
 import { Contact } from "@shared/schema";
 import { MoreHorizontal, Mail, Phone, Edit, Trash2, History } from "lucide-react";
 
@@ -69,6 +70,7 @@ export default function ContactTable({
             <th className="text-left py-3 px-4 font-medium text-gray-500">Contact</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Phone</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Email</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
         </thead>
@@ -104,6 +106,12 @@ export default function ContactTable({
                 ) : (
                   <span className="text-gray-400">No email</span>
                 )}
+              </td>
+              <td className="py-4 px-4">
+                <StatusBadge
+                  status={contact.active ? 'active' : 'inactive'}
+                  className="whitespace-nowrap"
+                />
               </td>
               <td className="py-4 px-4">
                 <DropdownMenu>
