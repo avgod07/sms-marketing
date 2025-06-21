@@ -1,28 +1,43 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
-import { useSetupStatus } from "@/hooks/use-setup-status";
+import BusinessInfoForm from "@/components/onboarding/business-info-form";
+import StepIndicator from "@/components/onboarding/step-indicator";
+import { OnboardingProvider, useOnboarding } from "@/components/onboarding/onboarding-context";
 
-export default function OnboardingPage() {
-  const { data: setup, isLoading } = useSetupStatus();
-  const [, navigate] = useLocation();
+const steps = [
+  "Business Info",
+  "Twilio Setup",
+  "Import Contacts",
+  "Complete",
+];
 
-  useEffect(() => {
-    if (!isLoading && setup) {
-      if (!setup.phoneConfigured) {
-        navigate("/settings");
-      } else if (!setup.hasContacts) {
-        navigate("/contacts");
-      } else if (!setup.hasCoupons) {
-        navigate("/coupons");
-      } else {
-        navigate("/");
-      }
-    }
-  }, [isLoading, setup, navigate]);
+function Content() {
+  const { step, setStep, businessInfo, setBusinessInfo } = useOnboarding();
 
   return (
-    <div className="flex items-center justify-center h-full p-6">
-      <p className="text-sm text-gray-600">Loading...</p>
+    <div className="p-8 fade-in">
+      <h1 className="text-2xl font-bold mb-6">Onboarding</h1>
+      <StepIndicator current={step} steps={steps} />
+      {step === 1 && (
+        <BusinessInfoForm
+          initialValues={businessInfo}
+          onSubmit={(data) => {
+            setBusinessInfo(data);
+            setStep(2);
+          }}
+        />
+      )}
+      {step > 1 && (
+        <div className="max-w-xl mx-auto text-center text-gray-600">
+          <p className="mt-8">Next steps coming soon...</p>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <OnboardingProvider>
+      <Content />
+    </OnboardingProvider>
   );
 }
