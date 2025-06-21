@@ -1,11 +1,13 @@
 import BusinessInfoForm from "@/components/onboarding/business-info-form";
 import MonthlyVolumeForm from "@/components/onboarding/monthly-volume-form";
+import UseCaseForm from "@/components/onboarding/use-case-form";
 import StepIndicator from "@/components/onboarding/step-indicator";
 import { OnboardingProvider, useOnboarding } from "@/components/onboarding/onboarding-context";
 
 const steps = [
   "Business Info",
   "Twilio Setup",
+  "SMS Use Cases",
   "Import Contacts",
   "Complete",
 ];
@@ -18,6 +20,8 @@ function Content() {
     setBusinessInfo,
     monthlyVolume,
     setMonthlyVolume,
+    useCases,
+    setUseCases,
   } = useOnboarding();
 
   return (
@@ -42,7 +46,16 @@ function Content() {
           }}
         />
       )}
-      {step > 2 && (
+      {step === 3 && (
+        <UseCaseForm
+          initialValues={{ useCases }}
+          onSubmit={(data) => {
+            setUseCases(data.useCases);
+            setStep(4);
+          }}
+        />
+      )}
+      {step > 3 && (
         <div className="max-w-xl mx-auto text-center text-gray-600">
           <p className="mt-8">Next steps coming soon...</p>
         </div>
