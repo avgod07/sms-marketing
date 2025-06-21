@@ -4,7 +4,6 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
-import { useCredits } from "@/hooks/use-credits";
 import { 
   LayoutDashboard,
   Users,
@@ -148,9 +147,6 @@ export default function Sidebar() {
               );
             })}
           </div>
-          <div className="mt-4">
-            <CreditsDisplay />
-          </div>
         </div>
       </nav>
 
@@ -158,11 +154,4 @@ export default function Sidebar() {
   );
 }
 
-function CreditsDisplay() {
-  const { data: credits } = useCredits();
-  return (
-    <div className="w-full rounded-md bg-primary py-2 text-center text-sm font-medium text-white">
-      {`Credits: ${credits ?? "--"}`}
-    </div>
-  );
-}
+
