@@ -376,5 +376,6 @@ export default function Inbox() {
         </div>
       </Card>
     </div>
+    </div>
   );
 }
