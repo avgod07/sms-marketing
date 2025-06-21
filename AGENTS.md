@@ -56,4 +56,4 @@ This file outlines the standard operating procedures that the Codex agent must f
 
 ## 🧪 Testing Instructions
 - Run `npm run check` from the repository root to perform type checking.
-- Run `npm run test` to execute the test suite. This command starts `vitest` in watch mode and will not exit on its own, so manually stop it (e.g., with `Ctrl+C`) after confirming the tests start.
+- Run `npm run test` to execute the test suite. This command starts `vitest` in watch mode and will not exit on its own, so manually stop it (e.g., with `Ctrl+C`) after confirming the tests all passed.
