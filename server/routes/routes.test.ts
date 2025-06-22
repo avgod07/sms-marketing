@@ -331,6 +331,35 @@ describe('routes', () => {
     );
   });
 
+  it('blocks sms when business lacks a phone number', async () => {
+    mockForBusiness.getPhoneNumbers = vi.fn().mockResolvedValue([]);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app)
+      .post('/api/messages')
+      .send({ phoneNumber: '+15551234567', content: 'hi', contactId: 4 });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('allows sms after phone number added', async () => {
+    mockForBusiness.getPhoneNumbers = vi
+      .fn()
+      .mockResolvedValue([{ phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true }]);
+    mockForBusiness.getContact = vi.fn().mockResolvedValue({ id: 4, active: true });
+    mockSendSMS.mockResolvedValue({ success: true, messageSid: 'SM001' });
+    mockForBusiness.createMessage = vi.fn().mockResolvedValue({ id: 8, content: 'hi' });
+
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app)
+      .post('/api/messages')
+      .send({ phoneNumber: '+15551234567', content: 'hello', contactId: 4 });
+
+    expect(res.status).toBe(201);
+    expect(mockSendSMS).toHaveBeenCalled();
+  });
+
   it('handles inbound webhook and broadcasts message', async () => {
     mockForBusiness.getContactByPhoneNumber = vi.fn().mockResolvedValue(undefined);
     mockForBusiness.createContact = vi.fn().mockResolvedValue({ id: 2 });

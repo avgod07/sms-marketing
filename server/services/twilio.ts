@@ -114,18 +114,4 @@ export class TwilioService {
 
     return { phoneSid: num.sid, serviceSid: sid };
   }
-
-  static isConfigured(): boolean {
-    return !!(
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN
-    );
-  }
-
-  static getConfiguration() {
-    return {
-      accountSid: process.env.TWILIO_ACCOUNT_SID || 'Not configured',
-      isConfigured: this.isConfigured(),
-    };
-  }
 }
