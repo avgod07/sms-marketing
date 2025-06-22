@@ -76,6 +76,7 @@ import { logError, logInfo } from "../utils/logger.util";
 import { nanoid } from "nanoid";
 import { createRateLimiter } from "../middlewares/rate-limit.middleware";
 import { validateCoupon } from "../middlewares/coupon.middleware";
+import { requireTwilioConfig } from "../middlewares/require-twilio-config.middleware";
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -929,7 +930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns", async (req, res) => {
+  app.post("/api/campaigns", requireTwilioConfig, async (req, res) => {
     try {
       const validatedData = simpleCampaignSchema.parse(req.body);
       const campaign = await biz(req).createCampaign(validatedData);
@@ -1010,7 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send campaign
-  app.post("/api/campaigns/:id/send", async (req, res) => {
+  app.post("/api/campaigns/:id/send", requireTwilioConfig, async (req, res) => {
     try {
       const campaignId = parseInt(req.params.id);
       const campaign = await biz(req).getCampaign(campaignId);
@@ -1220,7 +1221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Conversation routes
-  app.get("/api/conversations", async (req, res) => {
+  app.get("/api/conversations", requireTwilioConfig, async (req, res) => {
     try {
       const convs = await biz(req).getConversationSummaries();
       res.json(convs);
@@ -1230,7 +1231,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/conversations/:contactId/messages", async (req, res) => {
+  app.get(
+    "/api/conversations/:contactId/messages",
+    requireTwilioConfig,
+    async (req, res) => {
     try {
       const contactId = parseInt(req.params.contactId);
       const msgs = await biz(req).getMessagesByContact(contactId);
@@ -1242,7 +1246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Message routes
-  app.get("/api/messages", async (req, res) => {
+  app.get("/api/messages", requireTwilioConfig, async (req, res) => {
     try {
       const { campaignId } = req.query;
 
@@ -1262,7 +1266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/messages", async (req, res) => {
+  app.post("/api/messages", requireTwilioConfig, async (req, res) => {
     try {
       const validatedData = insertMessageSchema.parse(req.body);
 

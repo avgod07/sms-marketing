@@ -265,6 +265,9 @@ describe('routes', () => {
   it('lists conversation summaries', async () => {
     const convs = [{ id: 1 }];
     mockForBusiness.getConversationSummaries = vi.fn().mockResolvedValue(convs);
+    mockForBusiness.getPhoneNumbers = vi
+      .fn()
+      .mockResolvedValue([{ phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true }]);
     const app = await setupApp({ businessId: 1 });
 
     const res = await request(app).get('/api/conversations');
@@ -277,6 +280,9 @@ describe('routes', () => {
   it('fetches messages for contact', async () => {
     const msgs = [{ id: 1 }];
     mockForBusiness.getMessagesByContact = vi.fn().mockResolvedValue(msgs);
+    mockForBusiness.getPhoneNumbers = vi
+      .fn()
+      .mockResolvedValue([{ phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true }]);
     const app = await setupApp({ businessId: 1 });
 
     const res = await request(app).get('/api/conversations/3/messages');
@@ -289,7 +295,7 @@ describe('routes', () => {
   it('sends sms and saves message', async () => {
     mockForBusiness.getPhoneNumbers = vi
       .fn()
-      .mockResolvedValue([{ phoneNumber: '+15550001111', isDefault: true }]);
+      .mockResolvedValue([{ phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true }]);
     mockForBusiness.getContact = vi.fn().mockResolvedValue({ id: 4, active: true });
     mockSendSMS.mockResolvedValue({ success: true, messageSid: 'SM789' });
     mockForBusiness.createMessage = vi
@@ -311,7 +317,7 @@ describe('routes', () => {
       to: '+15551234567',
       message: 'hello',
       from: '+15550001111',
-      messagingServiceSid: undefined,
+      messagingServiceSid: 'MG123',
       campaignId: undefined,
       contactId: 4,
     });
