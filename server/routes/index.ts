@@ -285,8 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message:
             "You\u2019ve been removed from our list. You will no longer receive messages from us.",
           from: defaultNum?.phoneNumber,
-          messagingServiceSid:
-            defaultNum?.serviceSid || process.env.TWILIO_MESSAGING_SERVICE_SID,
+          messagingServiceSid: defaultNum?.serviceSid || undefined,
           contactId: contact.id,
         });
       }
@@ -752,8 +751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         phoneNumber: defaultNum?.phoneNumber || null,
-        serviceSid:
-          defaultNum?.serviceSid || process.env.TWILIO_MESSAGING_SERVICE_SID || null,
+        serviceSid: defaultNum?.serviceSid || null,
       });
     } catch (error) {
       logError("Error completing onboarding:", error);
@@ -1274,10 +1272,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const numbers = await biz(req).getPhoneNumbers();
-      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+      const defaultNum = numbers.find(n => n.isDefault);
+      const from = defaultNum?.phoneNumber;
+      const defaultServiceSid = defaultNum?.serviceSid;
 
-      const defaultServiceSid =
-        numbers.find(n => n.isDefault)?.serviceSid || process.env.TWILIO_MESSAGING_SERVICE_SID;
+      if (!from && !defaultServiceSid) {
+        return res.status(400).json({
+          message: 'This business has not completed onboarding or lacks a valid phone number.',
+        });
+      }
 
       const result = await TwilioService.sendSMS({
         to: validatedData.phoneNumber,
