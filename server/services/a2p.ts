@@ -14,6 +14,12 @@ export interface A2PRegistrationResult {
   status: string;
 }
 
+export interface CampaignRegistrationResult {
+  brandSid: string;
+  campaignSid: string;
+  status: string;
+}
+
 async function createClient(creds: TwilioCredential) {
   const token = decrypt(creds.authTokenEncrypted);
   return twilio(creds.accountSid, token);
@@ -58,6 +64,45 @@ export async function registerBusinessForA2P(
 
   return {
     customerProfileSid: customer.sid,
+    brandSid: brand.sid,
+    campaignSid: campaign.sid,
+    status: (campaign as any).campaignStatus || "pending",
+  };
+}
+
+export async function registerCampaignForA2P(
+  creds: TwilioCredential,
+  profile: BusinessProfile,
+  config: TwilioA2pConfig,
+): Promise<CampaignRegistrationResult> {
+  if (!profile.customerProfileSid) {
+    throw new Error("Customer profile SID is missing");
+  }
+
+  const client = await createClient(creds);
+
+  const highVolume = ["100K to 500K", "500K to 1M", "More than 1M+"];
+  const brandType = highVolume.includes(config.volume) ? "STANDARD" : "LOW_VOLUME";
+
+  const brand = await client.messaging.v1.brandRegistrations.create({
+    customerProfileBundleSid: profile.customerProfileSid,
+    a2PProfileBundleSid: profile.customerProfileSid,
+    brandType,
+  });
+
+  const campaign = await client.messaging.v1
+    .services(creds.messagingServiceSid!)
+    .usAppToPerson.create({
+      brandRegistrationSid: brand.sid,
+      description: profile.campaignDescription,
+      messageFlow: "User opt in via website form",
+      messageSamples: [profile.sample1, profile.sample2],
+      usAppToPersonUsecase: config.useCases[0] || profile.useCase,
+      hasEmbeddedLinks: false,
+      hasEmbeddedPhone: false,
+    });
+
+  return {
     brandSid: brand.sid,
     campaignSid: campaign.sid,
     status: (campaign as any).campaignStatus || "pending",

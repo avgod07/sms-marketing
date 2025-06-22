@@ -62,7 +62,10 @@ const a2pConfigSchema = z.object({
 });
 import twilio from "twilio";
 import { executeCampaign } from "../services/campaign.js";
-import { registerBusinessForA2P } from "../services/a2p.js";
+import {
+  registerBusinessForA2P,
+  registerCampaignForA2P,
+} from "../services/a2p.js";
 import passport from "passport";
 import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "../middlewares/auth.middleware";
@@ -483,6 +486,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logError("Error creating Twilio business profile:", error);
       const message: string = (error as any)?.message || "Failed to create business profile";
       res.status(500).json({ message });
+    }
+  });
+
+  app.post("/api/onboarding/register-campaign", async (req, res) => {
+    try {
+      const creds = await biz(req).getTwilioCredentials();
+      const profile = await biz(req).getBusinessProfile();
+      const config = await biz(req).getTwilioA2PConfig();
+      if (!creds || !profile || !config) {
+        return res
+          .status(400)
+          .json({ message: "Missing profile, credentials or config" });
+      }
+
+      if (profile.campaignSid) {
+        return res.json({
+          sid: profile.campaignSid,
+          status: profile.registrationStatus,
+        });
+      }
+
+      const result = await registerCampaignForA2P(creds, profile, config);
+      const saved = await biz(req).upsertBusinessProfile({
+        ...profile,
+        brandSid: result.brandSid,
+        campaignSid: result.campaignSid,
+        registrationStatus: result.status,
+      });
+      res.json({ sid: saved.campaignSid, status: saved.registrationStatus });
+    } catch (error) {
+      logError("Error registering campaign:", error);
+      res.status(500).json({ message: "Failed to register campaign" });
     }
   });
 
