@@ -283,7 +283,6 @@ describe('routes', () => {
   });
 
   it('sends sms and saves message', async () => {
-    mockForBusiness.getTwilioCredentials = vi.fn();
     mockForBusiness.getPhoneNumbers = vi
       .fn()
       .mockResolvedValue([{ phoneNumber: '+15550001111', isDefault: true }]);
