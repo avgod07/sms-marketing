@@ -34,6 +34,9 @@ import {
   businessPhoneNumbers,
   type BusinessPhoneNumber,
   type InsertBusinessPhoneNumber,
+  twilioA2pConfigs,
+  type TwilioA2pConfig,
+  type InsertTwilioA2pConfig,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -55,6 +58,8 @@ export interface IStorage {
   ): Promise<TwilioCredential>;
   getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
   setPhoneNumbers(numbers: InsertBusinessPhoneNumber[]): Promise<BusinessPhoneNumber[]>;
+  getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined>;
+  upsertTwilioA2PConfig(config: InsertTwilioA2pConfig): Promise<TwilioA2pConfig>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
@@ -1081,6 +1086,35 @@ export class DatabaseStorage implements IStorage {
       .values(numbers.map(n => ({ ...n, businessId })))
       .returning();
     return rows;
+  }
+
+  async getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined> {
+    const businessId = this.requireBusinessId();
+    const [row] = await db
+      .select()
+      .from(twilioA2pConfigs)
+      .where(eq(twilioA2pConfigs.businessId, businessId));
+    return row || undefined;
+  }
+
+  async upsertTwilioA2PConfig(
+    config: InsertTwilioA2pConfig,
+  ): Promise<TwilioA2pConfig> {
+    const businessId = this.requireBusinessId();
+    const existing = await this.getTwilioA2PConfig();
+    if (existing) {
+      const [row] = await db
+        .update(twilioA2pConfigs)
+        .set({ ...config, updatedAt: new Date() })
+        .where(eq(twilioA2pConfigs.businessId, businessId))
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .insert(twilioA2pConfigs)
+      .values({ ...config, businessId })
+      .returning();
+    return row;
   }
 
   // Users

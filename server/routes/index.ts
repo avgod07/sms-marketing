@@ -46,6 +46,20 @@ const simpleCampaignSchema = z.object({
     .min(1, { message: "Message is required" })
     .max(160, { message: "Message must be 160 characters or less" }),
 });
+
+const volumeOptions = [
+  "Less than 1K",
+  "1K to 10K",
+  "10K to 100K",
+  "100K to 500K",
+  "500K to 1M",
+  "More than 1M+",
+] as const;
+
+const a2pConfigSchema = z.object({
+  volume: z.enum(volumeOptions),
+  useCases: z.array(z.string()).min(1),
+});
 import twilio from "twilio";
 import { executeCampaign } from "../services/campaign.js";
 import { registerBusinessForA2P } from "../services/a2p.js";
@@ -492,6 +506,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/twilio/a2p-config", async (req, res) => {
+    try {
+      const config = await biz(req).getTwilioA2PConfig();
+      res.json(config || null);
+    } catch (error) {
+      logError("Error fetching A2P config:", error);
+      res.status(500).json({ message: "Failed to fetch A2P config" });
+    }
+  });
+
+  app.post("/api/twilio/a2p-config", async (req, res) => {
+    try {
+      const data = a2pConfigSchema.parse(req.body);
+      const saved = await biz(req).upsertTwilioA2PConfig(data);
+      res.json(saved);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error saving A2P config:", error);
+      res.status(500).json({ message: "Failed to save A2P config" });
+    }
+  });
+
   const twilioCredsSchema = z.object({
     accountSid: z.string(),
     authToken: z.string(),
@@ -673,10 +711,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const creds = await biz(req).getTwilioCredentials();
       const profile = await biz(req).getBusinessProfile();
       const business = await biz(req).getBusiness();
-      if (!creds || !profile) {
-        return res.status(400).json({ message: "Missing profile or credentials" });
+      const config = await biz(req).getTwilioA2PConfig();
+      if (!creds || !profile || !config) {
+        return res.status(400).json({ message: "Missing profile, credentials or config" });
       }
-      const result = await registerBusinessForA2P(creds, business, profile);
+      const result = await registerBusinessForA2P(creds, business, profile, config);
       await biz(req).upsertBusinessProfile({
         ...profile,
         customerProfileSid: result.customerProfileSid,
