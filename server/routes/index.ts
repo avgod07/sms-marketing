@@ -62,7 +62,8 @@ const a2pConfigSchema = z.object({
   useCases: z.array(z.string()).min(1),
 });
 import twilioClient from "../services/twilio-client.js";
-import { validateRequest } from "twilio";
+import twilio from "twilio";
+const { validateRequest } = twilio;
 import { executeCampaign } from "../services/campaign.js";
 import {
   registerBusinessForA2P,
