@@ -690,21 +690,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/twilio/tollfree", async (req, res) => {
     try {
       const { phoneNumber } = tollFreeSchema.parse(req.body);
-      const client = twilioClient;
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
-      const num = await client.incomingPhoneNumbers.create({
-        phoneNumber,
-        smsUrl: webhookUrl,
-      });
-      if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
-        await client.messaging
-          .services(process.env.TWILIO_MESSAGING_SERVICE_SID)
-          .phoneNumbers.create({ phoneNumberSid: num.sid });
+
+      try {
+        const { phoneSid, serviceSid } =
+          await TwilioService.purchaseAndAssignNumber(phoneNumber, webhookUrl);
+
+        const [record] = await biz(req).setPhoneNumbers([
+          {
+            phoneNumber,
+            isDefault: true,
+            phoneSid,
+            serviceSid,
+            assignmentStatus: "assigned",
+          },
+        ]);
+
+        res.json(record);
+      } catch (err: any) {
+        if (err?.status === 400 || err?.status === 409) {
+          return res.status(400).json({
+            message: "Number is no longer available. Please choose another.",
+          });
+        }
+        logError("Error purchasing phone number:", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to purchase phone number" });
       }
-      const [record] = await biz(req).setPhoneNumbers([
-        { phoneNumber: num.phoneNumber, isDefault: true },
-      ]);
-      res.json(record);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res
