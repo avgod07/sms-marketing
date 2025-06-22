@@ -708,6 +708,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/onboarding/available-numbers", async (req, res) => {
+    try {
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+      const page = parseInt((req.query.page as string) || "0", 10);
+      const contains = req.query.contains as string | undefined;
+      const numbers = await TwilioService.fetchAvailableTollFreeNumbers(creds, {
+        page,
+        contains,
+      });
+      res.json(numbers);
+    } catch (error) {
+      logError("Error fetching available numbers:", error);
+      res.status(500).json({ message: "Failed to fetch available numbers" });
+    }
+  });
+
   const tollFreeSchema = z.object({ phoneNumber: z.string() });
 
   app.post("/api/twilio/tollfree", async (req, res) => {
