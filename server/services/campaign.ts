@@ -39,9 +39,13 @@ export async function executeCampaign(
 
   const numbers = await bizStorage.getPhoneNumbers();
   const defaultNumber = numbers.find(n => n.isDefault)?.phoneNumber;
-  const defaultServiceSid =
-    numbers.find(n => n.isDefault)?.serviceSid ||
-    process.env.TWILIO_MESSAGING_SERVICE_SID;
+  const defaultServiceSid = numbers.find(n => n.isDefault)?.serviceSid;
+
+  if (!defaultNumber && !defaultServiceSid) {
+    throw new Error(
+      'This business has not completed onboarding or lacks a valid phone number.',
+    );
+  }
 
   const smsMessages = contacts.map(contact => ({
     to: contact.phoneNumber,

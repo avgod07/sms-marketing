@@ -1,8 +1,6 @@
 import type { Twilio } from 'twilio';
 import client from './twilio-client.js';
 
-const defaultNumber = process.env.TWILIO_PHONE_NUMBER || '+1234567890';
-
 export interface SMSMessage {
   to: string;
   message: string;
@@ -20,6 +18,11 @@ export interface SMSResult {
 
 export class TwilioService {
   static async sendSMS(smsData: SMSMessage): Promise<SMSResult> {
+    if (!smsData.messagingServiceSid && !smsData.from) {
+      throw new Error(
+        'This business has not completed onboarding or lacks a valid phone number.',
+      );
+    }
     try {
       const params: any = {
         body: smsData.message,
@@ -29,7 +32,7 @@ export class TwilioService {
       if (smsData.messagingServiceSid) {
         params.messagingServiceSid = smsData.messagingServiceSid;
       } else {
-        params.from = smsData.from || defaultNumber;
+        params.from = smsData.from;
       }
 
       const message = await client.messages.create(params);
@@ -53,7 +56,14 @@ export class TwilioService {
     const batchSize = 10;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(msg => this.sendSMS(msg)));
+      const batchResults = await Promise.all(
+        batch.map(msg =>
+          this.sendSMS(msg).catch(err => ({
+            success: false,
+            error: err.message || 'Failed to send SMS',
+          })),
+        ),
+      );
       results.push(...batchResults);
 
       if (i + batchSize < messages.length) {
@@ -108,15 +118,13 @@ export class TwilioService {
   static isConfigured(): boolean {
     return !!(
       process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_PHONE_NUMBER
+      process.env.TWILIO_AUTH_TOKEN
     );
   }
 
   static getConfiguration() {
     return {
       accountSid: process.env.TWILIO_ACCOUNT_SID || 'Not configured',
-      phoneNumber: process.env.TWILIO_PHONE_NUMBER || 'Not configured',
       isConfigured: this.isConfigured(),
     };
   }

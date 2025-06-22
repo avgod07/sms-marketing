@@ -27,8 +27,8 @@ This project relies on Node.js and Docker for local development. The steps below
    ```
 
    Edit `.env` and provide a valid `DATABASE_URL` along with your Twilio
-   credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
-   `TWILIO_PHONE_NUMBER`). The `SESSION_SECRET` can be any random string.
+   credentials (`TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`). The
+   `SESSION_SECRET` can be any random string.
 
 4. **Start Postgres**
 
