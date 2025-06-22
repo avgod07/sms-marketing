@@ -57,8 +57,9 @@ export default function NewCampaignPage() {
     createCampaignMutation.mutate(data);
   };
 
+  const disabledTwilio = !setup?.twilioConfigured;
   const disabled =
-    !setup?.phoneConfigured || !setup?.hasContacts;
+    disabledTwilio || !setup?.phoneConfigured || !setup?.hasContacts;
 
   return (
     <div className="fade-in">
@@ -77,28 +78,36 @@ export default function NewCampaignPage() {
       <div className="p-8 max-w-4xl mx-auto">
         {disabled && (
           <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
-            <AlertTitle>Finish Setup</AlertTitle>
-            <AlertDescription className="space-y-2">
-              <p>
-                { !setup?.phoneConfigured && !setup?.hasContacts
-                  ? 'Add a phone number and contacts before creating a campaign.'
-                  : !setup?.phoneConfigured
-                  ? 'Add a phone number before creating a campaign.'
-                  : 'Add contacts before creating a campaign.' }
-              </p>
-              <div className="flex gap-2">
-                {!setup?.phoneConfigured && (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/settings">Add Number</Link>
-                  </Button>
-                )}
-                {!setup?.hasContacts && (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/contacts">Add Contacts</Link>
-                  </Button>
-                )}
-              </div>
-            </AlertDescription>
+            {disabledTwilio ? (
+              <AlertDescription>
+                You need a phone number before you can send messages. Please complete onboarding.
+              </AlertDescription>
+            ) : (
+              <>
+                <AlertTitle>Finish Setup</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>
+                    { !setup?.phoneConfigured && !setup?.hasContacts
+                      ? 'Add a phone number and contacts before creating a campaign.'
+                      : !setup?.phoneConfigured
+                      ? 'Add a phone number before creating a campaign.'
+                      : 'Add contacts before creating a campaign.' }
+                  </p>
+                  <div className="flex gap-2">
+                    {!setup?.phoneConfigured && (
+                      <Button asChild size="sm" variant="outline">
+                        <Link href="/settings">Add Number</Link>
+                      </Button>
+                    )}
+                    {!setup?.hasContacts && (
+                      <Button asChild size="sm" variant="outline">
+                        <Link href="/contacts">Add Contacts</Link>
+                      </Button>
+                    )}
+                  </div>
+                </AlertDescription>
+              </>
+            )}
           </Alert>
         )}
         <Card className="flex flex-col lg:flex-row gap-8 p-6 shadow-md">

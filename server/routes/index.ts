@@ -383,6 +383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const numbers = await biz(req).getPhoneNumbers();
       res.json({
         phoneConfigured: numbers.length > 0,
+        twilioConfigured: TwilioService.isConfigured(),
         hasContacts: contactStats.allContacts > 0,
         hasCoupons: couponStats.allCoupons > 0,
         onboardingComplete: !!req.user?.onboardingComplete,

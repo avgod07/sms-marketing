@@ -20,6 +20,7 @@ export interface CampaignStats {
 
 export interface SetupStatus {
   phoneConfigured: boolean;
+  twilioConfigured: boolean;
   hasContacts: boolean;
   hasCoupons: boolean;
   onboardingComplete: boolean;
