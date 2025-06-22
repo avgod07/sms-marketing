@@ -89,6 +89,27 @@ export class TwilioService {
     return results;
   }
 
+  static async fetchAvailableTollFreeNumbers(
+    creds: TwilioCredential | undefined,
+    opts: { page?: number; contains?: string; limit?: number } = {},
+  ): Promise<string[]> {
+    const sid = creds ? creds.accountSid : fallbackSid;
+    const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
+    const client = getClient(sid, token);
+
+    const params: any = {
+      smsEnabled: true,
+      pageSize: opts.limit ?? 12,
+      pageNumber: opts.page ?? 0,
+    };
+    if (opts.contains) params.contains = opts.contains;
+
+    const page = await client
+      .availablePhoneNumbers("US")
+      .tollFree.page(params);
+    return page.instances.map((n: any) => n.phoneNumber);
+  }
+
   static isConfigured(): boolean {
     return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER);
   }
