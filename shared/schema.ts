@@ -20,22 +20,19 @@ export const businesses = pgTable("businesses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const contacts = pgTable(
-  "contacts",
-  {
-    id: serial("id").primaryKey(),
-    businessId: integer("business_id")
-      .references(() => businesses.id)
-      .notNull(),
-    firstName: text("first_name").notNull(),
-    lastName: text("last_name").notNull(),
-    phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
-    email: text("email"),
-    active: boolean("active").default(true).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-);
+export const contacts = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
+  email: text("email"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
@@ -53,29 +50,35 @@ export const campaigns = pgTable("campaigns", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const messages = pgTable("messages", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
-  campaignId: integer("campaign_id").references(() => campaigns.id, {
-    onDelete: "cascade",
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    campaignId: integer("campaign_id").references(() => campaigns.id, {
+      onDelete: "cascade",
+    }),
+    contactId: integer("contact_id")
+      .references(() => contacts.id)
+      .notNull(),
+    content: text("content").notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
+    messageSid: varchar("message_sid", { length: 64 }),
+    errorCode: integer("error_code"),
+    sentAt: timestamp("sent_at"),
+    deliveredAt: timestamp("delivered_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("messages_status_idx").on(table.status),
+    errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
+    sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
+    deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),
   }),
-  contactId: integer("contact_id").references(() => contacts.id).notNull(),
-  content: text("content").notNull(),
-  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
-  status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
-  messageSid: varchar("message_sid", { length: 64 }),
-  errorCode: integer("error_code"),
-  sentAt: timestamp("sent_at"),
-  deliveredAt: timestamp("delivered_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  statusIdx: index("messages_status_idx").on(table.status),
-  errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
-  sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
-  deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),
-}));
+);
 
 export const coupons = pgTable(
   "coupons",
@@ -142,7 +145,9 @@ export const analytics = pgTable("analytics", {
   date: timestamp("date").defaultNow().notNull(),
   totalContacts: integer("total_contacts").default(0),
   messagesSent: integer("messages_sent").default(0),
-  deliveryRate: decimal("delivery_rate", { precision: 5, scale: 2 }).default("0.00"),
+  deliveryRate: decimal("delivery_rate", { precision: 5, scale: 2 }).default(
+    "0.00",
+  ),
   clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
 });
 
@@ -184,7 +189,9 @@ export const businessProfiles = pgTable("business_profiles", {
   customerProfileSid: varchar("customer_profile_sid", { length: 64 }),
   brandSid: varchar("brand_sid", { length: 64 }),
   campaignSid: varchar("campaign_sid", { length: 64 }),
-  registrationStatus: text("registration_status").default("not_started").notNull(),
+  registrationStatus: text("registration_status")
+    .default("not_started")
+    .notNull(),
   status: text("status").default("provided").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -210,6 +217,9 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
     .notNull(),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
   isDefault: boolean("is_default").default(false).notNull(),
+  phoneSid: varchar("phone_sid", { length: 64 }),
+  serviceSid: varchar("service_sid", { length: 64 }),
+  assignmentStatus: text("assignment_status"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -280,13 +290,15 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   clickCount: true,
 });
 
-export const insertMessageSchema = createInsertSchema(messages).omit({
-  id: true,
-  businessId: true,
-  createdAt: true,
-  sentAt: true,
-  deliveredAt: true,
-}).partial({ messageSid: true, errorCode: true });
+export const insertMessageSchema = createInsertSchema(messages)
+  .omit({
+    id: true,
+    businessId: true,
+    createdAt: true,
+    sentAt: true,
+    deliveredAt: true,
+  })
+  .partial({ messageSid: true, errorCode: true });
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
   id: true,
@@ -296,56 +308,62 @@ export const insertCouponSchema = createInsertSchema(coupons).omit({
   usageCount: true,
 });
 
-export const insertCouponRedemptionSchema =
-  createInsertSchema(couponRedemptions).omit({
-    id: true,
-    businessId: true,
-    createdAt: true,
-  });
+export const insertCouponRedemptionSchema = createInsertSchema(
+  couponRedemptions,
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+});
 
-export const insertCouponRecipientSchema =
-  createInsertSchema(couponRecipients).omit({
-    id: true,
-    businessId: true,
-    createdAt: true,
-  });
+export const insertCouponRecipientSchema = createInsertSchema(
+  couponRecipients,
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+});
 
 export const insertBusinessSchema = createInsertSchema(businesses).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertBusinessProfileSchema =
-  createInsertSchema(businessProfiles).omit({
-    id: true,
-    businessId: true,
-    createdAt: true,
-    updatedAt: true,
-  });
+export const insertBusinessProfileSchema = createInsertSchema(
+  businessProfiles,
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
-export const insertTwilioCredentialSchema =
-  createInsertSchema(twilioCredentials).omit({
-    id: true,
-    businessId: true,
-    createdAt: true,
-    updatedAt: true,
-  });
+export const insertTwilioCredentialSchema = createInsertSchema(
+  twilioCredentials,
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
-export const insertBusinessPhoneNumberSchema =
-  createInsertSchema(businessPhoneNumbers).omit({
-    id: true,
-    businessId: true,
-    createdAt: true,
-    updatedAt: true,
-  });
+export const insertBusinessPhoneNumberSchema = createInsertSchema(
+  businessPhoneNumbers,
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
-export const insertTwilioA2pConfigSchema =
-  createInsertSchema(twilioA2pConfigs).omit({
-    id: true,
-    businessId: true,
-    createdAt: true,
-    updatedAt: true,
-  });
+export const insertTwilioA2pConfigSchema = createInsertSchema(
+  twilioA2pConfigs,
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -359,7 +377,7 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
-export type CampaignStatus = 'in_progress' | 'completed' | 'failed';
+export type CampaignStatus = "in_progress" | "completed" | "failed";
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
@@ -373,9 +391,7 @@ export type InsertCouponRedemption = z.infer<
 >;
 
 export type CouponRecipient = typeof couponRecipients.$inferSelect;
-export type InsertCouponRecipient = z.infer<
-  typeof insertCouponRecipientSchema
->;
+export type InsertCouponRecipient = z.infer<typeof insertCouponRecipientSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -389,7 +405,9 @@ export type BusinessProfile = typeof businessProfiles.$inferSelect;
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;
 
 export type TwilioCredential = typeof twilioCredentials.$inferSelect;
-export type InsertTwilioCredential = z.infer<typeof insertTwilioCredentialSchema>;
+export type InsertTwilioCredential = z.infer<
+  typeof insertTwilioCredentialSchema
+>;
 
 export type BusinessPhoneNumber = typeof businessPhoneNumbers.$inferSelect;
 export type InsertBusinessPhoneNumber = z.infer<
@@ -397,7 +415,4 @@ export type InsertBusinessPhoneNumber = z.infer<
 >;
 
 export type TwilioA2pConfig = typeof twilioA2pConfigs.$inferSelect;
-export type InsertTwilioA2pConfig = z.infer<
-  typeof insertTwilioA2pConfigSchema
->;
-
+export type InsertTwilioA2pConfig = z.infer<typeof insertTwilioA2pConfigSchema>;
