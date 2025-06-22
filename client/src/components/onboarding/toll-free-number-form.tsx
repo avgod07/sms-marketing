@@ -35,6 +35,7 @@ export default function TollFreeNumberForm({
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      await apiRequest({ method: "POST", url: "/api/onboarding/complete" });
       toast({ title: "Success", description: "Phone number added" });
       onSuccess();
     },

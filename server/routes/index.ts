@@ -6,7 +6,8 @@ import {
   findBusinessIdByPhoneNumber,
 } from "../db/storage";
 import { db } from "../config/db.config";
-import { businesses } from "@shared/schema";
+import { businesses, users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util.js";
 import { TwilioService } from "../services/twilio.js";
 import { socketService } from "../socket";
@@ -402,6 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneConfigured: !!creds,
         hasContacts: contactStats.allContacts > 0,
         hasCoupons: couponStats.allCoupons > 0,
+        onboardingComplete: !!req.user?.onboardingComplete,
       });
     } catch (error) {
       logError("Error fetching setup status:", error);
@@ -864,6 +866,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logError("Error purchasing toll-free number:", error);
       res.status(500).json({ message: "Failed to purchase toll-free number" });
+    }
+  });
+
+  app.post("/api/onboarding/complete", async (req, res) => {
+    try {
+      await db
+        .update(users)
+        .set({ onboardingComplete: true })
+        .where(eq(users.id, (req.user as any).id));
+
+      // update session user object if present
+      if (req.user) {
+        (req.user as any).onboardingComplete = true;
+      }
+
+      const numbers = await biz(req).getPhoneNumbers();
+      const creds = await biz(req).getTwilioCredentials();
+      const defaultNum = numbers.find((n) => n.isDefault);
+
+      res.json({
+        phoneNumber: defaultNum?.phoneNumber || null,
+        serviceSid: defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+      });
+    } catch (error) {
+      logError("Error completing onboarding:", error);
+      res.status(500).json({ message: "Failed to complete onboarding" });
     }
   });
 
