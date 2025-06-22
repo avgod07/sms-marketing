@@ -10,7 +10,7 @@ import { useLocation } from "wouter";
 
 const steps = [
   "Business Info",
-  "Twilio Setup",
+  "Monthly Volume",
   "SMS Use Cases",
   "Toll-Free Number",
 ];
