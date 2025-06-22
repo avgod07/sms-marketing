@@ -91,16 +91,16 @@ export class TwilioService {
   static async purchaseAndAssignNumber(
     phoneNumber: string,
     webhookUrl: string,
+    serviceSid?: string,
   ): Promise<{ phoneSid: string; serviceSid: string }> {
-    let serviceSid = process.env.TWILIO_MESSAGING_SERVICE_SID as string | undefined;
-
-    if (!serviceSid) {
+    let sid = serviceSid || (process.env.TWILIO_MESSAGING_SERVICE_SID as string | undefined);
+    if (!sid) {
       const service = await client.messaging.services.create({
         friendlyName: `Messaging Service - ${
           (process.env.TWILIO_ACCOUNT_SID || '').slice(-4)
         }`,
       });
-      serviceSid = service.sid;
+      sid = service.sid;
     }
 
     const num = await client.incomingPhoneNumbers.create({
@@ -109,10 +109,10 @@ export class TwilioService {
     });
 
     await client.messaging
-      .services(serviceSid)
+      .services(sid)
       .phoneNumbers.create({ phoneNumberSid: num.sid });
 
-    return { phoneSid: num.sid, serviceSid };
+    return { phoneSid: num.sid, serviceSid: sid };
   }
 
   static isConfigured(): boolean {
