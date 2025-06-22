@@ -22,6 +22,7 @@ export interface SetupStatus {
   phoneConfigured: boolean;
   hasContacts: boolean;
   hasCoupons: boolean;
+  onboardingComplete: boolean;
 }
 
 export interface ContactRedemption {

@@ -43,7 +43,8 @@ export default function Sidebar() {
   const { toast } = useToast();
   const { data: setup } = useSetupStatus();
   const showOnboarding =
-    !setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons;
+    !setup?.onboardingComplete &&
+    (!setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons);
 
   const signOutMutation = useMutation({
     mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
