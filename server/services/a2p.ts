@@ -1,6 +1,11 @@
 import twilio from "twilio";
 import { decrypt } from "../utils/encryption.util";
-import type { BusinessProfile, Business, TwilioCredential } from "@shared/schema";
+import type {
+  BusinessProfile,
+  Business,
+  TwilioCredential,
+  TwilioA2pConfig,
+} from "@shared/schema";
 
 export interface A2PRegistrationResult {
   customerProfileSid: string;
@@ -18,6 +23,7 @@ export async function registerBusinessForA2P(
   creds: TwilioCredential,
   business: Business,
   profile: BusinessProfile,
+  config: TwilioA2pConfig,
 ): Promise<A2PRegistrationResult> {
   const client = await createClient(creds);
 
@@ -29,10 +35,12 @@ export async function registerBusinessForA2P(
   });
 
   // Register brand
+  const highVolume = ["100K to 500K", "500K to 1M", "More than 1M+"];
+  const brandType = highVolume.includes(config.volume) ? "STANDARD" : "LOW_VOLUME";
   const brand = await client.messaging.v1.brandRegistrations.create({
     customerProfileBundleSid: customer.sid,
     a2PProfileBundleSid: customer.sid,
-    brandType: "LOW_VOLUME", // default to low volume standard
+    brandType,
   });
 
   // Register campaign
@@ -43,7 +51,7 @@ export async function registerBusinessForA2P(
       description: profile.campaignDescription,
       messageFlow: "User opt in via website form",
       messageSamples: [profile.sample1, profile.sample2],
-      usAppToPersonUsecase: profile.useCase,
+      usAppToPersonUsecase: config.useCases[0] || profile.useCase,
       hasEmbeddedLinks: false,
       hasEmbeddedPhone: false,
     });

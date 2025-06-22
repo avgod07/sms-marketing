@@ -214,6 +214,18 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const twilioA2pConfigs = pgTable("twilio_a2p_config", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  useCases: text("use_cases").array().notNull(),
+  volume: text("volume").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -246,6 +258,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   businessProfiles: many(businessProfiles),
   twilioCredentials: many(twilioCredentials),
   phoneNumbers: many(businessPhoneNumbers),
+  a2pConfig: many(twilioA2pConfigs),
 }));
 
 // Insert schemas
@@ -326,6 +339,14 @@ export const insertBusinessPhoneNumberSchema =
     updatedAt: true,
   });
 
+export const insertTwilioA2pConfigSchema =
+  createInsertSchema(twilioA2pConfigs).omit({
+    id: true,
+    businessId: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   businessId: true,
@@ -374,3 +395,9 @@ export type BusinessPhoneNumber = typeof businessPhoneNumbers.$inferSelect;
 export type InsertBusinessPhoneNumber = z.infer<
   typeof insertBusinessPhoneNumberSchema
 >;
+
+export type TwilioA2pConfig = typeof twilioA2pConfigs.$inferSelect;
+export type InsertTwilioA2pConfig = z.infer<
+  typeof insertTwilioA2pConfigSchema
+>;
+
