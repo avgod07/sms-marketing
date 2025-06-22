@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import ChatBubble from "@/components/shared/ChatBubble";
 import { formatPhoneNumber, timeAgo } from "@/lib/utils";
 import { Search, MessageSquareText } from "lucide-react";
@@ -10,6 +11,7 @@ import { emitMessageSend } from "@/lib/socket";
 import { useMessageSocket } from "@/hooks/use-message-socket";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 import { handleApiError } from "@/lib/handleApiError";
 import type { Message as ApiMessage } from "@shared/schema";
 
@@ -37,8 +39,10 @@ export default function Inbox() {
   const [reply, setReply] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const { data: setup } = useSetupStatus();
   const debouncedSearch = useDebounce(searchQuery, 300);
   const trimmedSearch = debouncedSearch.trim().toLowerCase();
+  const messagingBlocked = !setup?.twilioConfigured || !setup?.phoneConfigured;
   const selected =
     selectedId !== null
       ? conversations.find((c) => c.id === selectedId) || null
@@ -252,6 +256,13 @@ export default function Inbox() {
       </header>
 
       <div className="flex-1 p-8">
+        {messagingBlocked && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+            <AlertDescription>
+              You need a phone number before you can send messages. Please complete onboarding.
+            </AlertDescription>
+          </Alert>
+        )}
         <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
           <div className="flex h-full w-full">
       {/* Conversations Sidebar */}
@@ -363,9 +374,9 @@ export default function Inbox() {
                 onChange={(e) => setReply(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="flex-1 resize-none"
-                disabled={!selected.active}
+                disabled={!selected.active || messagingBlocked}
               />
-              <Button onClick={handleSend} disabled={!reply.trim() || !selected.active}>
+              <Button onClick={handleSend} disabled={!reply.trim() || !selected.active || messagingBlocked}>
                 Send
               </Button>
             </div>
