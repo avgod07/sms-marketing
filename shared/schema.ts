@@ -200,18 +200,6 @@ export const businessProfiles = pgTable("business_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const twilioCredentials = pgTable("twilio_credentials", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull()
-    .unique(),
-  accountSid: varchar("account_sid", { length: 64 }).notNull(),
-  authTokenEncrypted: text("auth_token_encrypted").notNull(),
-  messagingServiceSid: varchar("messaging_service_sid", { length: 64 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   id: serial("id").primaryKey(),
@@ -269,7 +257,6 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   couponRecipients: many(couponRecipients),
   analytics: many(analytics),
   businessProfiles: many(businessProfiles),
-  twilioCredentials: many(twilioCredentials),
   phoneNumbers: many(businessPhoneNumbers),
   a2pConfig: many(twilioA2pConfigs),
 }));
@@ -341,14 +328,6 @@ export const insertBusinessProfileSchema = createInsertSchema(
   updatedAt: true,
 });
 
-export const insertTwilioCredentialSchema = createInsertSchema(
-  twilioCredentials,
-).omit({
-  id: true,
-  businessId: true,
-  createdAt: true,
-  updatedAt: true,
-});
 
 export const insertBusinessPhoneNumberSchema = createInsertSchema(
   businessPhoneNumbers,
@@ -407,10 +386,6 @@ export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
 export type BusinessProfile = typeof businessProfiles.$inferSelect;
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;
 
-export type TwilioCredential = typeof twilioCredentials.$inferSelect;
-export type InsertTwilioCredential = z.infer<
-  typeof insertTwilioCredentialSchema
->;
 
 export type BusinessPhoneNumber = typeof businessPhoneNumbers.$inferSelect;
 export type InsertBusinessPhoneNumber = z.infer<

@@ -8,7 +8,6 @@ import { SocketService, setupSocket, socketService } from './socket';
 var registerRoutes: any;
 var mockForBusiness: any;
 var mockStorage: any;
-var mockFindCred: any;
 var mockFindBizId: any;
 
 vi.mock('./config/db.config', () => ({
@@ -31,7 +30,6 @@ vi.mock('./db/storage', () => {
   };
   return {
     storage: mockStorage,
-    findTwilioCredentialByAccountSid: (mockFindCred = vi.fn()),
     findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
   };
 });
@@ -42,7 +40,7 @@ vi.mock('./utils/encryption.util', () => ({
 }));
 
 vi.mock('twilio', () => ({
-  default: { validateRequest: vi.fn(() => true) },
+  default: vi.fn(() => ({})),
   validateRequest: vi.fn(() => true),
 }));
 
@@ -90,9 +88,9 @@ describe('SocketService', () => {
   });
 
   it('broadcasts inbound webhook messages', async () => {
-    mockFindCred.mockResolvedValue({ businessId: 1, authTokenEncrypted: 'enc' });
     mockForBusiness.getContactByPhoneNumber.mockResolvedValue(undefined);
     mockForBusiness.createContact.mockResolvedValue({ id: 2 });
+    mockFindBizId.mockResolvedValue(1);
     const saved = {
       id: 5,
       phoneNumber: '+15551234567',
@@ -128,7 +126,7 @@ describe('SocketService', () => {
   });
 
   it('broadcasts status callback updates', async () => {
-    mockFindCred.mockResolvedValue({ businessId: 1, authTokenEncrypted: 'enc' });
+    mockFindBizId.mockResolvedValue(1);
     const updated = { id: 5, status: 'delivered' };
     mockForBusiness.updateMessageStatusBySid.mockResolvedValue(updated);
 

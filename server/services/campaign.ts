@@ -37,9 +37,11 @@ export async function executeCampaign(
     }
   }
 
-  const creds = await bizStorage.getTwilioCredentials();
   const numbers = await bizStorage.getPhoneNumbers();
   const defaultNumber = numbers.find(n => n.isDefault)?.phoneNumber;
+  const defaultServiceSid =
+    numbers.find(n => n.isDefault)?.serviceSid ||
+    process.env.TWILIO_MESSAGING_SERVICE_SID;
 
   const smsMessages = contacts.map(contact => ({
     to: contact.phoneNumber,
@@ -47,10 +49,10 @@ export async function executeCampaign(
     campaignId: campaign.id,
     contactId: contact.id,
     from: defaultNumber,
-    messagingServiceSid: creds?.messagingServiceSid || undefined,
+    messagingServiceSid: defaultServiceSid || undefined,
   }));
 
-  const results = await TwilioService.sendBulkSMS(creds, smsMessages);
+  const results = await TwilioService.sendBulkSMS(smsMessages);
 
   let sentCount = 0;
   let deliveredCount = 0;
