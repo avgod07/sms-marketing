@@ -28,9 +28,6 @@ import {
   businessProfiles,
   type BusinessProfile,
   type InsertBusinessProfile,
-  twilioCredentials,
-  type TwilioCredential,
-  type InsertTwilioCredential,
   businessPhoneNumbers,
   type BusinessPhoneNumber,
   type InsertBusinessPhoneNumber,
@@ -52,10 +49,6 @@ export interface IStorage {
   getBusinessProfile(): Promise<BusinessProfile | undefined>;
   upsertBusinessProfile(profile: InsertBusinessProfile): Promise<BusinessProfile>;
   // Twilio
-  getTwilioCredentials(): Promise<TwilioCredential | undefined>;
-  upsertTwilioCredentials(
-    creds: InsertTwilioCredential & { messagingServiceSid?: string }
-  ): Promise<TwilioCredential>;
   getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
   setPhoneNumbers(numbers: InsertBusinessPhoneNumber[]): Promise<BusinessPhoneNumber[]>;
   getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined>;
@@ -1035,34 +1028,6 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async getTwilioCredentials(): Promise<TwilioCredential | undefined> {
-    const businessId = this.requireBusinessId();
-    const [row] = await db
-      .select()
-      .from(twilioCredentials)
-      .where(eq(twilioCredentials.businessId, businessId));
-    return row || undefined;
-  }
-
-  async upsertTwilioCredentials(
-    creds: InsertTwilioCredential & { messagingServiceSid?: string },
-  ): Promise<TwilioCredential> {
-    const businessId = this.requireBusinessId();
-    const existing = await this.getTwilioCredentials();
-    if (existing) {
-      const [row] = await db
-        .update(twilioCredentials)
-        .set({ ...creds, updatedAt: new Date() })
-        .where(eq(twilioCredentials.businessId, businessId))
-        .returning();
-      return row;
-    }
-    const [row] = await db
-      .insert(twilioCredentials)
-      .values({ ...creds, businessId })
-      .returning();
-    return row;
-  }
 
   async getPhoneNumbers(): Promise<BusinessPhoneNumber[]> {
     const businessId = this.requireBusinessId();
@@ -1149,15 +1114,6 @@ export class DatabaseStorage implements IStorage {
 
 export const storage = new DatabaseStorage();
 
-export async function findTwilioCredentialByAccountSid(
-  accountSid: string,
-): Promise<TwilioCredential | undefined> {
-  const [row] = await db
-    .select()
-    .from(twilioCredentials)
-    .where(eq(twilioCredentials.accountSid, accountSid));
-  return row || undefined;
-}
 
 export async function findBusinessIdByPhoneNumber(
   phoneNumber: string,

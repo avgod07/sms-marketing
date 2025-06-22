@@ -14,7 +14,6 @@ function createMockStorage() {
     ]),
     getCoupons: vi.fn().mockResolvedValue([]),
     createCouponRecipient: vi.fn(),
-    getTwilioCredentials: vi.fn().mockResolvedValue(undefined),
     getPhoneNumbers: vi.fn().mockResolvedValue([
       { phoneNumber: '+15550000000', isDefault: true },
     ]),
@@ -53,7 +52,7 @@ describe('executeCampaign', () => {
     const result = await executeCampaign(storage, 1);
 
     expect(mockSendBulkSMS).toHaveBeenCalled();
-    const messages = mockSendBulkSMS.mock.calls[0][1];
+    const messages = mockSendBulkSMS.mock.calls[0][0];
     expect(messages).toHaveLength(1);
     expect(messages[0].contactId).toBe(1);
     expect(result.totalContacts).toBe(1);

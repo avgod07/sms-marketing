@@ -1,22 +1,7 @@
-import twilio from "twilio";
-import type { TwilioCredential } from "@shared/schema";
-import { decrypt } from "../utils/encryption.util";
+import type { Twilio } from 'twilio';
+import client from './twilio-client.js';
 
-// Global fallback configuration for development/testing
-const fallbackSid =
-  process.env.TWILIO_ACCOUNT_SID || "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-const fallbackToken = process.env.TWILIO_AUTH_TOKEN || "your_auth_token_here";
-const fallbackNumber = process.env.TWILIO_PHONE_NUMBER || "+1234567890";
-
-// Cache clients per account for efficiency
-const clientCache = new Map<string, twilio.Twilio>();
-function getClient(accountSid: string, token: string) {
-  const existing = clientCache.get(accountSid);
-  if (existing) return existing;
-  const client = twilio(accountSid, token);
-  clientCache.set(accountSid, client);
-  return client;
-}
+const defaultNumber = process.env.TWILIO_PHONE_NUMBER || '+1234567890';
 
 export interface SMSMessage {
   to: string;
@@ -34,24 +19,18 @@ export interface SMSResult {
 }
 
 export class TwilioService {
-  static async sendSMS(
-    creds: TwilioCredential | undefined,
-    smsData: SMSMessage,
-  ): Promise<SMSResult> {
+  static async sendSMS(smsData: SMSMessage): Promise<SMSResult> {
     try {
-      // Fallback to env configuration if creds not provided
-      const sid = creds ? creds.accountSid : fallbackSid;
-      const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
-      const client = getClient(sid, token);
-
       const params: any = {
         body: smsData.message,
         to: smsData.to,
       };
 
-      if (smsData.messagingServiceSid)
+      if (smsData.messagingServiceSid) {
         params.messagingServiceSid = smsData.messagingServiceSid;
-      else params.from = smsData.from || fallbackNumber;
+      } else {
+        params.from = smsData.from || defaultNumber;
+      }
 
       const message = await client.messages.create(params);
 
@@ -60,31 +39,25 @@ export class TwilioService {
         messageSid: message.sid,
       };
     } catch (error: any) {
-      console.error("Twilio SMS Error:", error);
+      console.error('Twilio SMS Error:', error);
       return {
         success: false,
-        error: error.message || "Failed to send SMS",
+        error: error.message || 'Failed to send SMS',
       };
     }
   }
 
-  static async sendBulkSMS(
-    creds: TwilioCredential | undefined,
-    messages: SMSMessage[],
-  ): Promise<SMSResult[]> {
+  static async sendBulkSMS(messages: SMSMessage[]): Promise<SMSResult[]> {
     const results: SMSResult[] = [];
 
-    // Send messages in batches to avoid rate limits
     const batchSize = 10;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
-      const batchPromises = batch.map((msg) => this.sendSMS(creds, msg));
-      const batchResults = await Promise.all(batchPromises);
+      const batchResults = await Promise.all(batch.map(msg => this.sendSMS(msg)));
       results.push(...batchResults);
 
-      // Add a small delay between batches
       if (i + batchSize < messages.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
@@ -92,13 +65,8 @@ export class TwilioService {
   }
 
   static async fetchAvailableTollFreeNumbers(
-    creds: TwilioCredential | undefined,
     opts: { page?: number; contains?: string; limit?: number } = {},
   ): Promise<string[]> {
-    const sid = creds ? creds.accountSid : fallbackSid;
-    const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
-    const client = getClient(sid, token);
-
     const params: any = {
       smsEnabled: true,
       pageSize: opts.limit ?? 12,
@@ -106,22 +74,21 @@ export class TwilioService {
     };
     if (opts.contains) params.contains = opts.contains;
 
-    const page = await client.availablePhoneNumbers("US").tollFree.page(params);
+    const page = await client.availablePhoneNumbers('US').tollFree.page(params);
     return page.instances.map((n: any) => n.phoneNumber);
   }
 
   static async purchaseAndAssignNumber(
-    creds: TwilioCredential,
     phoneNumber: string,
     webhookUrl: string,
   ): Promise<{ phoneSid: string; serviceSid: string }> {
-    const token = decrypt(creds.authTokenEncrypted);
-    const client = getClient(creds.accountSid, token);
+    let serviceSid = process.env.TWILIO_MESSAGING_SERVICE_SID as string | undefined;
 
-    let serviceSid = creds.messagingServiceSid;
     if (!serviceSid) {
       const service = await client.messaging.services.create({
-        friendlyName: `Messaging Service - ${creds.accountSid.slice(-4)}`,
+        friendlyName: `Messaging Service - ${
+          (process.env.TWILIO_ACCOUNT_SID || '').slice(-4)
+        }`,
       });
       serviceSid = service.sid;
     }
@@ -148,8 +115,8 @@ export class TwilioService {
 
   static getConfiguration() {
     return {
-      accountSid: process.env.TWILIO_ACCOUNT_SID || "Not configured",
-      phoneNumber: process.env.TWILIO_PHONE_NUMBER || "Not configured",
+      accountSid: process.env.TWILIO_ACCOUNT_SID || 'Not configured',
+      phoneNumber: process.env.TWILIO_PHONE_NUMBER || 'Not configured',
       isConfigured: this.isConfigured(),
     };
   }

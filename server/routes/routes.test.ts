@@ -5,7 +5,6 @@ var mockForBusiness: any;
 var mockStorage: any;
 var registerRoutes: any;
 var mockSendSMS: any;
-var mockFindCred: any;
 var mockFindBizId: any;
 var mockBroadcast: any;
 
@@ -28,7 +27,6 @@ vi.mock('../db/storage', () => {
   };
   return {
     storage: mockStorage,
-    findTwilioCredentialByAccountSid: (mockFindCred = vi.fn()),
     findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
   };
 });
@@ -48,7 +46,7 @@ vi.mock('../utils/encryption.util', () => ({
 }));
 
 vi.mock('twilio', () => ({
-  default: { validateRequest: vi.fn(() => true) },
+  default: vi.fn(() => ({})),
   validateRequest: vi.fn(() => true),
 }));
 
@@ -107,6 +105,7 @@ describe('routes', () => {
     mockStorage.createBusiness.mockResolvedValue({ id: 1 });
     mockForBusiness.createUser.mockResolvedValue({ id: 1, username: 'a@b.com' });
 
+    mockFindBizId.mockResolvedValue(1);
     const app = await setupApp();
 
     const res = await request(app)
@@ -279,12 +278,7 @@ describe('routes', () => {
   });
 
   it('sends sms and saves message', async () => {
-    const creds = {
-      accountSid: 'AC123',
-      authTokenEncrypted: 'enc',
-      messagingServiceSid: 'MG456',
-    };
-    mockForBusiness.getTwilioCredentials = vi.fn().mockResolvedValue(creds);
+    mockForBusiness.getTwilioCredentials = vi.fn();
     mockForBusiness.getPhoneNumbers = vi
       .fn()
       .mockResolvedValue([{ phoneNumber: '+15550001111', isDefault: true }]);
@@ -305,11 +299,11 @@ describe('routes', () => {
       });
 
     expect(res.status).toBe(201);
-    expect(mockSendSMS).toHaveBeenCalledWith(creds, {
+    expect(mockSendSMS).toHaveBeenCalledWith({
       to: '+15551234567',
       message: 'hello',
       from: '+15550001111',
-      messagingServiceSid: 'MG456',
+      messagingServiceSid: undefined,
       campaignId: undefined,
       contactId: 4,
     });
@@ -324,7 +318,6 @@ describe('routes', () => {
   });
 
   it('handles inbound webhook and broadcasts message', async () => {
-    mockFindCred.mockResolvedValue({ businessId: 1, authTokenEncrypted: 'enc' });
     mockForBusiness.getContactByPhoneNumber = vi.fn().mockResolvedValue(undefined);
     mockForBusiness.createContact = vi.fn().mockResolvedValue({ id: 2 });
     const saved = {
