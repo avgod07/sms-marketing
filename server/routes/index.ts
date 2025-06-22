@@ -1,6 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, findBusinessIdByPhoneNumber } from "../db/storage";
+import {
+  storage,
+  findBusinessIdByNumber,
+  findBusinessIdByPhoneNumber,
+} from "../db/storage";
 import { db } from "../config/db.config";
 import { businesses, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -136,9 +140,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Twilio status webhook endpoint (unauthenticated)
   app.post("/api/twilio/webhook", async (req, res) => {
     try {
-      const { MessageStatus, To } = req.body as any;
+      const { MessageStatus, To, MessagingServiceSid } = req.body as any;
 
-      const businessId = To ? await findBusinessIdByPhoneNumber(To) : undefined;
+      const businessId = await findBusinessIdByNumber(To, MessagingServiceSid);
 
       if (!businessId) {
         logError("Unknown status webhook", { To });
@@ -184,9 +188,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // New Twilio status callback using message SID
   app.post("/api/webhooks/twilio/status-callback", async (req, res) => {
     try {
-      const { MessageSid, MessageStatus, To, ErrorCode } = req.body as any;
+      const { MessageSid, MessageStatus, To, ErrorCode, MessagingServiceSid } =
+        req.body as any;
 
-      const businessId = To ? await findBusinessIdByPhoneNumber(To) : undefined;
+      const businessId = await findBusinessIdByNumber(To, MessagingServiceSid);
 
       if (!businessId) {
         logError("Unknown status webhook", { To });
@@ -231,9 +236,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inbound message webhook for all businesses
   app.post("/webhooks/twilio-inbound", async (req, res) => {
     try {
-      const { From, To, Body } = req.body as any;
+      const { From, To, Body, MessagingServiceSid } = req.body as any;
 
-      const businessId = To ? await findBusinessIdByPhoneNumber(To) : undefined;
+      const businessId = await findBusinessIdByNumber(To, MessagingServiceSid);
 
       if (!businessId) {
         logError("Unknown inbound message", { To });

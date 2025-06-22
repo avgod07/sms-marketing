@@ -1125,3 +1125,27 @@ export async function findBusinessIdByPhoneNumber(
     .where(eq(businessPhoneNumbers.phoneNumber, normalized));
   return row?.businessId;
 }
+
+export async function findBusinessIdByServiceSid(
+  serviceSid: string,
+): Promise<number | undefined> {
+  const [row] = await db
+    .select({ businessId: businessPhoneNumbers.businessId })
+    .from(businessPhoneNumbers)
+    .where(eq(businessPhoneNumbers.serviceSid, serviceSid));
+  return row?.businessId;
+}
+
+export async function findBusinessIdByNumber(
+  phoneNumber?: string,
+  serviceSid?: string,
+): Promise<number | undefined> {
+  if (phoneNumber) {
+    const id = await findBusinessIdByPhoneNumber(phoneNumber);
+    if (id) return id;
+  }
+  if (serviceSid) {
+    return await findBusinessIdByServiceSid(serviceSid);
+  }
+  return undefined;
+}

@@ -6,6 +6,8 @@ var mockStorage: any;
 var registerRoutes: any;
 var mockSendSMS: any;
 var mockFindBizId: any;
+var mockFindByServiceSid: any;
+var mockFindByNumber: any;
 var mockBroadcast: any;
 
 vi.mock('../config/db.config', () => ({
@@ -28,6 +30,8 @@ vi.mock('../db/storage', () => {
   return {
     storage: mockStorage,
     findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
+    findBusinessIdByNumber: (mockFindByNumber = vi.fn()),
+    findBusinessIdByServiceSid: (mockFindByServiceSid = vi.fn()),
   };
 });
 
@@ -106,6 +110,7 @@ describe('routes', () => {
     mockForBusiness.createUser.mockResolvedValue({ id: 1, username: 'a@b.com' });
 
     mockFindBizId.mockResolvedValue(1);
+    mockFindByNumber.mockResolvedValue(1);
     const app = await setupApp();
 
     const res = await request(app)
@@ -328,6 +333,7 @@ describe('routes', () => {
       status: 'received',
     };
     mockForBusiness.createMessage = vi.fn().mockResolvedValue(saved);
+    mockFindByNumber.mockResolvedValue(1);
 
     const app = await setupApp();
 

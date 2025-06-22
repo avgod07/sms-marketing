@@ -9,6 +9,8 @@ var registerRoutes: any;
 var mockForBusiness: any;
 var mockStorage: any;
 var mockFindBizId: any;
+var mockFindByServiceSid: any;
+var mockFindByNumber: any;
 
 vi.mock('./config/db.config', () => ({
   db: {
@@ -31,6 +33,8 @@ vi.mock('./db/storage', () => {
   return {
     storage: mockStorage,
     findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
+    findBusinessIdByNumber: (mockFindByNumber = vi.fn()),
+    findBusinessIdByServiceSid: (mockFindByServiceSid = vi.fn()),
   };
 });
 
@@ -91,6 +95,7 @@ describe('SocketService', () => {
     mockForBusiness.getContactByPhoneNumber.mockResolvedValue(undefined);
     mockForBusiness.createContact.mockResolvedValue({ id: 2 });
     mockFindBizId.mockResolvedValue(1);
+    mockFindByNumber.mockResolvedValue(1);
     const saved = {
       id: 5,
       phoneNumber: '+15551234567',
@@ -127,6 +132,7 @@ describe('SocketService', () => {
 
   it('broadcasts status callback updates', async () => {
     mockFindBizId.mockResolvedValue(1);
+    mockFindByNumber.mockResolvedValue(1);
     const updated = { id: 5, status: 'delivered' };
     mockForBusiness.updateMessageStatusBySid.mockResolvedValue(updated);
 
