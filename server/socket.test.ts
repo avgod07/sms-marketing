@@ -11,6 +11,14 @@ var mockStorage: any;
 var mockFindCred: any;
 var mockFindBizId: any;
 
+vi.mock('./config/db.config', () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockResolvedValue([]),
+    }),
+  },
+}));
+
 vi.mock('./db/storage', () => {
   mockForBusiness = {
     getContactByPhoneNumber: vi.fn(),
