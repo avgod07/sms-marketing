@@ -422,6 +422,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const onboardingProfileSchema = z.object({
+    name: z.string().min(1),
+    addressStreet: z.string().min(1),
+    addressCity: z.string().min(1),
+    addressState: z.string().min(1),
+    addressPostalCode: z.string().min(1),
+    addressCountry: z.string().min(1),
+    repEmail: z.string().email(),
+    repPhone: z.string().min(1),
+  });
+
+  app.post("/api/onboarding/business-profile", async (req, res) => {
+    try {
+      const data = onboardingProfileSchema.parse(req.body);
+
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+
+      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+
+      const customer = await client.trusthub.v1.customerProfiles.create({
+        friendlyName: data.name,
+        email: data.repEmail,
+        policySid: "RNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      });
+
+      const existing = await biz(req).getBusinessProfile();
+      if (!existing) {
+        return res.status(400).json({ message: "Business profile missing" });
+      }
+
+      const saved = await biz(req).upsertBusinessProfile({
+        ...existing,
+        customerProfileSid: customer.sid,
+        registrationStatus: customer.status || existing.registrationStatus,
+      });
+
+      res.json({ sid: saved.customerProfileSid, status: saved.registrationStatus });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error creating Twilio business profile:", error);
+      const message: string = (error as any)?.message || "Failed to create business profile";
+      res.status(500).json({ message });
+    }
+  });
+
   app.get("/api/twilio/credentials", async (req, res) => {
     try {
       const creds = await biz(req).getTwilioCredentials();
