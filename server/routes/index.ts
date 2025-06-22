@@ -648,10 +648,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { phoneNumber } = reserveSchema.parse(req.body);
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const existingNumbers = await biz(req).getPhoneNumbers();
+      const existingService = existingNumbers.find(n => n.serviceSid)?.serviceSid ?? undefined;
 
       try {
         const { phoneSid, serviceSid } =
-          await TwilioService.purchaseAndAssignNumber(phoneNumber, webhookUrl);
+          await TwilioService.purchaseAndAssignNumber(
+            phoneNumber,
+            webhookUrl,
+            existingService,
+          );
 
         await biz(req).setPhoneNumbers([
           {
@@ -697,10 +703,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { phoneNumber } = tollFreeSchema.parse(req.body);
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const existingNumbers = await biz(req).getPhoneNumbers();
+      const existingService = existingNumbers.find(n => n.serviceSid)?.serviceSid ?? undefined;
 
       try {
         const { phoneSid, serviceSid } =
-          await TwilioService.purchaseAndAssignNumber(phoneNumber, webhookUrl);
+          await TwilioService.purchaseAndAssignNumber(
+            phoneNumber,
+            webhookUrl,
+            existingService,
+          );
 
         const [record] = await biz(req).setPhoneNumbers([
           {
