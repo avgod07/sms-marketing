@@ -42,7 +42,7 @@ export default function Inbox() {
   const { data: setup } = useSetupStatus();
   const debouncedSearch = useDebounce(searchQuery, 300);
   const trimmedSearch = debouncedSearch.trim().toLowerCase();
-  const messagingBlocked = !setup?.twilioConfigured || !setup?.phoneConfigured;
+  const messagingBlocked = !setup?.phoneConfigured;
   const selected =
     selectedId !== null
       ? conversations.find((c) => c.id === selectedId) || null

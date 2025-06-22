@@ -57,9 +57,8 @@ export default function NewCampaignPage() {
     createCampaignMutation.mutate(data);
   };
 
-  const disabledTwilio = !setup?.twilioConfigured;
-  const disabled =
-    disabledTwilio || !setup?.phoneConfigured || !setup?.hasContacts;
+  const disabledNumber = !setup?.phoneConfigured;
+  const disabled = disabledNumber || !setup?.hasContacts;
 
   return (
     <div className="fade-in">
@@ -78,7 +77,7 @@ export default function NewCampaignPage() {
       <div className="p-8 max-w-4xl mx-auto">
         {disabled && (
           <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
-            {disabledTwilio ? (
+            {disabledNumber ? (
               <AlertDescription>
                 You need a phone number before you can send messages. Please complete onboarding.
               </AlertDescription>
