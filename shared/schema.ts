@@ -158,6 +158,9 @@ export const users = pgTable("users", {
     .notNull(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  onboardingComplete: boolean("onboarding_complete")
+    .default(false)
+    .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
