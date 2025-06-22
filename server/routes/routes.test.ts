@@ -49,10 +49,14 @@ vi.mock('../utils/encryption.util', () => ({
   encrypt: vi.fn(),
 }));
 
-vi.mock('twilio', () => ({
-  default: vi.fn(() => ({})),
-  validateRequest: vi.fn(() => true),
-}));
+vi.mock('twilio', () => {
+  const mockTwilio = vi.fn(() => ({}));
+  return {
+    default: Object.assign(mockTwilio, {
+      validateRequest: vi.fn(() => true),
+    }),
+  };
+});
 
 vi.mock('bcryptjs', () => ({
   default: { hash: vi.fn(() => Promise.resolve('hashed')) },
