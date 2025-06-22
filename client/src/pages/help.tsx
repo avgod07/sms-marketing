@@ -36,9 +36,9 @@ export default function Help() {
 
   const faqs = [
     {
-      question: "How do I set up Twilio integration?",
+      question: "How do I get a phone number?",
       answer:
-        "Go to Settings > SMS Configuration and enter your Twilio Account SID, Auth Token, and phone number.",
+        "TextFlow provisions a number for you automatically during onboarding.",
     },
     {
       question: "How can I import my existing contacts?",

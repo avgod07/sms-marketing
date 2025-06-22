@@ -33,12 +33,6 @@ export interface ContactRedemption {
   createdAt: string | Date;
 }
 
-export interface TwilioSettings {
-  accountSid: string;
-  authToken: string;
-  messagingServiceSid: string | null;
-  phoneNumber: string | null;
-}
 
 export interface CampaignSendSummary {
   sentCount: number;
