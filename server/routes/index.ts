@@ -90,8 +90,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const passwordHash = await bcrypt.hash(password, 10);
       const defaultBusinessName = username.split("@")[0] || "Untitled";
-      const business = await storage.createBusiness({ name: defaultBusinessName });
-      const user = await storage.forBusiness(business.id).createUser({ username, passwordHash });
+      const business = await storage.createBusiness({
+        name: defaultBusinessName,
+      });
+      const user = await storage
+        .forBusiness(business.id)
+        .createUser({ username, passwordHash });
       try {
         await new Promise<void>((resolve, reject) => {
           req.login(user, (err: any) => {
@@ -106,21 +110,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error signing up:", error);
       res.status(500).json({ message: "Failed to sign up" });
     }
   });
 
-  app.post(
-    "/api/login",
-    passport.authenticate("local"),
-    (_req, res) => {
-      res.json({ message: "Logged in" });
-    },
-  );
-
+  app.post("/api/login", passport.authenticate("local"), (_req, res) => {
+    res.json({ message: "Logged in" });
+  });
 
   // Return current authenticated user or null
   app.get("/api/me", (req, res) => {
@@ -163,11 +164,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let status = "sent";
       if (MessageStatus === "delivered") status = "delivered";
-      else if (MessageStatus === "failed" || MessageStatus === "undelivered") status = "failed";
+      else if (MessageStatus === "failed" || MessageStatus === "undelivered")
+        status = "failed";
 
       const bizStore = storage.forBusiness(businessId);
       const messages = await bizStore.getMessages();
-      const message = messages.find(m => m.phoneNumber === To && m.status !== "delivered" && m.status !== "failed");
+      const message = messages.find(
+        (m) =>
+          m.phoneNumber === To &&
+          m.status !== "delivered" &&
+          m.status !== "failed",
+      );
       if (message) {
         await bizStore.updateMessageStatus(
           message.id,
@@ -228,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (updated) {
-        socketService?.broadcast('message:status', updated);
+        socketService?.broadcast("message:status", updated);
       }
 
       res.status(200).send("OK");
@@ -290,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await bizStore.updateContact(contact.id, { active: false });
         }
         const numbers = await bizStore.getPhoneNumbers();
-        const from = numbers.find(n => n.isDefault)?.phoneNumber;
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
         await TwilioService.sendSMS(creds, {
           to: normalizedFrom,
           message:
@@ -363,7 +370,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         campaignsChange: null as number | null,
         deliveryRateChange: null as number | null,
       };
-      res.status(500).json({ message: "Failed to fetch dashboard stats", stats: defaults });
+      res
+        .status(500)
+        .json({ message: "Failed to fetch dashboard stats", stats: defaults });
     }
   });
 
@@ -424,7 +433,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/business-profile", async (req, res) => {
     try {
       const data = businessProfileSchema.parse(req.body);
-      const { name, ...profile } = data as { name?: string } & InsertBusinessProfile;
+      const { name, ...profile } = data as {
+        name?: string;
+      } & InsertBusinessProfile;
       if (name) {
         await biz(req).updateBusiness({ name });
       }
@@ -432,7 +443,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(saved);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error saving business profile:", error);
       res.status(500).json({ message: "Failed to save business profile" });
@@ -459,7 +472,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Twilio not connected" });
       }
 
-      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const client = twilio(
+        creds.accountSid,
+        decrypt(creds.authTokenEncrypted),
+      );
 
       const customer = await client.trusthub.v1.customerProfiles.create({
         friendlyName: data.name,
@@ -478,13 +494,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         registrationStatus: customer.status || existing.registrationStatus,
       });
 
-      res.json({ sid: saved.customerProfileSid, status: saved.registrationStatus });
+      res.json({
+        sid: saved.customerProfileSid,
+        status: saved.registrationStatus,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating Twilio business profile:", error);
-      const message: string = (error as any)?.message || "Failed to create business profile";
+      const message: string =
+        (error as any)?.message || "Failed to create business profile";
       res.status(500).json({ message });
     }
   });
@@ -528,7 +550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(null);
       }
       const numbers = await biz(req).getPhoneNumbers();
-      const phoneNumber = numbers.find(n => n.isDefault)?.phoneNumber || null;
+      const phoneNumber = numbers.find((n) => n.isDefault)?.phoneNumber || null;
       res.json({
         accountSid: creds.accountSid,
         authToken: decrypt(creds.authTokenEncrypted),
@@ -558,7 +580,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(saved);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error saving A2P config:", error);
       res.status(500).json({ message: "Failed to save A2P config" });
@@ -581,9 +605,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await client.api.accounts(accountSid).fetch();
       } catch (err: any) {
-        return res
-          .status(400)
-          .json({ message: "Invalid SID or Auth Token, please check and try again" });
+        return res.status(400).json({
+          message: "Invalid SID or Auth Token, please check and try again",
+        });
       }
 
       let serviceSid = messagingServiceSid;
@@ -609,15 +633,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (phoneNumber) {
-        await biz(req).setPhoneNumbers([
-          { phoneNumber, isDefault: true },
-        ]);
+        await biz(req).setPhoneNumbers([{ phoneNumber, isDefault: true }]);
       }
 
       res.json({ messagingServiceSid: serviceSid });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error connecting Twilio:", error);
       res.status(500).json({ message: "Failed to connect Twilio account" });
@@ -630,14 +654,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const client = twilio(
+        creds.accountSid,
+        decrypt(creds.authTokenEncrypted),
+      );
       const numbers = await client.incomingPhoneNumbers.list();
       res.json(
         numbers.map((n: any) => ({
           sid: n.sid,
           phoneNumber: n.phoneNumber,
           friendlyName: n.friendlyName,
-        }))
+        })),
       );
     } catch (error) {
       logError("Error fetching phone numbers:", error);
@@ -657,11 +684,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const client = twilio(
+        creds.accountSid,
+        decrypt(creds.authTokenEncrypted),
+      );
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
 
       const fetched = await Promise.all(
-        data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
+        data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch()),
       );
 
       for (const num of fetched) {
@@ -670,20 +700,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .services(creds.messagingServiceSid)
             .phoneNumbers.create({ phoneNumberSid: num.sid });
         }
-        await client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl });
+        await client
+          .incomingPhoneNumbers(num.sid)
+          .update({ smsUrl: webhookUrl });
       }
 
       const records = await biz(req).setPhoneNumbers(
         fetched.map((n) => ({
           phoneNumber: n.phoneNumber,
           isDefault: n.sid === data.defaultSid,
-        }))
+        })),
       );
 
       res.json(records);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error saving phone numbers:", error);
       res.status(500).json({ message: "Failed to save phone numbers" });
@@ -696,7 +730,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const client = twilio(
+        creds.accountSid,
+        decrypt(creds.authTokenEncrypted),
+      );
       const page = parseInt((req.query.page as string) || "0", 10);
       const pageResult = await client
         .availablePhoneNumbers("US")
@@ -727,6 +764,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const reserveSchema = z.object({ phoneNumber: z.string() });
+
+  app.post("/api/onboarding/reserve-number", async (req, res) => {
+    try {
+      const { phoneNumber } = reserveSchema.parse(req.body);
+      const creds = await biz(req).getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+
+      try {
+        const { phoneSid, serviceSid } =
+          await TwilioService.purchaseAndAssignNumber(
+            creds,
+            phoneNumber,
+            webhookUrl,
+          );
+
+        if (!creds.messagingServiceSid) {
+          await biz(req).upsertTwilioCredentials({
+            accountSid: creds.accountSid,
+            authTokenEncrypted: creds.authTokenEncrypted,
+            messagingServiceSid: serviceSid,
+          });
+        }
+
+        await biz(req).setPhoneNumbers([
+          {
+            phoneNumber,
+            isDefault: true,
+            phoneSid,
+            serviceSid,
+            assignmentStatus: "assigned",
+          },
+        ]);
+
+        res.json({
+          phoneNumber,
+          phoneSid,
+          serviceSid,
+          assignmentStatus: "assigned",
+        });
+      } catch (err: any) {
+        if (err?.status === 400 || err?.status === 409) {
+          return res.status(400).json({
+            message: "Number is no longer available. Please choose another.",
+          });
+        }
+        logError("Error purchasing phone number:", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to purchase phone number" });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error reserving number:", error);
+      res.status(500).json({ message: "Failed to reserve number" });
+    }
+  });
+
   const tollFreeSchema = z.object({ phoneNumber: z.string() });
 
   app.post("/api/twilio/tollfree", async (req, res) => {
@@ -736,7 +838,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(creds.accountSid, decrypt(creds.authTokenEncrypted));
+      const client = twilio(
+        creds.accountSid,
+        decrypt(creds.authTokenEncrypted),
+      );
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
       const num = await client.incomingPhoneNumbers.create({
         phoneNumber,
@@ -753,7 +858,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(record);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error purchasing toll-free number:", error);
       res.status(500).json({ message: "Failed to purchase toll-free number" });
@@ -767,9 +874,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const business = await biz(req).getBusiness();
       const config = await biz(req).getTwilioA2PConfig();
       if (!creds || !profile || !config) {
-        return res.status(400).json({ message: "Missing profile, credentials or config" });
+        return res
+          .status(400)
+          .json({ message: "Missing profile, credentials or config" });
       }
-      const result = await registerBusinessForA2P(creds, business, profile, config);
+      const result = await registerBusinessForA2P(
+        creds,
+        business,
+        profile,
+        config,
+      );
       await biz(req).upsertBusinessProfile({
         ...profile,
         customerProfileSid: result.customerProfileSid,
@@ -795,7 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         contacts = await biz(req).getContacts();
       }
-      
+
       res.json(contacts);
     } catch (error) {
       logError("Error fetching contacts:", error);
@@ -849,7 +963,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating contact:", error);
       res.status(500).json({ message: "Failed to create contact" });
@@ -864,7 +980,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating contact:", error);
       res.status(500).json({ message: "Failed to update contact" });
@@ -932,7 +1050,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating campaign:", error);
       res.status(500).json({ message: "Failed to create campaign" });
@@ -947,14 +1067,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Campaign not found" });
       }
       if (existing.status === "completed") {
-        return res.status(400).json({ message: "Completed campaigns cannot be edited" });
+        return res
+          .status(400)
+          .json({ message: "Completed campaigns cannot be edited" });
       }
       const validatedData = simpleCampaignSchema.partial().parse(req.body);
       const campaign = await biz(req).updateCampaign(id, validatedData);
       res.json(campaign);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating campaign:", error);
       res.status(500).json({ message: "Failed to update campaign" });
@@ -1086,7 +1210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(coupon);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       if (error.code === "23505") {
         return res.status(400).json({ message: "Coupon code already exists" });
@@ -1111,7 +1237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(coupon);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating coupon:", error);
       res.status(500).json({ message: "Failed to update coupon" });
@@ -1127,60 +1255,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const coupon = (req as any).coupon;
         const code = req.params.code;
 
-      const rawPhone = req.body.phoneNumber;
-      if (!rawPhone) {
-        return res.status(400).json({ message: "phoneNumber is required" });
-      }
+        const rawPhone = req.body.phoneNumber;
+        if (!rawPhone) {
+          return res.status(400).json({ message: "phoneNumber is required" });
+        }
 
-      const phoneNumber = normalizePhoneNumber(rawPhone);
+        const phoneNumber = normalizePhoneNumber(rawPhone);
 
-      const contact = await biz(req).getContactByPhoneNumber(phoneNumber);
-      if (!contact) {
-        return res.status(404).json({ message: "Contact not found" });
-      }
+        const contact = await biz(req).getContactByPhoneNumber(phoneNumber);
+        if (!contact) {
+          return res.status(404).json({ message: "Contact not found" });
+        }
 
-      const received = await biz(req).hasContactReceivedCoupon(contact.id, code);
-      if (!received) {
-        return res.status(400).json({
-          message:
-            "This contact was not part of the campaign that received this coupon.",
+        const received = await biz(req).hasContactReceivedCoupon(
+          contact.id,
+          code,
+        );
+        if (!received) {
+          return res.status(400).json({
+            message:
+              "This contact was not part of the campaign that received this coupon.",
+          });
+        }
+
+        const alreadyRedeemed = await biz(req).hasContactRedeemedCoupon(
+          contact.id,
+          coupon.id,
+        );
+        if (alreadyRedeemed) {
+          return res.status(400).json({
+            error: "ALREADY_REDEEMED",
+            message: "This contact has already redeemed this coupon.",
+          });
+        }
+        const contactId = contact.id;
+
+        const currentCount = coupon.usageCount ?? 0;
+        const updated = await biz(req).updateCoupon(coupon.id, {
+          usageCount: currentCount + 1,
         });
-      }
-
-      const alreadyRedeemed = await biz(req).hasContactRedeemedCoupon(
-        contact.id,
-        coupon.id,
-      );
-      if (alreadyRedeemed) {
-        return res.status(400).json({
-          error: "ALREADY_REDEEMED",
-          message: "This contact has already redeemed this coupon.",
+        await biz(req).createCouponRedemption({
+          couponId: coupon.id,
+          contactId,
+          phoneNumber,
+          note: req.body.note,
         });
+        logInfo("Coupon redeemed", {
+          couponId: coupon.id,
+          userId: (req as any).user?.id,
+          contactId,
+          phoneNumber,
+        });
+        res.json({ usageCount: updated.usageCount });
+      } catch (error) {
+        logError("Error redeeming coupon:", error);
+        res.status(500).json({ message: "Failed to redeem coupon" });
       }
-      const contactId = contact.id;
-
-      const currentCount = coupon.usageCount ?? 0;
-      const updated = await biz(req).updateCoupon(coupon.id, {
-        usageCount: currentCount + 1,
-      });
-      await biz(req).createCouponRedemption({
-        couponId: coupon.id,
-        contactId,
-        phoneNumber,
-        note: req.body.note,
-      });
-      logInfo("Coupon redeemed", {
-        couponId: coupon.id,
-        userId: (req as any).user?.id,
-        contactId,
-        phoneNumber,
-      });
-      res.json({ usageCount: updated.usageCount });
-    } catch (error) {
-      logError("Error redeeming coupon:", error);
-      res.status(500).json({ message: "Failed to redeem coupon" });
-    }
-  });
+    },
+  );
 
   app.delete("/api/coupons/:id", async (req, res) => {
     try {
@@ -1219,14 +1351,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/messages", async (req, res) => {
     try {
       const { campaignId } = req.query;
-      
+
       let messages;
       if (campaignId) {
-        messages = await biz(req).getMessagesByCampaign(parseInt(campaignId as string));
+        messages = await biz(req).getMessagesByCampaign(
+          parseInt(campaignId as string),
+        );
       } else {
         messages = await biz(req).getMessages();
       }
-      
+
       res.json(messages);
     } catch (error) {
       logError("Error fetching messages:", error);
@@ -1240,12 +1374,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const contact = await biz(req).getContact(validatedData.contactId);
       if (!contact || !contact.active) {
-        return res.status(400).json({ message: 'Contact is inactive' });
+        return res.status(400).json({ message: "Contact is inactive" });
       }
 
       const creds = await biz(req).getTwilioCredentials();
       const numbers = await biz(req).getPhoneNumbers();
-      const from = numbers.find(n => n.isDefault)?.phoneNumber;
+      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
       const result = await TwilioService.sendSMS(creds, {
         to: validatedData.phoneNumber,
@@ -1262,11 +1396,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messageSid: result.messageSid,
       });
 
-
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating message:", error);
       res.status(500).json({ message: "Failed to create message" });
