@@ -100,6 +100,13 @@ server/
 This layout separates concerns so that adding new features or updating
 existing ones is easier to reason about.
 
+## Business Access Model
+
+Each business is currently tied to a single user account. The application does
+not support inviting additional team members or joining an existing business via
+an invite link. All API endpoints and UI flows assume a one-user-per-business
+setup.
+
 ## Authentication
 
 Authentication is provided by [Clerk.dev](https://clerk.dev) using Google OAuth or magic links.
