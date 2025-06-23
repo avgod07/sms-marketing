@@ -387,6 +387,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = onboardingProfileSchema.parse(req.body);
 
+      // Persist chosen business name
+      await biz(req).updateBusiness({ name: data.name });
+
       const client = twilioClient;
 
       const customer = await client.trusthub.v1.customerProfiles.create({
