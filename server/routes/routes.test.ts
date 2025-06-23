@@ -41,6 +41,12 @@ vi.mock('../services/twilio.js', () => {
   return { TwilioService: { sendSMS: mockSendSMS } };
 });
 
+vi.mock('../services/twilio-client', () => ({
+  default: {
+    trusthub: { v1: { customerProfiles: { create: vi.fn().mockResolvedValue({ sid: 'CP1', status: 'pending' }) } } },
+  },
+}));
+
 vi.mock('../socket', () => ({
   socketService: { broadcast: (mockBroadcast = vi.fn()) },
 }));
@@ -115,34 +121,55 @@ describe('routes', () => {
     expect(res.status).toBe(401);
   });
 
-  it('blocks api access when clerk user is missing in DB', async () => {
-    const app = await setupApp(undefined, '1');
-    const res = await request(app).get('/api/me');
-    expect(res.status).toBe(401);
-  });
-
-  it('allows signup for new clerk user', async () => {
+  it('auto provisions business and user on first authenticated request', async () => {
     mockStorage.createBusiness.mockResolvedValue({ id: 9 });
-    mockForBusiness.createUser = vi.fn().mockResolvedValue({ id: 1 });
+    mockForBusiness.createUser = vi.fn().mockResolvedValue({
+      id: 1,
+      businessId: 9,
+    });
+
     const app = await setupApp(undefined, '1');
 
-    const res = await request(app)
-      .post('/api/signup')
-      .send({ businessName: 'New Biz' });
+    const res = await request(app).get('/api/me');
 
-    expect(res.status).toBe(201);
-    expect(mockStorage.createBusiness).toHaveBeenCalledWith({ name: 'New Biz' });
+    expect(res.status).toBe(200);
+    expect(mockStorage.createBusiness).toHaveBeenCalledWith({ name: 'Untitled Business' });
     expect(mockForBusiness.createUser).toHaveBeenCalledWith({
       username: '1',
       passwordHash: '',
       clerkUserId: '1',
     });
+    expect(res.body).toEqual({ id: 1, businessId: 9 });
+  });
+
+  it('updates business name during onboarding', async () => {
+    mockForBusiness.updateBusiness = vi.fn().mockResolvedValue({ id: 9, name: 'Cool Biz' });
+    mockForBusiness.getBusinessProfile = vi.fn().mockResolvedValue({});
+    mockForBusiness.upsertBusinessProfile = vi.fn().mockResolvedValue({ customerProfileSid: 'CP1', registrationStatus: 'pending' });
+
+    const app = await setupApp({ businessId: 9 });
+
+    const res = await request(app)
+      .post('/api/onboarding/business-profile')
+      .send({
+        name: 'Cool Biz',
+        addressStreet: '1 Main',
+        addressCity: 'Town',
+        addressState: 'CA',
+        addressPostalCode: '12345',
+        addressCountry: 'US',
+        repEmail: 'a@b.com',
+        repPhone: '123',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockForBusiness.updateBusiness).toHaveBeenCalledWith({ name: 'Cool Biz' });
   });
 
   it('deletes campaign with existing messages', async () => {
     mockForBusiness.deleteCampaign = vi.fn().mockResolvedValue(undefined);
 
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
     const res = await request(app).delete('/api/campaigns/3');
 
     expect(mockForBusiness.deleteCampaign).toHaveBeenCalledWith(3);
@@ -183,7 +210,7 @@ describe('routes', () => {
       { id: 1, firstName: 'David', lastName: 'Wilson' },
     ];
     mockForBusiness.searchContacts = vi.fn().mockResolvedValue(contacts);
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
 
     const res = await request(app)
       .get('/api/contacts')
@@ -199,7 +226,7 @@ describe('routes', () => {
       { id: 2, firstName: 'Sarah', lastName: 'Johnson' },
     ];
     mockForBusiness.searchContacts = vi.fn().mockResolvedValue(contacts);
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
 
     const res = await request(app)
       .get('/api/contacts')
@@ -216,7 +243,7 @@ describe('routes', () => {
     mockForBusiness.getPhoneNumbers = vi
       .fn()
       .mockResolvedValue([{ phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true }]);
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
 
     const res = await request(app).get('/api/conversations');
 
@@ -231,7 +258,7 @@ describe('routes', () => {
     mockForBusiness.getPhoneNumbers = vi
       .fn()
       .mockResolvedValue([{ phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true }]);
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
 
     const res = await request(app).get('/api/conversations/3/messages');
 
@@ -250,7 +277,7 @@ describe('routes', () => {
       .fn()
       .mockResolvedValue({ id: 7, content: 'hi' });
 
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
 
     const res = await request(app)
       .post('/api/messages')
@@ -281,7 +308,21 @@ describe('routes', () => {
 
   it('blocks sms when business lacks a phone number', async () => {
     mockForBusiness.getPhoneNumbers = vi.fn().mockResolvedValue([]);
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
+
+    const res = await request(app)
+      .post('/api/messages')
+      .send({ phoneNumber: '+15551234567', content: 'hi', contactId: 4 });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('blocks sms when onboarding is incomplete', async () => {
+    mockForBusiness.getPhoneNumbers = vi.fn().mockResolvedValue([
+      { phoneNumber: '+15550001111', serviceSid: 'MG123', isDefault: true },
+    ]);
+    mockForBusiness.getContact = vi.fn().mockResolvedValue({ id: 4, active: true });
+    const app = await setupApp({ businessId: 1, onboardingComplete: false });
 
     const res = await request(app)
       .post('/api/messages')
@@ -298,7 +339,7 @@ describe('routes', () => {
     mockSendSMS.mockResolvedValue({ success: true, messageSid: 'SM001' });
     mockForBusiness.createMessage = vi.fn().mockResolvedValue({ id: 8, content: 'hi' });
 
-    const app = await setupApp({ businessId: 1 });
+    const app = await setupApp({ businessId: 1, onboardingComplete: true });
 
     const res = await request(app)
       .post('/api/messages')

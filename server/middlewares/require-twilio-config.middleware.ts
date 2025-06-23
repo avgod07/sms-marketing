@@ -3,8 +3,9 @@ import { storage } from '../db/storage';
 
 export async function requireTwilioConfig(req: Request, res: Response, next: NextFunction) {
   try {
-    const bizId = (req as any).user?.businessId;
-    if (!bizId) {
+    const user = (req as any).user;
+    const bizId = user?.businessId;
+    if (!bizId || !user?.onboardingComplete) {
       return res.status(403).json({ message: 'Please complete onboarding to enable messaging.' });
     }
     const numbers = await storage.forBusiness(bizId).getPhoneNumbers();
