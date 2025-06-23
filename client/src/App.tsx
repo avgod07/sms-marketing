@@ -19,24 +19,24 @@ import JoinPage from "@/pages/join";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import Sidebar from "@/components/layout/sidebar";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@clerk/clerk-react";
 
 function Router() {
   const [location, navigate] = useLocation();
-  const { data: user, isLoading } = useAuth();
+  const { isLoaded, user } = useUser();
 
   const isAuthPage =
     location === "/login" || location === "/signup";
   const isPublicPage = location.startsWith("/join/");
 
   useEffect(() => {
-    if (!isLoading && !user && !isAuthPage && !isPublicPage) {
+    if (isLoaded && !user && !isAuthPage && !isPublicPage) {
       navigate("/login");
     }
-    if (!isLoading && user && isAuthPage) {
+    if (isLoaded && user && isAuthPage) {
       navigate("/");
     }
-  }, [isLoading, user, isAuthPage, isPublicPage, navigate]);
+  }, [isLoaded, user, isAuthPage, isPublicPage, navigate]);
 
   return (
     <div className="flex h-screen bg-gray-50">
