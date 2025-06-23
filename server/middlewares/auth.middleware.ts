@@ -16,13 +16,16 @@ export async function ensureAuthenticated(
     return res.status(401).json({ message: "Unauthorized" });
   }
   try {
-    const user = await storage.getUserByClerkId(userId);
+    let user = await storage.getUserByClerkId(userId);
     if (!user) {
-      if (req.path.startsWith("/signup")) {
-        return next();
-      }
-      return res.status(401).json({ message: "Unauthorized" });
+      const business = await storage.createBusiness({ name: "Your Business" });
+      user = await storage.forBusiness(business.id).createUser({
+        username: userId,
+        passwordHash: "",
+        clerkUserId: userId,
+      });
     }
+
     (req as any).user = user;
     next();
   } catch (err) {

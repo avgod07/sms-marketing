@@ -115,28 +115,25 @@ describe('routes', () => {
     expect(res.status).toBe(401);
   });
 
-  it('blocks api access when clerk user is missing in DB', async () => {
-    const app = await setupApp(undefined, '1');
-    const res = await request(app).get('/api/me');
-    expect(res.status).toBe(401);
-  });
-
-  it('allows signup for new clerk user', async () => {
+  it('auto provisions business and user on first authenticated request', async () => {
     mockStorage.createBusiness.mockResolvedValue({ id: 9 });
-    mockForBusiness.createUser = vi.fn().mockResolvedValue({ id: 1 });
+    mockForBusiness.createUser = vi.fn().mockResolvedValue({
+      id: 1,
+      businessId: 9,
+    });
+
     const app = await setupApp(undefined, '1');
 
-    const res = await request(app)
-      .post('/api/signup')
-      .send({ businessName: 'New Biz' });
+    const res = await request(app).get('/api/me');
 
-    expect(res.status).toBe(201);
-    expect(mockStorage.createBusiness).toHaveBeenCalledWith({ name: 'New Biz' });
+    expect(res.status).toBe(200);
+    expect(mockStorage.createBusiness).toHaveBeenCalledWith({ name: 'Your Business' });
     expect(mockForBusiness.createUser).toHaveBeenCalledWith({
       username: '1',
       passwordHash: '',
       clerkUserId: '1',
     });
+    expect(res.body).toEqual({ id: 1, businessId: 9 });
   });
 
   it('deletes campaign with existing messages', async () => {

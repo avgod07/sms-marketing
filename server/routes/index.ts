@@ -257,41 +257,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Require authentication for subsequent API routes
   app.use("/api", clerkExpressRequireAuth(), ensureAuthenticated);
 
-  const signupSchema = z.object({
-    businessName: z.string().min(1),
-  });
-
-  app.post("/api/signup", async (req, res) => {
-    try {
-      const { userId } = (req as any).auth || {};
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const existing = await storage.getUserByClerkId(userId);
-      if (existing) {
-        return res.status(400).json({ message: "Account already exists" });
-      }
-
-      const { businessName } = signupSchema.parse(req.body);
-      const business = await storage.createBusiness({ name: businessName });
-      const user = await storage.forBusiness(business.id).createUser({
-        username: userId,
-        passwordHash: "",
-        clerkUserId: userId,
-      });
-
-      res.status(201).json({ businessId: business.id, userId: user.id });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error signing up:", error);
-      res.status(500).json({ message: "Failed to sign up" });
-    }
-  });
 
   app.get("/api/me", (req, res) => {
     res.json((req as any).user || null);
