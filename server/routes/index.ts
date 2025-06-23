@@ -634,6 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const numbers = await TwilioService.fetchAvailableTollFreeNumbers({
         page,
         contains,
+        limit: 6,
       });
       res.json(numbers);
     } catch (error) {
