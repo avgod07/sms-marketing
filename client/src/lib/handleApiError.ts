@@ -43,7 +43,7 @@ export function handleApiError(error: unknown, defaultMessage = 'Something went 
     return errors[0].message;
   }
   if (status === 401 || message?.toLowerCase() === 'unauthorized') {
-    return 'Incorrect username or password';
+    return 'Invalid credentials';
   }
   if (message === 'Coupon not found') {
     return 'This coupon is no longer active';

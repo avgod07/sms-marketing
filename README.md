@@ -50,8 +50,8 @@ This project relies on Node.js and Docker for local development. The steps below
    npm run seed
    ```
 
-   This command also creates a demo account with username `demo` and password
-   `demo123` tied to the `Seeded Business` for testing.
+   This command also creates a demo business with sample data for testing.
+   Use your Clerk account to sign in via Google or magic link.
 
 7. **Start the development server**
 
