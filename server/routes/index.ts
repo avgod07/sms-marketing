@@ -69,18 +69,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   // Authentication routes handled by Clerk on the frontend
 
-  // Return current authenticated user or null
-  app.get("/api/me", (req, res) => {
-    res.json(req.user || null);
-  });
-
-  app.post("/api/logout", (req, res, next) => {
-    req.logout((err: any) => {
-      if (err) return next(err);
-      res.json({ message: "Logged out" });
-    });
-  });
-
   // Twilio status webhook endpoint (unauthenticated)
   app.post("/api/twilio/webhook", async (req, res) => {
     try {
@@ -267,6 +255,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Require authentication for subsequent API routes
   app.use("/api", ensureAuthenticated);
+
+  app.get("/api/me", (req, res) => {
+    res.json((req as any).user || null);
+  });
 
   // Dashboard routes
   app.get("/api/dashboard/stats", async (req, res) => {
