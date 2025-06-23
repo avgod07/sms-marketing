@@ -25,6 +25,7 @@ function Content() {
     setMonthlyVolume,
     useCases,
     setUseCases,
+    clearProgress,
   } = useOnboarding();
   const [, navigate] = useLocation();
 
@@ -81,7 +82,10 @@ function Content() {
             )}
             {step === 4 && (
               <TollFreeNumberForm
-                onSuccess={() => navigate("/")}
+                onSuccess={() => {
+                  clearProgress();
+                  navigate("/");
+                }}
                 onBack={() => setStep(3)}
                 onCancel={handleClose}
               />
