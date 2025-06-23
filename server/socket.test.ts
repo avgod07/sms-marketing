@@ -54,14 +54,15 @@ vi.mock('twilio', () => {
   };
 });
 
-vi.mock('@clerk/backend', () => ({
-  clerkExpressWithAuth: () => (_req: any, _res: any, next: any) => next(),
+
+vi.mock('./utils/clerk-auth', () => ({
+  clerkExpressRequireAuth: () => (_req: any, _res: any, next: any) => next(),
   getAuth: (req: any) => {
     const cookie = req.headers['cookie'];
     if (cookie && cookie.includes(AUTH_COOKIE)) {
-      return { userId: '1' };
+      return Promise.resolve({ userId: '1' });
     }
-    return {};
+    return Promise.resolve({});
   },
 }));
 

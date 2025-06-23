@@ -2,7 +2,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
 import type { Message } from '@shared/schema';
 import { logInfo, logWarn } from './utils/logger.util';
-import { getAuth } from '@clerk/backend';
+
+import { getAuth } from './utils/clerk-auth';
 
 interface SocketPayload<T = any> {
   event: string;
@@ -15,8 +16,9 @@ export class SocketService {
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server, path: '/ws' });
-    this.wss.on('connection', (ws, req) => {
-      const { userId } = getAuth(req as any);
+
+    this.wss.on('connection', async (ws, req) => {
+      const { userId } = await getAuth(req as any);
       if (!userId) {
         ws.close(4401, 'Unauthorized');
         return;

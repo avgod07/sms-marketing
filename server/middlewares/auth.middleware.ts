@@ -1,11 +1,11 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { clerkExpressWithAuth, getAuth } from "@clerk/backend";
+import { clerkExpressRequireAuth, getAuth } from "../utils/clerk-auth";
 import { storage } from "../db/storage";
 import { db } from "../config/db.config";
 import { businesses } from "@shared/schema";
 
 export function setupAuth(app: Express) {
-  app.use(clerkExpressWithAuth());
+  app.use(clerkExpressRequireAuth());
 }
 
 export async function ensureAuthenticated(
@@ -13,7 +13,7 @@ export async function ensureAuthenticated(
   res: Response,
   next: NextFunction,
 ) {
-  const { userId } = getAuth(req);
+  const { userId } = await getAuth(req);
   if (!userId) {
     return res.status(401).json({ message: "Unauthorized" });
   }
