@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
 import type { Message } from '@shared/schema';
 import { logInfo, logWarn } from './utils/logger.util';
+import { getAuth } from '@clerk/backend';
 
 interface SocketPayload<T = any> {
   event: string;
@@ -14,7 +15,12 @@ export class SocketService {
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server, path: '/ws' });
-    this.wss.on('connection', ws => {
+    this.wss.on('connection', (ws, req) => {
+      const { userId } = getAuth(req as any);
+      if (!userId) {
+        ws.close(4401, 'Unauthorized');
+        return;
+      }
       (ws as any).id = this.nextId++;
       logInfo('WebSocket client connected', { id: (ws as any).id });
       ws.on('message', msg => {
