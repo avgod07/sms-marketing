@@ -3,14 +3,12 @@ import { logInfo } from "../utils/logger.util";
 import { db, pool } from "../config/db.config";
 import { businesses } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
 
 export async function seedData() {
   try {
     // Ensure a demo business and user exist for testing
     const demoBusinessName = "Seeded Business";
     const demoUsername = "demo";
-    const demoPassword = "demo123";
 
     let [business] = await db
       .select()
@@ -23,7 +21,7 @@ export async function seedData() {
 
     const biz = storage.forBusiness(business.id);
 
-    const passwordHash = await bcrypt.hash(demoPassword, 10);
+    const passwordHash = "";
 
     let existingUser = await storage.getUserByUsername(demoUsername);
     if (!existingUser) {
@@ -33,9 +31,7 @@ export async function seedData() {
       logInfo(`User "${demoUsername}" already exists. Skipping user creation.`);
     }
 
-    logInfo(
-      `Demo credentials: username \"${demoUsername}\" / password \"${demoPassword}\"`,
-    );
+    logInfo(`Demo account created for username \"${demoUsername}\"`);
 
     // Check if we already have contact data
     const existingContacts = await biz.getContacts();

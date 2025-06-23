@@ -1,9 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { getQueryFn } from "@/lib/queryClient";
+import { useUser } from "@clerk/clerk-react";
 
 export function useAuth() {
-  return useQuery({
-    queryKey: ["/api/me"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
-  });
+  const { isLoaded, user } = useUser();
+  return { data: user || null, isLoading: !isLoaded };
 }
