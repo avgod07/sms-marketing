@@ -4,8 +4,13 @@
     "service": "app",
     "workspaceFolder": "/workspace",
     "remoteUser": "node",
+    // add Docker CLI so reset commands work from within the container
+    "features": {
+        "ghcr.io/devcontainers/features/docker-from-docker:1.6.2": {}
+    },
     // forward host port 5001 to container port 5000
     "forwardPorts": [5001, 5432],
+    "postCreateCommand": "npm install",
     "customizations": {
         "vscode": {
             "extensions": [

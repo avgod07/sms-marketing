@@ -36,20 +36,14 @@ export default function Help() {
 
   const faqs = [
     {
-      question: "How do I set up Twilio integration?",
-      answer: "Go to Settings > SMS Configuration and enter your Twilio Account SID, Auth Token, and phone number.",
-    },
-    {
-      question: "What's the difference between contact segments?",
-      answer: "Active Contacts have engaged recently, while Inactive contacts haven't interacted in a while.",
+      question: "How do I get a phone number?",
+      answer:
+        "TextFlow provisions a number for you automatically during onboarding.",
     },
     {
       question: "How can I import my existing contacts?",
-      answer: "Use the Import button in the Contacts page to upload a CSV file with your contact information.",
-    },
-    {
-      question: "Can I schedule campaigns for later?",
-      answer: "Yes, when creating a campaign you can set a scheduled date and time for automatic sending.",
+      answer:
+        "Use the Import button in the Contacts page to upload a CSV file with your contact information.",
     },
   ];
 

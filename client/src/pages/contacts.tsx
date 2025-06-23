@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -11,79 +10,82 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import ContactTable from "@/components/contacts/contact-table";
 import ContactForm, { type ContactFormValues } from "@/components/contacts/contact-form";
-import { Search, Plus, Download, Upload, Filter } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
+import { Search, Plus } from "lucide-react";
+import QRCode from "react-qr-code";
+import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
+import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSetupStatus } from "@/hooks/use-setup-status";
+import { useDebounce } from "@/hooks/use-debounce";
+import { useAuth } from "@/hooks/use-auth";
+import type { User } from "@shared/schema";
 import type { Contact } from "@shared/schema";
-import type { ContactStats } from "@shared/api-types";
+import type { ContactRedemption } from "@shared/api-types";
+import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
 
 export default function Contacts() {
-  const [selectedSegment, setSelectedSegment] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState(() =>
-    localStorage.getItem("contactStatusFilter") || "all",
-  );
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const trimmedSearch = debouncedSearch.trim();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyContact, setHistoryContact] = useState<Contact | null>(null);
+  const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const { data: user } = useAuth() as { data: User | null };
   const { toast } = useToast();
 
-  // Persist filter choice during the session
-  useEffect(() => {
-    localStorage.setItem("contactStatusFilter", statusFilter);
-  }, [statusFilter]);
-
-
-  const { data: contactStats, isLoading: statsLoading } = useQuery<ContactStats>({
-    queryKey: ["/api/contacts/stats", { status: statusFilter }],
-  });
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
-    queryKey: [
-      "/api/contacts",
-      { segment: selectedSegment, search: searchQuery, status: statusFilter },
-    ],
+    queryKey: ["/api/contacts", { search: trimmedSearch }],
   });
 
-  const segments = [
-    { key: "all", label: "All Contacts", count: contactStats?.allContacts || 0, color: "bg-blue-100 text-blue-700" },
-    { key: "inactive", label: "Inactive", count: contactStats?.inactive || 0, color: "bg-gray-100 text-gray-700" },
-    { key: "active", label: "Active Contacts", count: contactStats?.activeContacts || 0, color: "bg-green-100 text-green-700" },
-  ];
+  const { data: setup } = useSetupStatus();
+
+  const {
+    data: redemptions,
+    isLoading: redemptionsLoading,
+  } = useQuery<ContactRedemption[]>({
+    queryKey: historyContact
+      ? [`/api/contacts/${historyContact.id}/redemptions`]
+      : [],
+    enabled: !!historyContact,
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
 
   const createContactMutation = useMutation({
     mutationFn: (data: ContactFormValues) => {
-      const status = data.segment === "inactive" ? "inactive" : "active";
-      return apiRequest({ method: "POST", url: "/api/contacts", data: { ...data, status } });
+      return apiRequest({ method: "POST", url: "/api/contacts", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       setIsCreateOpen(false);
       toast({ title: "Contact Added" });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add contact",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -101,12 +103,12 @@ export default function Contacts() {
   const updateContactMutation = useMutation({
     mutationFn: async (data: ContactFormValues) => {
       if (!editingContact) return;
-      const status = data.segment === "inactive" ? "inactive" : "active";
-      await apiRequest({ method: "PATCH", url: `/api/contacts/${editingContact.id}`, data: { ...data, status } });
+      await apiRequest({ method: "PATCH", url: `/api/contacts/${editingContact.id}`, data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       setIsEditOpen(false);
       setEditingContact(null);
       toast({ title: "Contact Updated" });
@@ -114,7 +116,7 @@ export default function Contacts() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update contact",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -124,6 +126,84 @@ export default function Contacts() {
     updateContactMutation.mutate(data);
   };
 
+  const deleteContactMutation = useMutation({
+    mutationFn: () =>
+      apiRequest({
+        method: "DELETE",
+        url: `/api/contacts/${deletingContact!.id}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      setIsDeleteOpen(false);
+      setDeletingContact(null);
+      toast({ title: "Contact Deleted" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: handleApiError(error),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (contact: Contact) => {
+    setDeletingContact(contact);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    deleteContactMutation.mutate();
+  };
+
+
+  const loadHtml2Pdf = () => {
+    if ((window as any).html2pdf) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js";
+      script.onload = () => resolve();
+      script.onerror = () => reject();
+      document.body.appendChild(script);
+    });
+  };
+
+  const downloadQrPdf = async () => {
+    const svg = document.getElementById("business-qr-code") as SVGSVGElement | null;
+    if (!svg) return;
+    try {
+      await loadHtml2Pdf();
+      const container = document.createElement("div");
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.alignItems = "center";
+      container.style.justifyContent = "center";
+      container.style.padding = "40px";
+      const cloned = svg.cloneNode(true) as SVGSVGElement;
+      cloned.style.width = "200px";
+      cloned.style.height = "200px";
+      container.appendChild(cloned);
+      (window as any).html2pdf()
+        .from(container)
+        .set({
+          margin: 1,
+          filename: "join-qr-code.pdf",
+          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        })
+        .save()
+        .finally(() => {
+          container.remove();
+        });
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -131,39 +211,14 @@ export default function Contacts() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Contact Management</h1>
-            <p className="text-gray-600 mt-1">
-              Manage your contact lists and segments.
-            </p>
+            <p className="text-gray-600 mt-1">Manage your contact list.</p>
           </div>
         </div>
       </header>
 
       {/* Content */}
       <div className="p-8">
-        {/* Segment Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {segments.map((segment) => (
-            <Card 
-              key={segment.key}
-              className={`card-hover cursor-pointer ${selectedSegment === segment.key ? 'ring-2 ring-primary' : ''}`}
-              onClick={() => setSelectedSegment(segment.key)}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium">{segment.label}</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {formatNumber(segment.count)}
-                    </p>
-                  </div>
-                  <Badge className={segment.color}>
-                    {segment.label.split(' ').map(word => word[0]).join('')}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+
 
         {/* Contact Management Section */}
         <Card>
@@ -173,14 +228,35 @@ export default function Contacts() {
                 <span>Contact Management</span>
               </CardTitle>
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import
-                </Button>
+                <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">Show QR Code</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-sm text-center">
+                    <DialogHeader>
+                      <DialogTitle>Join Link QR Code</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex justify-center py-4">
+                      {user?.businessId ? (
+                        <QRCode
+                          id="business-qr-code"
+                          value={`${window.location.origin}/join/${user.businessId}`}
+                        />
+                      ) : (
+                        <Skeleton className="h-40 w-40" />
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadQrPdf}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -214,11 +290,44 @@ export default function Contacts() {
                   />
                 </DialogContent>
               </Dialog>
+              <Dialog
+                open={isHistoryOpen}
+                onOpenChange={(open) => {
+                  setIsHistoryOpen(open);
+                  if (!open) setHistoryContact(null);
+                }}
+              >
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>
+                      Redemption History for {historyContact?.firstName} {historyContact?.lastName}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <ContactRedemptionTable
+                    redemptions={redemptions || []}
+                    isLoading={redemptionsLoading}
+                  />
+                </DialogContent>
+              </Dialog>
+              <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+                  </AlertDialogHeader>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Are you sure you want to delete this contact? This action cannot be undone.
+                  </p>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </CardHeader>
           <CardContent>
-            {/* Search and Filter */}
+            {/* Search */}
             <div className="flex items-center justify-between mb-6">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -229,37 +338,19 @@ export default function Contacts() {
                   className="pl-10"
                 />
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filter
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuRadioGroup
-                    value={statusFilter}
-                    onValueChange={setStatusFilter}
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      All Contacts
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="active">
-                      Active
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="inactive">
-                      Inactive
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
 
             {/* Contact Table */}
             <ContactTable
               contacts={contacts || []}
               isLoading={contactsLoading}
+              hasContacts={!!setup?.hasContacts}
               onEdit={handleEdit}
+              onViewRedemptions={(c) => {
+                setHistoryContact(c);
+                setIsHistoryOpen(true);
+              }}
+              onDelete={handleDelete}
             />
           </CardContent>
         </Card>

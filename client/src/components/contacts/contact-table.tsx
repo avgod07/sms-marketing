@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,17 +5,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatPhoneNumber, getSegmentColor, getStatusColor } from "@/lib/utils";
+import { formatPhoneNumber } from "@/lib/utils";
+import StatusBadge from "@/components/status-badge";
 import { Contact } from "@shared/schema";
-import { MoreHorizontal, Mail, Phone, Edit } from "lucide-react";
+import { MoreHorizontal, Mail, Phone, Edit, Trash2, History } from "lucide-react";
 
 interface ContactTableProps {
   contacts: Contact[];
   isLoading: boolean;
+  hasContacts: boolean;
   onEdit: (contact: Contact) => void;
+  onViewRedemptions: (contact: Contact) => void;
+  onDelete: (contact: Contact) => void;
 }
 
-export default function ContactTable({ contacts, isLoading, onEdit }: ContactTableProps) {
+export default function ContactTable({
+  contacts,
+  isLoading,
+  hasContacts,
+  onEdit,
+  onViewRedemptions,
+  onDelete,
+}: ContactTableProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -36,13 +46,18 @@ export default function ContactTable({ contacts, isLoading, onEdit }: ContactTab
   }
 
   if (contacts.length === 0) {
+    const title = hasContacts ? "No contacts match your search" : "No contacts found";
+    const description = hasContacts
+      ? "Try adjusting your search or filters"
+      : "Get started by adding your first contact";
+
     return (
       <div className="text-center py-12">
         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Phone className="w-6 h-6 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No contacts found</h3>
-        <p className="text-gray-500">Get started by adding your first contact</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-500">{description}</p>
       </div>
     );
   }
@@ -55,7 +70,6 @@ export default function ContactTable({ contacts, isLoading, onEdit }: ContactTab
             <th className="text-left py-3 px-4 font-medium text-gray-500">Contact</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Phone</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Email</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Segment</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
@@ -71,8 +85,11 @@ export default function ContactTable({ contacts, isLoading, onEdit }: ContactTab
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">
-                      {contact.firstName} {contact.lastName}
+                    <p className="font-medium text-gray-900 flex items-center space-x-2">
+                      <span>{contact.firstName} {contact.lastName}</span>
+                      {!contact.active && (
+                        <span className="ml-2 rounded px-1 text-xs bg-gray-100 text-gray-700">Inactive</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -91,14 +108,10 @@ export default function ContactTable({ contacts, isLoading, onEdit }: ContactTab
                 )}
               </td>
               <td className="py-4 px-4">
-                <Badge className={getSegmentColor(contact.segment)}>
-                  {contact.segment === 'inactive' ? 'Inactive' : 'Customer'}
-                </Badge>
-              </td>
-              <td className="py-4 px-4">
-                <Badge className={getStatusColor(contact.status)}>
-                  {contact.status}
-                </Badge>
+                <StatusBadge
+                  status={contact.active ? 'active' : 'inactive'}
+                  className="whitespace-nowrap"
+                />
               </td>
               <td className="py-4 px-4">
                 <DropdownMenu>
@@ -110,6 +123,15 @@ export default function ContactTable({ contacts, isLoading, onEdit }: ContactTab
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => onEdit(contact)}>
                       <Edit className="mr-2 h-4 w-4" /> Edit Contact
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onViewRedemptions(contact)}>
+                      <History className="mr-2 h-4 w-4" /> View Redemptions
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => onDelete(contact)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

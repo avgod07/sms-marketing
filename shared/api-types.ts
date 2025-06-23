@@ -3,20 +3,39 @@ export interface DashboardStats {
   messagesSent: number;
   activeCampaigns: number;
   deliveryRate: number;
-  contactsChange: number;
-  messagesChange: number;
-  campaignsChange: number;
-  deliveryRateChange: number;
+  contactsChange: number | null;
+  messagesChange: number | null;
+  campaignsChange: number | null;
+  deliveryRateChange: number | null;
 }
 
 export interface ContactStats {
   allContacts: number;
-  inactive: number;
-  activeContacts: number;
 }
 
 export interface CampaignStats {
   activeCampaigns: number;
   messagesThisMonth: number;
-  avgClickRate: number;
+}
+
+export interface SetupStatus {
+  phoneConfigured: boolean;
+  hasContacts: boolean;
+  hasCoupons: boolean;
+  onboardingComplete: boolean;
+}
+
+export interface ContactRedemption {
+  id: number;
+  couponId: number;
+  code: string;
+  note: string | null;
+  createdAt: string | Date;
+}
+
+
+export interface CampaignSendSummary {
+  sentCount: number;
+  failedCount: number;
+  totalContacts: number;
 }

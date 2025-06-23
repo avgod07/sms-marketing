@@ -1,11 +1,16 @@
 import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
-import { logInfo } from "./logger";
-import { setupAuth } from "./auth";
-import { errorHandler } from "./error-middleware";
+import { logInfo } from "./utils/logger.util";
+import { setupSocket } from "./socket";
+import { setupAuth } from "./middlewares/auth.middleware";
+import {
+  errorHandler,
+  setupGlobalErrorHandling,
+} from "./middlewares/error.middleware";
 
 const app = express();
+setupGlobalErrorHandling();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 setupAuth(app);
@@ -40,6 +45,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  setupSocket(server);
 
   app.use(errorHandler);
 

@@ -2,22 +2,33 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
+import { useCredits } from "@/hooks/use-credits";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 import { 
   LayoutDashboard,
   Users,
   Send,
+  Plus,
+  Tag,
   BarChart3,
   Settings,
   HelpCircle,
   LogOut,
-  MessageSquare
+  MessageSquare,
+  MessageSquareText
+  , ListChecks
 } from "lucide-react";
 
 const navigation = [
+  // Create campaign is surfaced first for quick access
+  { name: "Create Campaign", href: "/campaigns/new", icon: Plus },
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Campaigns", href: "/campaigns", icon: Send },
+  { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Coupons", href: "/coupons", icon: Tag },
+  { name: "Inbox", href: "/inbox", icon: MessageSquareText },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
@@ -30,18 +41,28 @@ const account = [
 export default function Sidebar() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { data: setup } = useSetupStatus();
+  const showOnboarding =
+    !setup?.onboardingComplete &&
+    (!setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons);
 
   const signOutMutation = useMutation({
     mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
     onSuccess: async () => {
+      queryClient.clear();
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
       toast({ title: "Signed out" });
       navigate("/login");
     },
     onError: (error: any) => {
       toast({
         title: "Sign Out Failed",
-        description: error.message || "Unable to sign out",
+        description: handleApiError(error),
         variant: "destructive",
       });
     },
@@ -63,21 +84,36 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4">
-        <div className="space-y-2">
+      <nav className="flex flex-col flex-1 p-4">
+        <div className="flex-1 space-y-1.5">
+          {showOnboarding && (
+            <Link
+              href="/onboarding"
+              className={cn(
+                "flex items-center space-x-3 px-4 py-[0.625rem] rounded-lg font-medium transition-colors text-[0.8125rem]",
+                location === "/onboarding"
+                  ? "bg-primary text-white"
+                  : "text-gray-700 hover:bg-gray-100"
+              )}
+            >
+              <ListChecks className="w-5 h-5" />
+              <span>Onboarding</span>
+            </Link>
+          )}
           {navigation.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const isActive = location === item.href;
             const Icon = item.icon;
-            
+
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors",
+                  "flex items-center space-x-3 px-4 py-[0.625rem] rounded-lg font-medium transition-colors text-[0.8125rem]",
                   isActive
                     ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    : "text-gray-700 hover:bg-gray-100",
+                  item.name === "Create Campaign" && "border-b-2 border-blue-600"
                 )}
               >
                 <Icon className="w-5 h-5" />
@@ -88,11 +124,11 @@ export default function Sidebar() {
         </div>
 
         {/* Account Section */}
-        <div className="mt-8">
+        <div className="mt-auto pt-8">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
             ACCOUNT
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {account.map((item) => {
               const isActive = location === item.href;
               const Icon = item.icon;
@@ -103,7 +139,7 @@ export default function Sidebar() {
                     key={item.name}
                     onClick={() => signOutMutation.mutate()}
                     className={cn(
-                      "flex w-full items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                      "flex w-full items-center space-x-3 px-4 py-[0.625rem] rounded-lg transition-colors text-[0.8125rem]",
                       "text-gray-700 hover:bg-gray-100",
                     )}
                   >
@@ -120,7 +156,7 @@ export default function Sidebar() {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                    "flex items-center space-x-3 px-4 py-[0.625rem] rounded-lg transition-colors text-[0.8125rem]",
                     isActive
                       ? "bg-primary text-white"
                       : "text-gray-700 hover:bg-gray-100",
@@ -132,9 +168,21 @@ export default function Sidebar() {
               );
             })}
           </div>
+          <div className="mt-4">
+            <CreditsDisplay />
+          </div>
         </div>
       </nav>
 
     </aside>
+  );
+}
+
+function CreditsDisplay() {
+  const { data: credits } = useCredits();
+  return (
+    <div className="w-full rounded-md bg-primary py-2 text-center text-sm font-medium text-white">
+      {`Credits: ${credits ?? "--"}`}
+    </div>
   );
 }

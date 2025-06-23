@@ -1,17 +1,50 @@
-import { storage } from "../storage";
+import type { IStorage } from "../db/storage";
 import { TwilioService } from "./twilio";
-import type { Campaign } from "@shared/schema";
 
-export async function executeCampaign(campaignId: number) {
-  const campaign = await storage.getCampaign(campaignId);
+export interface CampaignExecutionResult {
+  sentCount: number;
+  failedCount: number;
+  totalContacts: number;
+}
+
+export async function executeCampaign(
+  bizStorage: IStorage,
+  campaignId: number,
+): Promise<CampaignExecutionResult> {
+  const campaign = await bizStorage.getCampaign(campaignId);
   if (!campaign) {
     throw new Error("Campaign not found");
   }
 
-  const contacts = await storage.getContactsBySegment(campaign.audience);
+  const contacts = (await bizStorage.getContacts()).filter(c => c.active);
 
   if (contacts.length === 0) {
-    return { sentCount: 0, totalContacts: 0 };
+    return { sentCount: 0, failedCount: 0, totalContacts: 0 };
+  }
+
+  const allCoupons = await bizStorage.getCoupons();
+  const campaignCoupons = allCoupons.filter(c =>
+    campaign.message.includes(c.code),
+  );
+
+  for (const contact of contacts) {
+    for (const coupon of campaignCoupons) {
+      await bizStorage.createCouponRecipient({
+        campaignId: campaign.id,
+        contactId: contact.id,
+        couponId: coupon.id,
+      });
+    }
+  }
+
+  const numbers = await bizStorage.getPhoneNumbers();
+  const defaultNumber = numbers.find(n => n.isDefault)?.phoneNumber;
+  const defaultServiceSid = numbers.find(n => n.isDefault)?.serviceSid;
+
+  if (!defaultNumber && !defaultServiceSid) {
+    throw new Error(
+      'This business has not completed onboarding or lacks a valid phone number.',
+    );
   }
 
   const smsMessages = contacts.map(contact => ({
@@ -19,12 +52,15 @@ export async function executeCampaign(campaignId: number) {
     message: campaign.message,
     campaignId: campaign.id,
     contactId: contact.id,
+    from: defaultNumber,
+    messagingServiceSid: defaultServiceSid || undefined,
   }));
 
   const results = await TwilioService.sendBulkSMS(smsMessages);
 
   let sentCount = 0;
   let deliveredCount = 0;
+  let failedCount = 0;
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -36,21 +72,28 @@ export async function executeCampaign(campaignId: number) {
       content: campaign.message,
       status: result.success ? "sent" : "failed",
       campaignId: campaign.id,
+      messageSid: result.messageSid,
     };
 
-    await storage.createMessage(messageData);
+    await bizStorage.createMessage(messageData);
 
     if (result.success) {
       sentCount++;
       deliveredCount++; // Assume delivered until webhook updates
+    } else {
+      failedCount++;
     }
   }
 
-  await storage.updateCampaign(campaignId, {
-    status: "completed",
+  const totalAttempts = sentCount + failedCount;
+  const failureRate = totalAttempts > 0 ? failedCount / totalAttempts : 0;
+  const status = sentCount === 0 || failureRate >= 0.8 ? "failed" : "in_progress";
+
+  await bizStorage.updateCampaign(campaignId, {
+    status,
     sentCount: (campaign.sentCount || 0) + sentCount,
     deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
   });
 
-  return { sentCount, totalContacts: contacts.length };
+  return { sentCount, failedCount, totalContacts: contacts.length };
 }
