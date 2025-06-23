@@ -31,7 +31,7 @@ import { getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@clerk/clerk-react";
 import type { Contact } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
@@ -48,7 +48,7 @@ export default function Contacts() {
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
-  const { data: user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
 
 
