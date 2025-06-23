@@ -86,8 +86,6 @@ export default function Login() {
             )}
           </Button>
           <div className="flex justify-center gap-2 pt-2" aria-hidden>
-            <Button variant="outline" size="sm" disabled className="pointer-events-none opacity-50">Google</Button>
-            <Button variant="outline" size="sm" disabled className="pointer-events-none opacity-50">Facebook</Button>
           </div>
           <p className="text-center text-sm">
             Don't have an account?{' '}
