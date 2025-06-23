@@ -55,6 +55,7 @@ import {
   registerCampaignForA2P,
 } from "../services/a2p.js";
 import { ensureAuthenticated } from "../middlewares/auth.middleware";
+import { clerkExpressRequireAuth } from "../utils/clerk-auth";
 import { logError, logInfo } from "../utils/logger.util";
 import { nanoid } from "nanoid";
 import { createRateLimiter } from "../middlewares/rate-limit.middleware";
@@ -254,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Require authentication for subsequent API routes
-  app.use("/api", ensureAuthenticated);
+  app.use("/api", clerkExpressRequireAuth(), ensureAuthenticated);
 
   app.get("/api/me", (req, res) => {
     res.json((req as any).user || null);

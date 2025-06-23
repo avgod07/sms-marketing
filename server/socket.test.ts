@@ -5,6 +5,8 @@ import express from 'express';
 import request from 'supertest';
 import { SocketService, setupSocket, socketService } from './socket';
 
+const AUTH_COOKIE = '__session=valid';
+
 var registerRoutes: any;
 var mockForBusiness: any;
 var mockStorage: any;
@@ -52,9 +54,15 @@ vi.mock('twilio', () => {
   };
 });
 
-vi.mock('@clerk/backend', () => ({
-  clerkExpressWithAuth: () => (_req: any, _res: any, next: any) => next(),
-  getAuth: (req: any) => req.auth || {},
+vi.mock('./utils/clerk-auth', () => ({
+  clerkExpressRequireAuth: () => (_req: any, _res: any, next: any) => next(),
+  getAuth: (req: any) => {
+    const cookie = req.headers['cookie'];
+    if (cookie && cookie.includes(AUTH_COOKIE)) {
+      return Promise.resolve({ userId: '1' });
+    }
+    return Promise.resolve({});
+  },
 }));
 
 describe('SocketService', () => {
@@ -79,8 +87,8 @@ describe('SocketService', () => {
   });
 
   it('does not echo messages back to the sender', async () => {
-    const ws1 = new WebSocket(`ws://localhost:${port}/ws`);
-    const ws2 = new WebSocket(`ws://localhost:${port}/ws`);
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws`, { headers: { Cookie: AUTH_COOKIE } });
+    const ws2 = new WebSocket(`ws://localhost:${port}/ws`, { headers: { Cookie: AUTH_COOKIE } });
 
     await Promise.all([
       new Promise(resolve => ws1.once('open', resolve)),
@@ -114,7 +122,7 @@ describe('SocketService', () => {
     };
     mockForBusiness.createMessage.mockResolvedValue(saved);
 
-    const ws1 = new WebSocket(`ws://localhost:${port}/ws`);
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws`, { headers: { Cookie: AUTH_COOKIE } });
     await new Promise(resolve => ws1.once('open', resolve));
 
     const msgs: string[] = [];
@@ -145,7 +153,7 @@ describe('SocketService', () => {
     const updated = { id: 5, status: 'delivered' };
     mockForBusiness.updateMessageStatusBySid.mockResolvedValue(updated);
 
-    const ws1 = new WebSocket(`ws://localhost:${port}/ws`);
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws`, { headers: { Cookie: AUTH_COOKIE } });
     await new Promise(resolve => ws1.once('open', resolve));
 
     const msgs: string[] = [];
@@ -168,5 +176,12 @@ describe('SocketService', () => {
     const payload = JSON.parse(msgs[0]);
     expect(payload.event).toBe('message:status');
     expect(payload.data).toEqual(updated);
+  });
+
+  it('rejects connections without auth', async () => {
+    const ws = new WebSocket(`ws://localhost:${port}/ws`);
+    await new Promise(resolve => ws.once('open', resolve));
+    const code = await new Promise<number>(resolve => ws.once('close', c => resolve(c)));
+    expect(code).toBe(4401);
   });
 });

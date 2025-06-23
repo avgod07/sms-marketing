@@ -65,9 +65,9 @@ vi.mock('bcryptjs', () => ({
 }));
 
 
-vi.mock('@clerk/backend', () => ({
-  clerkExpressWithAuth: () => (_req: any, _res: any, next: any) => next(),
-  getAuth: (req: any) => req.auth || {},
+vi.mock('../utils/clerk-auth', () => ({
+  clerkExpressRequireAuth: () => (_req: any, _res: any, next: any) => next(),
+  getAuth: (req: any) => Promise.resolve(req.auth || {}),
 }));
 
 beforeAll(async () => {
