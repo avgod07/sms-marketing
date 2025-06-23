@@ -20,21 +20,6 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-const passwordSchema = z
-  .string()
-  .min(8, { message: "Password must be at least 8 characters" })
-  .max(72, { message: "Password must be at most 72 characters" })
-  .regex(/[a-z]/, { message: "Password must contain a lowercase letter" })
-  .regex(/[A-Z]/, { message: "Password must contain an uppercase letter" })
-  .regex(/\d/, { message: "Password must contain a number" })
-  .regex(/[^A-Za-z0-9]/, { message: "Password must contain a symbol" });
-
-const loginSchema = z.object({
-  username: z.string().email({ message: "Invalid email" }),
-  password: passwordSchema,
-});
-
-const signupSchema = loginSchema;
 
 const businessProfileSchema = insertBusinessProfileSchema.extend({
   name: z.string().optional(),
@@ -69,8 +54,6 @@ import {
   registerBusinessForA2P,
   registerCampaignForA2P,
 } from "../services/a2p.js";
-import passport from "passport";
-import bcrypt from "bcryptjs";
 import { ensureAuthenticated } from "../middlewares/auth.middleware";
 import { logError, logInfo } from "../utils/logger.util";
 import { nanoid } from "nanoid";
@@ -84,48 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function biz(req: any) {
     return storage.forBusiness(req.user.businessId);
   }
-  // Authentication routes
-  app.post("/api/signup", async (req, res) => {
-    try {
-      const { username, password } = signupSchema.parse(req.body);
-      const existing = await storage.getUserByUsername(username);
-      if (existing) {
-        return res.status(400).json({ message: "User already exists" });
-      }
-      const passwordHash = await bcrypt.hash(password, 10);
-      const defaultBusinessName = username.split("@")[0] || "Untitled";
-      const business = await storage.createBusiness({
-        name: defaultBusinessName,
-      });
-      const user = await storage
-        .forBusiness(business.id)
-        .createUser({ username, passwordHash });
-      try {
-        await new Promise<void>((resolve, reject) => {
-          req.login(user, (err: any) => {
-            if (err) return reject(err);
-            return resolve();
-          });
-        });
-        res.status(201).json({ message: "Signed up" });
-      } catch (err) {
-        logError("Error logging in after signup:", err);
-        return res.status(500).json({ message: "Failed to sign up" });
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error signing up:", error);
-      res.status(500).json({ message: "Failed to sign up" });
-    }
-  });
-
-  app.post("/api/login", passport.authenticate("local"), (_req, res) => {
-    res.json({ message: "Logged in" });
-  });
+  // Authentication routes handled by Clerk on the frontend
 
   // Return current authenticated user or null
   app.get("/api/me", (req, res) => {
