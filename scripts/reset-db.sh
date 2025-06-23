@@ -4,7 +4,7 @@ set -e
 # If running inside the dev container, /.dockerenv will exist.
 if [ -f "/.dockerenv" ]; then
   echo "Resetting database inside dev container..."
-  npx tsx server/reset-schema.ts
+  npx tsx server/db/reset-schema.ts
 
   echo "Applying database schema..."
   npm run db:push
