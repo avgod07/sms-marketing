@@ -103,9 +103,10 @@ existing ones is easier to reason about.
 
 ## Authentication
 
-The API uses session-based authentication with Passport's `passport-local` strategy.
-You can create an account and log in directly from the web interface. The signup page collects the user's email and password and posts this data to `/api/signup`, which creates both the business and owner account.
-To log in later, send your username (the email you signed up with) and password to `/api/login`. Once logged in, all other `/api` routes require an authenticated session. You can sign out via the UI or by calling `POST /api/logout`.
+Authentication is provided by [Clerk.dev](https://clerk.dev) using Google OAuth or magic links.
+The React app is wrapped in `ClerkProvider` and renders Clerk's `<SignIn />` and
+`<SignUp />` components. Configure your publishable key by setting
+`VITE_CLERK_PUBLISHABLE_KEY` in `.env`.
 
 ## Twilio Webhook Configuration
 

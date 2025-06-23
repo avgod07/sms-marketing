@@ -32,7 +32,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/hooks/use-auth";
-import type { User } from "@shared/schema";
 import type { Contact } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
@@ -49,7 +48,7 @@ export default function Contacts() {
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
-  const { data: user } = useAuth() as { data: User | null };
+  const { data: user } = useAuth();
   const { toast } = useToast();
 
 
@@ -237,10 +236,10 @@ export default function Contacts() {
                       <DialogTitle>Join Link QR Code</DialogTitle>
                     </DialogHeader>
                     <div className="flex justify-center py-4">
-                      {user?.businessId ? (
+                      {user?.publicMetadata?.businessId ? (
                         <QRCode
                           id="business-qr-code"
-                          value={`${window.location.origin}/join/${user.businessId}`}
+                          value={`${window.location.origin}/join/${user.publicMetadata.businessId}`}
                         />
                       ) : (
                         <Skeleton className="h-40 w-40" />
