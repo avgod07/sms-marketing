@@ -158,6 +158,7 @@ export const users = pgTable("users", {
     .notNull(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  clerkUserId: text("clerk_user_id").unique(),
   onboardingComplete: boolean("onboarding_complete")
     .default(false)
     .notNull(),

@@ -24,6 +24,7 @@ vi.mock('../db/storage', () => {
   };
   mockStorage = {
     getUserByUsername: vi.fn(),
+    getUserByClerkId: vi.fn(),
     createBusiness: vi.fn(),
     forBusiness: vi.fn(() => mockForBusiness),
   };
@@ -63,21 +64,10 @@ vi.mock('bcryptjs', () => ({
   hash: vi.fn(() => Promise.resolve('hashed')),
 }));
 
-vi.mock('passport', () => ({
-  default: {
-    authenticate: () => (_req: any, _res: any, next: any) => next(),
-    initialize: () => (_req: any, _res: any, next: any) => next(),
-    session: () => (_req: any, _res: any, next: any) => next(),
-    use: vi.fn(),
-    serializeUser: vi.fn(),
-    deserializeUser: vi.fn(),
-  },
-  authenticate: () => (_req: any, _res: any, next: any) => next(),
-  initialize: () => (_req: any, _res: any, next: any) => next(),
-  session: () => (_req: any, _res: any, next: any) => next(),
-  use: vi.fn(),
-  serializeUser: vi.fn(),
-  deserializeUser: vi.fn(),
+
+vi.mock('@clerk/backend', () => ({
+  clerkExpressWithAuth: () => (_req: any, _res: any, next: any) => next(),
+  getAuth: (req: any) => req.auth || {},
 }));
 
 beforeAll(async () => {
@@ -93,10 +83,13 @@ async function setupApp(user?: any) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    req.login = (_u: any, cb: any) => cb?.();
     if (user) {
+      req.auth = { userId: '1' };
       req.user = user;
-      req.isAuthenticated = () => true;
+      mockStorage.getUserByClerkId.mockResolvedValue(user);
+    } else {
+      req.auth = {};
+      mockStorage.getUserByClerkId.mockResolvedValue(undefined);
     }
     next();
   });
@@ -115,10 +108,10 @@ describe('routes', () => {
     expect(res.body).toEqual({ id: 2, name: 'User' });
   });
 
-  it('me returns null when not logged in', async () => {
+  it('me returns 401 when not logged in', async () => {
     const app = await setupApp();
     const res = await request(app).get('/api/me');
-    expect(res.body).toBeNull();
+    expect(res.status).toBe(401);
   });
 
   it('deletes campaign with existing messages', async () => {

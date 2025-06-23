@@ -52,6 +52,11 @@ vi.mock('twilio', () => {
   };
 });
 
+vi.mock('@clerk/backend', () => ({
+  clerkExpressWithAuth: () => (_req: any, _res: any, next: any) => next(),
+  getAuth: (req: any) => req.auth || {},
+}));
+
 describe('SocketService', () => {
   let server: ReturnType<typeof createServer>;
   let service: SocketService;
