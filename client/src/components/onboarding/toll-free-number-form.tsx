@@ -18,11 +18,10 @@ export default function TollFreeNumberForm({
   onCancel,
 }: TollFreeNumberFormProps) {
   const { toast } = useToast();
-  const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const { data: numbers, isFetching } = useQuery<string[]>({
-    queryKey: ["/api/onboarding/available-numbers", { page }],
+  const { data: numbers } = useQuery<string[]>({
+    queryKey: ["/api/onboarding/available-numbers"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
@@ -72,9 +71,6 @@ export default function TollFreeNumberForm({
           </button>
         ))}
       </div>
-      <Button type="button" variant="outline" onClick={() => setPage((p) => p + 1)} disabled={isFetching}>
-        See more numbers
-      </Button>
       <div className="pt-4 flex items-center justify-between">
         {onBack && (
           <Button type="button" variant="outline" onClick={onBack}>
