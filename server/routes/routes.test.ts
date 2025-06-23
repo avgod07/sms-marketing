@@ -79,18 +79,19 @@ afterEach(() => {
   registerRoutes = undefined;
 });
 
-async function setupApp(user?: any) {
+async function setupApp(user?: any, authUserId: string | null = user ? '1' : null) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    if (user) {
-      req.auth = { userId: '1' };
-      req.user = user;
-      mockStorage.getUserByClerkId.mockResolvedValue(user);
+    if (authUserId) {
+      req.auth = { userId: authUserId };
     } else {
       req.auth = {};
-      mockStorage.getUserByClerkId.mockResolvedValue(undefined);
     }
+    if (user) {
+      req.user = user;
+    }
+    mockStorage.getUserByClerkId.mockResolvedValue(user);
     next();
   });
   if (!registerRoutes) {
@@ -112,6 +113,30 @@ describe('routes', () => {
     const app = await setupApp();
     const res = await request(app).get('/api/me');
     expect(res.status).toBe(401);
+  });
+
+  it('blocks api access when clerk user is missing in DB', async () => {
+    const app = await setupApp(undefined, '1');
+    const res = await request(app).get('/api/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('allows signup for new clerk user', async () => {
+    mockStorage.createBusiness.mockResolvedValue({ id: 9 });
+    mockForBusiness.createUser = vi.fn().mockResolvedValue({ id: 1 });
+    const app = await setupApp(undefined, '1');
+
+    const res = await request(app)
+      .post('/api/signup')
+      .send({ businessName: 'New Biz' });
+
+    expect(res.status).toBe(201);
+    expect(mockStorage.createBusiness).toHaveBeenCalledWith({ name: 'New Biz' });
+    expect(mockForBusiness.createUser).toHaveBeenCalledWith({
+      username: '1',
+      passwordHash: '',
+      clerkUserId: '1',
+    });
   });
 
   it('deletes campaign with existing messages', async () => {

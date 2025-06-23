@@ -1,8 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { clerkExpressRequireAuth, getAuth } from "../utils/clerk-auth";
 import { storage } from "../db/storage";
-import { db } from "../config/db.config";
-import { businesses } from "@shared/schema";
 
 export function setupAuth(app: Express) {
   app.use(clerkExpressRequireAuth());
@@ -18,17 +16,12 @@ export async function ensureAuthenticated(
     return res.status(401).json({ message: "Unauthorized" });
   }
   try {
-    let user = await storage.getUserByClerkId(userId);
+    const user = await storage.getUserByClerkId(userId);
     if (!user) {
-      const [biz] = await db.select().from(businesses).limit(1);
-      if (!biz) {
-        return res.status(500).json({ message: "No business configured" });
+      if (req.path.startsWith("/signup")) {
+        return next();
       }
-      user = await storage.forBusiness(biz.id).createUser({
-        username: userId,
-        passwordHash: "",
-        clerkUserId: userId,
-      });
+      return res.status(401).json({ message: "Unauthorized" });
     }
     (req as any).user = user;
     next();
