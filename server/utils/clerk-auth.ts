@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import { createClerkClient } from '@clerk/backend';
 import { createClerkRequest } from '@clerk/backend/internal';
-import { logDebug } from './logger.util';
+import { logDebug, logInfo } from './logger.util';
 
 function absoluteUrl(req: Request | import('http').IncomingMessage) {
   const protoHeader = Array.isArray(req.headers['x-forwarded-proto'])
@@ -19,13 +19,27 @@ function absoluteUrl(req: Request | import('http').IncomingMessage) {
   return `${protocol}://${hostHeader}${path}`;
 }
 
+const clerkApiUrl =
+  process.env.CLERK_API_URL ||
+  'https://noted-weasel-27.clerk.accounts.dev';
+
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY || '',
-  apiUrl: 'https://noted-weasel-27.clerk.accounts.dev',
+  apiUrl: clerkApiUrl,
   publishableKey:
     process.env.CLERK_PUBLISHABLE_KEY ||
     process.env.VITE_CLERK_PUBLISHABLE_KEY ||
     '',
+});
+
+logInfo('Clerk configured', {
+  apiUrl: clerkApiUrl,
+  secretKeySet: !!process.env.CLERK_SECRET_KEY,
+  publishableKeySet:
+    !!(
+      process.env.CLERK_PUBLISHABLE_KEY ||
+      process.env.VITE_CLERK_PUBLISHABLE_KEY
+    ),
 });
 
 export async function getAuth(req: Request | import('http').IncomingMessage) {
