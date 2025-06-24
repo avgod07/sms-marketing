@@ -30,9 +30,6 @@ function Router() {
   const isPublicPage = location.startsWith("/join/");
 
   useEffect(() => {
-    if (isLoaded) {
-      console.log('Clerk user', user);
-    }
     if (isLoaded && !user && !isAuthPage && !isPublicPage) {
       navigate("/login");
     }
