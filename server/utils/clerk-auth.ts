@@ -20,6 +20,7 @@ function absoluteUrl(req: Request | import('http').IncomingMessage) {
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY || '',
+  apiUrl: 'https://noted-weasel-27.clerk.accounts.dev',
   publishableKey:
     process.env.CLERK_PUBLISHABLE_KEY ||
     process.env.VITE_CLERK_PUBLISHABLE_KEY ||
@@ -32,6 +33,7 @@ export async function getAuth(req: Request | import('http').IncomingMessage) {
     headers: req.headers as any,
   });
   const state = await clerk.authenticateRequest(clerkReq);
+  console.log('Clerk Auth State:', state);
   const auth = state.toAuth();
   const userId = (auth as any)?.userId ?? null;
   return { userId };
