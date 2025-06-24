@@ -255,7 +255,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Require authentication for subsequent API routes
-  app.use("/api", clerkExpressRequireAuth(), ensureAuthenticated);
+  // Clerk auth middleware is mounted in setupAuth, so we only
+  // need to attach ensureAuthenticated here.
+  app.use("/api", ensureAuthenticated);
 
 
   app.get("/api/me", (req, res) => {
