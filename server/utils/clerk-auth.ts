@@ -20,6 +20,10 @@ function absoluteUrl(req: Request | import('http').IncomingMessage) {
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY || '',
+  publishableKey:
+    process.env.CLERK_PUBLISHABLE_KEY ||
+    process.env.VITE_CLERK_PUBLISHABLE_KEY ||
+    '',
 });
 
 export async function getAuth(req: Request | import('http').IncomingMessage) {
