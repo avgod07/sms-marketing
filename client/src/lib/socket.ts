@@ -3,10 +3,10 @@ import type { Message } from '@shared/schema';
 let socket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function connectSocket(): WebSocket {
+export function connectSocket(token = ''): WebSocket {
   if (socket) return socket;
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  socket = new WebSocket(`${proto}://${window.location.host}/ws`);
+  const port = import.meta.env.VITE_BACKEND_PORT;
+  socket = new WebSocket(`ws://localhost:${port}/ws?token=${token}`);
   socket.addEventListener('close', () => {
     socket = null;
     if (!reconnectTimer) {
