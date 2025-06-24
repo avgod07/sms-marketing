@@ -17,6 +17,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 setupAuth(app);
 
+// Add a relaxed CSP for local development to allow Clerk OAuth flows.
+// This should be removed or hardened for production.
+if (process.env.NODE_ENV === "development") {
+  app.use((_req, res, next) => {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+    );
+    next();
+  });
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
