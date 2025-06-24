@@ -10,6 +10,8 @@ import {
 } from "./middlewares/error.middleware";
 
 const app = express();
+// trust the first proxy when running behind one (e.g., in Docker or devcontainers)
+app.set("trust proxy", 1);
 setupGlobalErrorHandling();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
