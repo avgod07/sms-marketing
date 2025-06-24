@@ -152,6 +152,11 @@ export interface IStorage {
   getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  /**
+   * Convenience helper used during authentication. Creates a new business
+   * and associated user record in a single transaction for a Clerk user.
+   */
+  provisionUserWithBusiness(clerkUserId: string): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1121,6 +1126,27 @@ export class DatabaseStorage implements IStorage {
       .values({ ...user, businessId })
       .returning();
     return newUser;
+  }
+
+  async provisionUserWithBusiness(clerkUserId: string): Promise<User> {
+    let createdUser: User | undefined;
+    await db.transaction(async (tx) => {
+      const [biz] = await tx
+        .insert(businesses)
+        .values({ name: "Untitled Business" })
+        .returning();
+      const [user] = await tx
+        .insert(users)
+        .values({
+          businessId: biz.id,
+          username: clerkUserId,
+          passwordHash: "",
+          clerkUserId,
+        })
+        .returning();
+      createdUser = user;
+    });
+    return createdUser!;
   }
 }
 
