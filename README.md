@@ -27,15 +27,7 @@ This project relies on Node.js and Docker for local development. The steps below
    ```
 
    Edit `.env` and provide a valid `DATABASE_URL` along with your Twilio
-   credentials (`TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`). Set your Clerk
-   keys and proxy URLs as well:
-
-   ```env
-   CLERK_SECRET_KEY=<your secret key>
-   VITE_CLERK_PUBLISHABLE_KEY=<your publishable key>
-   CLERK_PROXY_URL=http://localhost:5001
-   VITE_CLERK_PROXY_URL=http://localhost:5001
-   ```
+   credentials (`TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`).
 
 4. **Start Postgres**
 
@@ -117,21 +109,12 @@ setup.
 
 ## Authentication
 
-Authentication is provided by [Clerk.dev](https://clerk.dev) using Google OAuth or magic links. The React app
-is wrapped in `ClerkProvider` and renders Clerk's `<SignIn />` and `<SignUp />` components.
-
-Both the frontend and backend use Clerk **Proxy Mode**. Configure the following variables in `.env`
-so all Clerk traffic routes through your API:
-
-```env
-VITE_CLERK_PUBLISHABLE_KEY=<your publishable key>
-CLERK_SECRET_KEY=<your secret key>
-VITE_CLERK_PROXY_URL=http://localhost:5001
-CLERK_PROXY_URL=http://localhost:5001
-```
-
-With Proxy Mode enabled you no longer need to run `clerk dev` or keep the Dev Browser open.
-The backend SDK authenticates requests through the proxy URL.
+Authentication is provided by [Clerk.dev](https://clerk.dev) using Google OAuth or magic links.
+The React app is wrapped in `ClerkProvider` and renders Clerk's `<SignIn />` and
+`<SignUp />` components. Configure your publishable key by setting
+`VITE_CLERK_PUBLISHABLE_KEY` in `.env`.
+The backend uses the Clerk Backend SDK to verify requests. Set `CLERK_SECRET_KEY`
+in `.env` so the server can authenticate requests.
 
 ## User & Business Provisioning
 
