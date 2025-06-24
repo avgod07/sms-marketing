@@ -56,7 +56,9 @@ export default function Inbox() {
   useEffect(() => {
     async function loadConversations() {
       try {
-        const res = await fetch("/api/conversations");
+        const res = await fetch("/api/conversations", {
+          credentials: "include",
+        });
         if (res.ok) {
           const data = await res.json();
           const convs: Conversation[] = data.map((c: any) => ({
@@ -100,7 +102,9 @@ export default function Inbox() {
     if (selectedId === null) return;
     async function loadMessages() {
       try {
-        const res = await fetch(`/api/conversations/${selectedId}/messages`);
+        const res = await fetch(`/api/conversations/${selectedId}/messages`, {
+          credentials: "include",
+        });
         if (res.ok) {
           const data: ApiMessage[] = await res.json();
           setConversations((prev) =>
@@ -194,6 +198,7 @@ export default function Inbox() {
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           contactId: selected.id,
           phoneNumber: selected.phone,
