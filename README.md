@@ -61,13 +61,6 @@ This project relies on Node.js and Docker for local development. The steps below
    The Vite dev server forwards port `5001` on your host to `5000` inside the
    container. Open <http://localhost:5001> in your browser to view the app.
 
-### Development Content Security Policy
-
-During development the server applies a relaxed Content Security Policy header so
-Clerk widgets and Google OAuth popups function correctly. This header is only
-set when `NODE_ENV=development` and should be removed or hardened for
-production deployments.
-
 8. **Production build**
 
    To create a production build and start it locally:
