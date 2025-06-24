@@ -2,7 +2,7 @@
     "name": "sms-marketing",
     "dockerComposeFile": "docker-compose.yml",
     "service": "app",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/workspace/sms-marketing",
     "remoteUser": "node",
     // add Docker CLI so reset commands work from within the container
     "features": {
