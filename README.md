@@ -114,7 +114,7 @@ The React app is wrapped in `ClerkProvider` and renders Clerk's `<SignIn />` and
 `<SignUp />` components. Configure your publishable key by setting
 `VITE_CLERK_PUBLISHABLE_KEY` in `.env`.
 The backend uses the Clerk Backend SDK to verify requests. Set `CLERK_SECRET_KEY`
-in `.env` for production deployments.
+in `.env` so the server can authenticate requests.
 
 ## Twilio Webhook Configuration
 
