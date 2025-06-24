@@ -26,7 +26,7 @@ function Router() {
   const { isLoaded, user } = useUser();
 
   const isAuthPage =
-    location === "/login" || location === "/signup";
+    location.startsWith("/login") || location.startsWith("/signup");
   const isPublicPage = location.startsWith("/join/");
 
   useEffect(() => {
