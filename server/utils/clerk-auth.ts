@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import { createClerkClient } from '@clerk/backend';
 import { createClerkRequest } from '@clerk/backend/internal';
+import { logDebug } from './logger.util';
 
 function absoluteUrl(req: Request | import('http').IncomingMessage) {
   const protoHeader = Array.isArray(req.headers['x-forwarded-proto'])
@@ -28,31 +29,33 @@ const clerk = createClerkClient({
 });
 
 export async function getAuth(req: Request | import('http').IncomingMessage) {
-  console.log("absoluteUrl", absoluteUrl(req));
+  logDebug('absoluteUrl', { url: absoluteUrl(req) });
   const clerkReq = createClerkRequest(absoluteUrl(req), {
     method: (req as any).method || 'GET',
     headers: req.headers as any,
   });
   const state = await clerk.authenticateRequest(clerkReq);
-  console.log('Clerk Auth State:', state);
+  logDebug('clerk auth state', { state });
   const auth = state.toAuth();
   const userId = (auth as any)?.userId ?? null;
+  logDebug('getAuth result', { userId });
   return { userId };
 }
 
 export function clerkExpressRequireAuth(): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
-    console.log("absoluteUrl", absoluteUrl(req));
+    logDebug('absoluteUrl', { url: absoluteUrl(req) });
     const clerkReq = createClerkRequest(absoluteUrl(req), {
       method: req.method,
       headers: req.headers as any,
     });
     const state = await clerk.authenticateRequest(clerkReq);
-    console.log('Clerk Auth State:', state);
+    logDebug('clerk auth state', { state });
     if (!state.isSignedIn) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     (req as any).auth = { userId: state.toAuth().userId };
+    logDebug('middleware auth success', { userId: state.toAuth().userId });
     next();
   };
 }
