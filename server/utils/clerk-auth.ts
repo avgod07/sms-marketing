@@ -28,6 +28,7 @@ const clerk = createClerkClient({
 });
 
 export async function getAuth(req: Request | import('http').IncomingMessage) {
+  console.log("absoluteUrl", absoluteUrl(req));
   const clerkReq = createClerkRequest(absoluteUrl(req), {
     method: (req as any).method || 'GET',
     headers: req.headers as any,
@@ -41,11 +42,13 @@ export async function getAuth(req: Request | import('http').IncomingMessage) {
 
 export function clerkExpressRequireAuth(): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
+    console.log("absoluteUrl", absoluteUrl(req));
     const clerkReq = createClerkRequest(absoluteUrl(req), {
       method: req.method,
       headers: req.headers as any,
     });
     const state = await clerk.authenticateRequest(clerkReq);
+    console.log('Clerk Auth State:', state);
     if (!state.isSignedIn) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
