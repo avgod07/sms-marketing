@@ -25,14 +25,7 @@ export async function ensureAuthenticated(
   try {
     let user = await storage.getUserByClerkId(userId);
     if (!user) {
-      const business = await storage.createBusiness({
-        name: "Untitled Business",
-      });
-      user = await storage.forBusiness(business.id).createUser({
-        username: userId,
-        passwordHash: "",
-        clerkUserId: userId,
-      });
+      user = await storage.provisionUserWithBusiness(userId);
     }
 
     (req as any).user = user;

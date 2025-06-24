@@ -26,6 +26,7 @@ vi.mock('../db/storage', () => {
     getUserByUsername: vi.fn(),
     getUserByClerkId: vi.fn(),
     createBusiness: vi.fn(),
+    provisionUserWithBusiness: vi.fn(),
     forBusiness: vi.fn(() => mockForBusiness),
   };
   return {
@@ -122,23 +123,14 @@ describe('routes', () => {
   });
 
   it('auto provisions business and user on first authenticated request', async () => {
-    mockStorage.createBusiness.mockResolvedValue({ id: 9 });
-    mockForBusiness.createUser = vi.fn().mockResolvedValue({
-      id: 1,
-      businessId: 9,
-    });
+    mockStorage.provisionUserWithBusiness.mockResolvedValue({ id: 1, businessId: 9 });
 
     const app = await setupApp(undefined, '1');
 
     const res = await request(app).get('/api/me');
 
     expect(res.status).toBe(200);
-    expect(mockStorage.createBusiness).toHaveBeenCalledWith({ name: 'Untitled Business' });
-    expect(mockForBusiness.createUser).toHaveBeenCalledWith({
-      username: '1',
-      passwordHash: '',
-      clerkUserId: '1',
-    });
+    expect(mockStorage.provisionUserWithBusiness).toHaveBeenCalledWith('1');
     expect(res.body).toEqual({ id: 1, businessId: 9 });
   });
 

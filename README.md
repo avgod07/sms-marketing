@@ -116,6 +116,16 @@ The React app is wrapped in `ClerkProvider` and renders Clerk's `<SignIn />` and
 The backend uses the Clerk Backend SDK to verify requests. Set `CLERK_SECRET_KEY`
 in `.env` so the server can authenticate requests.
 
+## User & Business Provisioning
+
+User and business records are created lazily. The first time a logged-in user
+hits any protected API route (for example, calling `/api/me` after sign-up), the
+backend automatically creates a new business named **Untitled Business** and a
+linked user account if none exist. This mirrors platforms like Textla and means
+no Clerk webhooks are required. In development the seeding script still provides
+a shared demo business, while production sign-ups each receive their own
+isolated business on-demand.
+
 ## Twilio Webhook Configuration
 
 To receive delivery status updates from Twilio you need to configure a Status Callback URL.
