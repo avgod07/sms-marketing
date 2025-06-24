@@ -20,7 +20,7 @@ function absoluteUrl(req: Request | import('http').IncomingMessage) {
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY || '',
-  apiUrl: 'https://noted-weasel-27.clerk.accounts.dev',
+  proxyUrl: process.env.CLERK_PROXY_URL || '',
   publishableKey:
     process.env.CLERK_PUBLISHABLE_KEY ||
     process.env.VITE_CLERK_PUBLISHABLE_KEY ||
