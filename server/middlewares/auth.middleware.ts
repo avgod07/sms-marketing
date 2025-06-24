@@ -2,8 +2,15 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { clerkExpressRequireAuth, getAuth } from "../utils/clerk-auth";
 import { storage } from "../db/storage";
 
+/**
+ * Configure authentication middleware.
+ *
+ * The login page and other static assets should be accessible without
+ * authentication. Only API routes need to enforce Clerk auth, so we
+ * mount the Clerk middleware on the "/api" path prefix.
+ */
 export function setupAuth(app: Express) {
-  app.use(clerkExpressRequireAuth());
+  app.use("/api", clerkExpressRequireAuth());
 }
 
 export async function ensureAuthenticated(
