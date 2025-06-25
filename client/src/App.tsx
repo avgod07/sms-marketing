@@ -26,7 +26,10 @@ function Router() {
   const { data: user, isLoading } = useAuth();
 
   const isAuthPage =
-    location === "/login" || location === "/signup";
+    location === "/login" ||
+    location === "/signup" ||
+    location.startsWith("/sign-in") ||
+    location.startsWith("/sign-up");
   const isPublicPage = location.startsWith("/join/");
 
   useEffect(() => {
