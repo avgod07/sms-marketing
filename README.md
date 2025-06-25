@@ -91,9 +91,9 @@ existing ones is easier to reason about.
 
 ## Authentication
 
-Authentication is handled by [Clerk](https://clerk.com/). The application uses Clerk's hosted sign-in and sign-up pages.
+Authentication is handled by [Clerk](https://clerk.com/). The application uses Clerk's hosted sign-in and sign-up pages exclusively.
 
-Set `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_FRONTEND_API`, and `CLERK_SECRET_KEY` in your environment. The frontend is wrapped in `ClerkProvider` and the backend validates requests using Clerk's Node SDK.
+Set `VITE_CLERK_PUBLISHABLE_KEY` or `VITE_CLERK_FRONTEND_API` along with `CLERK_SECRET_KEY` in your environment. The frontend no longer wraps the app in `ClerkProvider`; sessions are validated on the backend using Clerk's Node SDK.
 
 When a user authenticates for the first time, the backend provisions a business and user record tied to the Clerk user ID. All subsequent API calls must include a valid Clerk session cookie or token.
 

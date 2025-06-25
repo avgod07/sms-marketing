@@ -1,10 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { handleApiError } from "@/lib/handleApiError";
-import { useToast } from "@/hooks/use-toast";
-import { useClerk } from "@clerk/clerk-react";
+
 import { useCredits } from "@/hooks/use-credits";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { 
@@ -40,35 +36,15 @@ const account = [
 ];
 
 export default function Sidebar() {
-  const [location, navigate] = useLocation();
-  const { toast } = useToast();
-  const { signOut } = useClerk();
+  const [location] = useLocation();
   const { data: setup } = useSetupStatus();
+  const clerkBaseUrl = import.meta.env.VITE_CLERK_FRONTEND_API
+    ? `https://${import.meta.env.VITE_CLERK_FRONTEND_API}`
+    : import.meta.env.VITE_CLERK_PROXY_URL;
   const showOnboarding =
     !setup?.onboardingComplete &&
     (!setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons);
 
-  const signOutMutation = useMutation({
-    mutationFn: () => signOut(),
-    onSuccess: async () => {
-      queryClient.clear();
-      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
-      toast({ title: "Signed out" });
-      navigate("/login");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Sign Out Failed",
-        description: handleApiError(error),
-        variant: "destructive",
-      });
-    },
-  });
 
   return (
     <aside className="w-72 bg-white border-r border-gray-200 flex flex-col sidebar-transition">
@@ -137,19 +113,17 @@ export default function Sidebar() {
 
               if (item.name === "Sign Out") {
                 return (
-                  <button
+                  <a
                     key={item.name}
-                    onClick={() => signOutMutation.mutate()}
+                    href={`${clerkBaseUrl}/sign-out`}
                     className={cn(
                       "flex w-full items-center space-x-3 px-4 py-[0.625rem] rounded-lg transition-colors text-[0.8125rem]",
                       "text-gray-700 hover:bg-gray-100",
                     )}
                   >
                     <Icon className="w-5 h-5" />
-                    <span>
-                      {signOutMutation.isPending ? "Signing Out..." : item.name}
-                    </span>
-                  </button>
+                    <span>{item.name}</span>
+                  </a>
                 );
               }
 
