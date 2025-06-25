@@ -53,6 +53,8 @@
     "embla-carousel-react": "^8.6.0",
     "express": "^4.21.2",
     "framer-motion": "^11.13.1",
+    "@clerk/clerk-react": "^4.8.3",
+    "@clerk/clerk-sdk-node": "^4.41.4",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.453.0",
     "nanoid": "^5.1.5",
@@ -74,10 +76,7 @@
     "ws": "^8.18.0",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0",
-    "bcryptjs": "^2.4.3",
-    "express-session": "^1.17.3",
-    "passport": "^0.7.0",
-    "passport-local": "^1.0.0"
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.2.5",

@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
+import { useClerk } from "@clerk/clerk-react";
 import { useCredits } from "@/hooks/use-credits";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { 
@@ -41,13 +42,14 @@ const account = [
 export default function Sidebar() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { signOut } = useClerk();
   const { data: setup } = useSetupStatus();
   const showOnboarding =
     !setup?.onboardingComplete &&
     (!setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons);
 
   const signOutMutation = useMutation({
-    mutationFn: () => apiRequest({ method: "POST", url: "/api/logout" }),
+    mutationFn: () => signOut(),
     onSuccess: async () => {
       queryClient.clear();
       await queryClient.invalidateQueries({ queryKey: ["/api/me"] });

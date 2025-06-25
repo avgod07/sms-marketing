@@ -37,8 +37,7 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm run seed
    ```
 
-   This command also creates a demo account with username `demo` and
-   password `demo123` tied to the `Seeded Business` for testing.
+   This command also seeds a sample business and related data for testing.
 
 5. **Development server**
 
@@ -92,9 +91,11 @@ existing ones is easier to reason about.
 
 ## Authentication
 
-The API uses session-based authentication with Passport's `passport-local` strategy.
-You can create an account and log in directly from the web interface. The signup page collects the user's email and password and posts this data to `/api/signup`, which creates both the business and owner account.
-To log in later, send your username (the email you signed up with) and password to `/api/login`. Once logged in, all other `/api` routes require an authenticated session. You can sign out via the UI or by calling `POST /api/logout`.
+Authentication is handled by [Clerk](https://clerk.com/). The application uses Clerk's hosted sign-in and sign-up pages.
+
+Set `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in your environment. The frontend is wrapped in `ClerkProvider` and the backend validates requests using Clerk's Node SDK.
+
+When a user authenticates for the first time, the backend provisions a business and user record tied to the Clerk user ID. All subsequent API calls must include a valid Clerk session cookie or token.
 
 ## Twilio Webhook Configuration
 
