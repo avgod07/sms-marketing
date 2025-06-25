@@ -1,9 +1,5 @@
-import { useEffect } from "react";
-import { redirectToSignIn } from "@clerk/clerk-react";
+import { RedirectToSignIn } from "@clerk/clerk-react";
 
 export default function Login() {
-  useEffect(() => {
-    redirectToSignIn();
-  }, []);
-  return null;
+  return <RedirectToSignIn />;
 }
