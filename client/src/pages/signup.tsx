@@ -1,5 +1,13 @@
-import { RedirectToSignUp } from "@clerk/clerk-react";
+import { useEffect } from "react";
 
 export default function Signup() {
-  return <RedirectToSignUp />;
+  useEffect(() => {
+    const base = import.meta.env.VITE_CLERK_FRONTEND_API
+      ? `https://${import.meta.env.VITE_CLERK_FRONTEND_API}`
+      : import.meta.env.VITE_CLERK_PROXY_URL;
+    if (base) {
+      window.location.href = `${base}/sign-up`;
+    }
+  }, []);
+  return null;
 }
