@@ -939,7 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contact routes
-  app.get("/api/contacts", async (req, res) => {
+  app.get("/api/contacts", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { search } = req.query as { search?: string };
@@ -958,7 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contacts/stats", async (req, res) => {
+  app.get("/api/contacts/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const stats = await biz.getContactStats();
@@ -969,7 +969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contacts/:id", async (req, res) => {
+  app.get("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -984,7 +984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contacts/:id/redemptions", async (req, res) => {
+  app.get("/api/contacts/:id/redemptions", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1000,7 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contacts", async (req, res) => {
+  app.post("/api/contacts", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = insertContactSchema.parse(req.body);
@@ -1017,7 +1017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/contacts/:id", async (req, res) => {
+  app.patch("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1035,7 +1035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/contacts/:id", async (req, res) => {
+  app.delete("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1048,7 +1048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Campaign routes
-  app.get("/api/campaigns", async (req, res) => {
+  app.get("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const campaigns = await biz.getCampaigns();
@@ -1059,7 +1059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/campaigns/stats", async (req, res) => {
+  app.get("/api/campaigns/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const stats = await biz.getCampaignStats();
@@ -1070,7 +1070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/campaigns/:id", async (req, res) => {
+  app.get("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1085,7 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns", async (req, res) => {
+  app.post("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = simpleCampaignSchema.parse(req.body);
@@ -1110,7 +1110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/campaigns/:id", async (req, res) => {
+  app.patch("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1137,7 +1137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/campaigns/:id", async (req, res) => {
+  app.delete("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1149,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/duplicate", async (req, res) => {
+  app.post("/api/campaigns/:id/duplicate", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1170,7 +1170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send campaign
-  app.post("/api/campaigns/:id/send", async (req, res) => {
+  app.post("/api/campaigns/:id/send", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1195,7 +1195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Coupon routes
-  app.get("/api/coupons", async (req, res) => {
+  app.get("/api/coupons", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { search, status, type, startDate, endDate } = req.query as {
@@ -1220,7 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/coupons/:id", async (req, res) => {
+  app.get("/api/coupons/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1235,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/coupons/:id/redemptions", async (req, res) => {
+  app.get("/api/coupons/:id/redemptions", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1251,7 +1251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/coupons", async (req, res) => {
+  app.post("/api/coupons", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const data = { ...req.body };
@@ -1281,7 +1281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/coupons/:id", async (req, res) => {
+  app.patch("/api/coupons/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1310,6 +1310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/coupons/:code/redeem",
     redeemRateLimiter,
     validateCoupon,
+    requireAuth(),
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
@@ -1372,7 +1373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  app.delete("/api/coupons/:id", async (req, res) => {
+  app.delete("/api/coupons/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -1385,7 +1386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Conversation routes
-  app.get("/api/conversations", async (req, res) => {
+  app.get("/api/conversations", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const convs = await biz.getConversationSummaries();
@@ -1396,20 +1397,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/conversations/:contactId/messages", async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const contactId = parseInt(req.params.contactId);
-      const msgs = await biz.getMessagesByContact(contactId);
-      res.json(msgs);
-    } catch (error) {
-      logError("Error fetching messages by contact:", error);
-      res.status(500).json({ message: "Failed to fetch messages" });
+  app.get(
+    "/api/conversations/:contactId/messages",
+    requireAuth(),
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
+        const contactId = parseInt(req.params.contactId);
+        const msgs = await biz.getMessagesByContact(contactId);
+        res.json(msgs);
+      } catch (error) {
+        logError("Error fetching messages by contact:", error);
+        res.status(500).json({ message: "Failed to fetch messages" });
+      }
     }
-  });
+  );
 
   // Message routes
-  app.get("/api/messages", async (req, res) => {
+  app.get("/api/messages", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { campaignId } = req.query;
@@ -1430,7 +1435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/messages", async (req, res) => {
+  app.post("/api/messages", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = insertMessageSchema.parse(req.body);
@@ -1471,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/messages/:id/status", async (req, res) => {
+  app.patch("/api/messages/:id/status", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);

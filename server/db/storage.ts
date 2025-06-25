@@ -37,6 +37,12 @@ import {
   twilioA2pConfigs,
   type TwilioA2pConfig,
   type InsertTwilioA2pConfig,
+  businessCredits,
+  type BusinessCredits,
+  type InsertBusinessCredits,
+  creditTransactions,
+  type CreditTransaction,
+  type InsertCreditTransaction,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -50,16 +56,22 @@ export interface IStorage {
   updateBusiness(business: Partial<InsertBusiness>): Promise<Business>;
   getBusiness(): Promise<Business>;
   getBusinessProfile(): Promise<BusinessProfile | undefined>;
-  upsertBusinessProfile(profile: InsertBusinessProfile): Promise<BusinessProfile>;
+  upsertBusinessProfile(
+    profile: InsertBusinessProfile
+  ): Promise<BusinessProfile>;
   // Twilio
   getTwilioCredentials(): Promise<TwilioCredential | undefined>;
   upsertTwilioCredentials(
     creds: InsertTwilioCredential & { messagingServiceSid?: string }
   ): Promise<TwilioCredential>;
   getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
-  setPhoneNumbers(numbers: InsertBusinessPhoneNumber[]): Promise<BusinessPhoneNumber[]>;
+  setPhoneNumbers(
+    numbers: InsertBusinessPhoneNumber[]
+  ): Promise<BusinessPhoneNumber[]>;
   getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined>;
-  upsertTwilioA2PConfig(config: InsertTwilioA2pConfig): Promise<TwilioA2pConfig>;
+  upsertTwilioA2PConfig(
+    config: InsertTwilioA2pConfig
+  ): Promise<TwilioA2pConfig>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
@@ -87,7 +99,7 @@ export interface IStorage {
   updateCoupon(id: number, coupon: Partial<Coupon>): Promise<Coupon>;
   deleteCoupon(id: number): Promise<void>;
   createCouponRedemption(
-    redemption: InsertCouponRedemption,
+    redemption: InsertCouponRedemption
   ): Promise<CouponRedemption>;
   getCouponRedemptions(couponId: number): Promise<CouponRedemption[]>;
   getContactRedemptions(contactId: number): Promise<ContactRedemption[]>;
@@ -99,15 +111,15 @@ export interface IStorage {
     endDate?: Date;
   }): Promise<Coupon[]>;
   createCouponRecipient(
-    recipient: InsertCouponRecipient,
+    recipient: InsertCouponRecipient
   ): Promise<CouponRecipient>;
   hasContactReceivedCoupon(
     contactId: number,
-    couponCode: string,
+    couponCode: string
   ): Promise<boolean>;
   hasContactRedeemedCoupon(
     contactId: number,
-    couponId: number,
+    couponId: number
   ): Promise<boolean>;
 
   // Messages
@@ -120,12 +132,12 @@ export interface IStorage {
     id: number,
     status: string,
     deliveredAt?: Date,
-    errorCode?: number,
+    errorCode?: number
   ): Promise<Message>;
   updateMessageStatusBySid(
     sid: string,
     status: string,
-    errorCode?: number,
+    errorCode?: number
   ): Promise<Message | undefined>;
 
   // Analytics
@@ -139,7 +151,9 @@ export interface IStorage {
     campaignsChange: number | null;
     deliveryRateChange: number | null;
   }>;
-  getAnalytics(range: 'thisMonth' | 'lastMonth' | 'thisWeek' | 'lastWeek'): Promise<Analytics[]>;
+  getAnalytics(
+    range: "thisMonth" | "lastMonth" | "thisWeek" | "lastWeek"
+  ): Promise<Analytics[]>;
   getContactStats(): Promise<{
     allContacts: number;
   }>;
@@ -159,6 +173,16 @@ export interface IStorage {
   getUserByClerkId(clerkId: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  // Credits
+  getCredits(): Promise<BusinessCredits>;
+  adjustCredits(
+    amount: number,
+    type: string,
+    description?: string,
+    metadata?: Record<string, any>
+  ): Promise<BusinessCredits>;
+  getCreditTransactions(): Promise<CreditTransaction[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -187,7 +211,8 @@ export class DatabaseStorage implements IStorage {
         new Date(coupon.createdAt).getTime() +
           coupon.validDays * 24 * 60 * 60 * 1000 <
           Date.now());
-    const status = coupon.status === "active" && !isExpired ? "active" : "inactive";
+    const status =
+      coupon.status === "active" && !isExpired ? "active" : "inactive";
     return { ...coupon, status };
   }
   // Contacts
@@ -200,14 +225,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(contacts.createdAt));
   }
 
-
   async getContact(id: number): Promise<Contact | undefined> {
     const businessId = this.requireBusinessId();
     const [contact] = await db
       .select()
       .from(contacts)
       .where(
-        sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`,
+        sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`
       );
     return contact || undefined;
   }
@@ -228,7 +252,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateContact(
     id: number,
-    contact: Partial<InsertContact> & { active?: boolean },
+    contact: Partial<InsertContact> & { active?: boolean }
   ): Promise<Contact> {
     const businessId = this.requireBusinessId();
     const updateData = {
@@ -242,7 +266,7 @@ export class DatabaseStorage implements IStorage {
       .update(contacts)
       .set(updateData)
       .where(
-        sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`,
+        sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`
       )
       .returning();
     return updatedContact;
@@ -253,17 +277,25 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       await tx
         .delete(messages)
-        .where(sql`${messages.contactId} = ${id} AND ${messages.businessId} = ${businessId}`);
+        .where(
+          sql`${messages.contactId} = ${id} AND ${messages.businessId} = ${businessId}`
+        );
       await tx
         .delete(couponRecipients)
-        .where(sql`${couponRecipients.contactId} = ${id} AND ${couponRecipients.businessId} = ${businessId}`);
+        .where(
+          sql`${couponRecipients.contactId} = ${id} AND ${couponRecipients.businessId} = ${businessId}`
+        );
       await tx
         .update(couponRedemptions)
         .set({ contactId: null })
-        .where(sql`${couponRedemptions.contactId} = ${id} AND ${couponRedemptions.businessId} = ${businessId}`);
+        .where(
+          sql`${couponRedemptions.contactId} = ${id} AND ${couponRedemptions.businessId} = ${businessId}`
+        );
       await tx
         .delete(contacts)
-        .where(sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`);
+        .where(
+          sql`${contacts.id} = ${id} AND ${contacts.businessId} = ${businessId}`
+        );
     });
   }
 
@@ -276,8 +308,15 @@ export class DatabaseStorage implements IStorage {
     const tokens = trimmed.split(/\s+/);
     const businessId = this.requireBusinessId();
 
-    const clauses = tokens.map((token) =>
-      sql`${contacts.firstName} ILIKE ${"%" + token + "%"} OR ${contacts.lastName} ILIKE ${"%" + token + "%"} OR ${contacts.phoneNumber} ILIKE ${"%" + token + "%"} OR ${contacts.email} ILIKE ${"%" + token + "%"} OR concat(${contacts.firstName}, ' ', ${contacts.lastName}) ILIKE ${"%" + token + "%"}`,
+    const clauses = tokens.map(
+      (token) =>
+        sql`${contacts.firstName} ILIKE ${"%" + token + "%"} OR ${
+          contacts.lastName
+        } ILIKE ${"%" + token + "%"} OR ${contacts.phoneNumber} ILIKE ${
+          "%" + token + "%"
+        } OR ${contacts.email} ILIKE ${"%" + token + "%"} OR concat(${
+          contacts.firstName
+        }, ' ', ${contacts.lastName}) ILIKE ${"%" + token + "%"}`
     );
 
     let whereClause = clauses[0];
@@ -293,7 +332,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getContactByPhoneNumber(
-    phoneNumber: string,
+    phoneNumber: string
   ): Promise<Contact | undefined> {
     const normalized = normalizePhoneNumber(phoneNumber);
     const businessId = this.requireBusinessId();
@@ -301,14 +340,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(contacts)
       .where(
-        sql`${contacts.phoneNumber} = ${normalized} AND ${contacts.businessId} = ${businessId}`,
+        sql`${contacts.phoneNumber} = ${normalized} AND ${contacts.businessId} = ${businessId}`
       );
     return contact || undefined;
   }
 
   async hasContactReceivedCoupon(
     contactId: number,
-    couponCode: string,
+    couponCode: string
   ): Promise<boolean> {
     const businessId = this.requireBusinessId();
     const [row] = await db
@@ -316,7 +355,7 @@ export class DatabaseStorage implements IStorage {
       .from(couponRecipients)
       .innerJoin(coupons, eq(couponRecipients.couponId, coupons.id))
       .where(
-        sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode} AND ${couponRecipients.businessId} = ${businessId}`,
+        sql`${couponRecipients.contactId} = ${contactId} AND ${coupons.code} = ${couponCode} AND ${couponRecipients.businessId} = ${businessId}`
       )
       .limit(1);
     return !!row;
@@ -324,14 +363,14 @@ export class DatabaseStorage implements IStorage {
 
   async hasContactRedeemedCoupon(
     contactId: number,
-    couponId: number,
+    couponId: number
   ): Promise<boolean> {
     const businessId = this.requireBusinessId();
     const [row] = await db
       .select({ id: couponRedemptions.id })
       .from(couponRedemptions)
       .where(
-        sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.couponId} = ${couponId} AND ${couponRedemptions.businessId} = ${businessId}`,
+        sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.couponId} = ${couponId} AND ${couponRedemptions.businessId} = ${businessId}`
       )
       .limit(1);
     return !!row;
@@ -353,7 +392,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(campaigns)
       .where(
-        sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`,
+        sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`
       );
     return campaign || undefined;
   }
@@ -373,7 +412,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCampaign(
     id: number,
-    campaign: Partial<Campaign>,
+    campaign: Partial<Campaign>
   ): Promise<Campaign> {
     const businessId = this.requireBusinessId();
     const [updatedCampaign] = await db
@@ -383,7 +422,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(
-        sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`,
+        sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`
       )
       .returning();
     return updatedCampaign;
@@ -395,21 +434,20 @@ export class DatabaseStorage implements IStorage {
       await tx
         .delete(messages)
         .where(
-          sql`${messages.campaignId} = ${id} AND ${messages.businessId} = ${businessId}`,
+          sql`${messages.campaignId} = ${id} AND ${messages.businessId} = ${businessId}`
         );
       await tx
         .delete(couponRecipients)
         .where(
-          sql`${couponRecipients.campaignId} = ${id} AND ${couponRecipients.businessId} = ${businessId}`,
+          sql`${couponRecipients.campaignId} = ${id} AND ${couponRecipients.businessId} = ${businessId}`
         );
       await tx
         .delete(campaigns)
         .where(
-          sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`,
+          sql`${campaigns.id} = ${id} AND ${campaigns.businessId} = ${businessId}`
         );
     });
   }
-
 
   // Coupons
   async getCoupons(): Promise<Coupon[]> {
@@ -427,7 +465,9 @@ export class DatabaseStorage implements IStorage {
     const [coupon] = await db
       .select()
       .from(coupons)
-      .where(sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${businessId}`);
+      .where(
+        sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${businessId}`
+      );
     return coupon ? this.normalizeCouponStatus(coupon) : undefined;
   }
 
@@ -437,7 +477,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(coupons)
       .where(
-        sql`${coupons.code} = ${code} AND ${coupons.businessId} = ${businessId}`,
+        sql`${coupons.code} = ${code} AND ${coupons.businessId} = ${businessId}`
       );
     return coupon || undefined;
   }
@@ -455,10 +495,7 @@ export class DatabaseStorage implements IStorage {
     return this.normalizeCouponStatus(newCoupon);
   }
 
-  async updateCoupon(
-    id: number,
-    coupon: Partial<Coupon>,
-  ): Promise<Coupon> {
+  async updateCoupon(id: number, coupon: Partial<Coupon>): Promise<Coupon> {
     const businessId = this.requireBusinessId();
     const [updatedCoupon] = await db
       .update(coupons)
@@ -467,7 +504,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(
-        sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${businessId}`,
+        sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${businessId}`
       )
       .returning();
     return this.normalizeCouponStatus(updatedCoupon);
@@ -477,11 +514,13 @@ export class DatabaseStorage implements IStorage {
     const businessId = this.requireBusinessId();
     await db
       .delete(coupons)
-      .where(sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${businessId}`);
+      .where(
+        sql`${coupons.id} = ${id} AND ${coupons.businessId} = ${businessId}`
+      );
   }
 
   async createCouponRedemption(
-    redemption: InsertCouponRedemption,
+    redemption: InsertCouponRedemption
   ): Promise<CouponRedemption> {
     const businessId = this.requireBusinessId();
     const [newRedemption] = await db
@@ -492,7 +531,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCouponRecipient(
-    recipient: InsertCouponRecipient,
+    recipient: InsertCouponRecipient
   ): Promise<CouponRecipient> {
     const businessId = this.requireBusinessId();
     const [record] = await db
@@ -508,14 +547,12 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(couponRedemptions)
       .where(
-        sql`${couponRedemptions.couponId} = ${couponId} AND ${couponRedemptions.businessId} = ${businessId}`,
+        sql`${couponRedemptions.couponId} = ${couponId} AND ${couponRedemptions.businessId} = ${businessId}`
       )
       .orderBy(desc(couponRedemptions.createdAt));
   }
 
-  async getContactRedemptions(
-    contactId: number,
-  ): Promise<ContactRedemption[]> {
+  async getContactRedemptions(contactId: number): Promise<ContactRedemption[]> {
     const businessId = this.requireBusinessId();
     return await db
       .select({
@@ -528,7 +565,7 @@ export class DatabaseStorage implements IStorage {
       .from(couponRedemptions)
       .innerJoin(coupons, eq(couponRedemptions.couponId, coupons.id))
       .where(
-        sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.businessId} = ${businessId}`,
+        sql`${couponRedemptions.contactId} = ${contactId} AND ${couponRedemptions.businessId} = ${businessId}`
       )
       .orderBy(desc(couponRedemptions.createdAt));
   }
@@ -567,9 +604,7 @@ export class DatabaseStorage implements IStorage {
     whereClause = whereClause
       ? sql`${whereClause} AND ${businessClause}`
       : businessClause;
-    const rows = await base
-      .where(whereClause)
-      .orderBy(desc(coupons.createdAt));
+    const rows = await base.where(whereClause).orderBy(desc(coupons.createdAt));
     const normalized = rows.map((c) => this.normalizeCouponStatus(c));
     if (filters.status && filters.status !== "all") {
       return normalized.filter((c) => c.status === filters.status);
@@ -593,7 +628,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(messages)
       .where(
-        sql`${messages.campaignId} = ${campaignId} AND ${messages.businessId} = ${businessId}`,
+        sql`${messages.campaignId} = ${campaignId} AND ${messages.businessId} = ${businessId}`
       )
       .orderBy(desc(messages.createdAt));
   }
@@ -604,7 +639,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(messages)
       .where(
-        sql`${messages.contactId} = ${contactId} AND ${messages.businessId} = ${businessId}`,
+        sql`${messages.contactId} = ${contactId} AND ${messages.businessId} = ${businessId}`
       )
       .orderBy(asc(messages.createdAt));
   }
@@ -622,7 +657,7 @@ export class DatabaseStorage implements IStorage {
     const summaries: any[] = [];
     for (const msg of allMessages) {
       if (seen.has(msg.contactId)) continue;
-      const contact = contactsList.find(c => c.id === msg.contactId);
+      const contact = contactsList.find((c) => c.id === msg.contactId);
       if (contact) {
         summaries.push({
           id: contact.id,
@@ -651,13 +686,15 @@ export class DatabaseStorage implements IStorage {
     id: number,
     status: string,
     deliveredAt?: Date,
-    errorCode?: number,
+    errorCode?: number
   ): Promise<Message> {
     const businessId = this.requireBusinessId();
     const [existing] = await db
       .select()
       .from(messages)
-      .where(sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`)
+      .where(
+        sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`
+      )
       .limit(1);
 
     if (!existing) {
@@ -682,7 +719,9 @@ export class DatabaseStorage implements IStorage {
     const [updatedMessage] = await db
       .update(messages)
       .set(updateData)
-      .where(sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`)
+      .where(
+        sql`${messages.id} = ${id} AND ${messages.businessId} = ${businessId}`
+      )
       .returning();
 
     if (existing && existing.campaignId) {
@@ -691,7 +730,7 @@ export class DatabaseStorage implements IStorage {
           .update(campaigns)
           .set({ sentCount: sql`${campaigns.sentCount} + 1` })
           .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
           );
       }
       if (existing.status !== "delivered" && status === "delivered") {
@@ -699,14 +738,14 @@ export class DatabaseStorage implements IStorage {
           .update(campaigns)
           .set({ deliveredCount: sql`${campaigns.deliveredCount} + 1` })
           .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
           );
       } else if (existing.status === "delivered" && status !== "delivered") {
         await db
           .update(campaigns)
           .set({ deliveredCount: sql`${campaigns.deliveredCount} - 1` })
           .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
           );
       }
 
@@ -714,13 +753,13 @@ export class DatabaseStorage implements IStorage {
         .select({ count: count() })
         .from(messages)
         .where(
-          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId}`,
+          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId}`
         );
       const [terminal] = await db
         .select({ count: count() })
         .from(messages)
         .where(
-          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} IN ('sent','delivered','failed')`,
+          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} IN ('sent','delivered','failed')`
         );
 
       if (total.count > 0 && terminal.count === total.count) {
@@ -728,16 +767,16 @@ export class DatabaseStorage implements IStorage {
           .select({ count: count() })
           .from(messages)
           .where(
-            sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} = 'failed'`,
+            sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} = 'failed'`
           );
 
         const failureRate = failedCount.count / total.count;
-        const newStatus = failureRate >= 0.8 ? 'failed' : 'completed';
+        const newStatus = failureRate >= 0.8 ? "failed" : "completed";
         await db
           .update(campaigns)
           .set({ status: newStatus })
           .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`,
+            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
           );
       }
     }
@@ -748,21 +787,21 @@ export class DatabaseStorage implements IStorage {
   async updateMessageStatusBySid(
     sid: string,
     status: string,
-    errorCode?: number,
+    errorCode?: number
   ): Promise<Message | undefined> {
     const businessId = this.requireBusinessId();
     const [row] = await db
       .select({ id: messages.id })
       .from(messages)
       .where(
-        sql`${messages.messageSid} = ${sid} AND ${messages.businessId} = ${businessId}`,
+        sql`${messages.messageSid} = ${sid} AND ${messages.businessId} = ${businessId}`
       );
     if (!row) return undefined;
     return this.updateMessageStatus(
       row.id,
       status,
-      status === 'delivered' ? new Date() : undefined,
-      errorCode,
+      status === "delivered" ? new Date() : undefined,
+      errorCode
     );
   }
 
@@ -784,7 +823,7 @@ export class DatabaseStorage implements IStorage {
       .select({ count: count() })
       .from(messages)
       .where(
-        sql`${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`,
+        sql`${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`
       );
 
     const [totalCampaigns] = await db
@@ -801,11 +840,15 @@ export class DatabaseStorage implements IStorage {
     const [deliveredCount] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.status} = 'delivered' AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.status} = 'delivered' AND ${messages.businessId} = ${businessId}`
+      );
     const [totalSentCount] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`
+      );
 
     const deliveryRate =
       totalSentCount.count > 0
@@ -822,37 +865,53 @@ export class DatabaseStorage implements IStorage {
     const [contactsThisMonth] = await db
       .select({ count: count() })
       .from(contacts)
-      .where(sql`${contacts.createdAt} >= ${startOfMonth} AND ${contacts.businessId} = ${businessId}`);
+      .where(
+        sql`${contacts.createdAt} >= ${startOfMonth} AND ${contacts.businessId} = ${businessId}`
+      );
     const [contactsLastMonth] = await db
       .select({ count: count() })
       .from(contacts)
-      .where(sql`${contacts.createdAt} >= ${startOfLastMonth} AND ${contacts.createdAt} < ${startOfMonth} AND ${contacts.businessId} = ${businessId}`);
+      .where(
+        sql`${contacts.createdAt} >= ${startOfLastMonth} AND ${contacts.createdAt} < ${startOfMonth} AND ${contacts.businessId} = ${businessId}`
+      );
 
     const [messagesThisWeek] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`
+      );
     const [messagesLastWeek] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`
+      );
 
     const [deliveredThisWeek] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} = 'delivered' AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} = 'delivered' AND ${messages.businessId} = ${businessId}`
+      );
     const [sentThisWeek] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.sentAt} >= ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`
+      );
     const [deliveredLastWeek] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} = 'delivered' AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} = 'delivered' AND ${messages.businessId} = ${businessId}`
+      );
     const [sentLastWeek] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.sentAt} >= ${startOfPrevWeek} AND ${messages.sentAt} < ${startOfWeek} AND ${messages.status} IN ('sent', 'delivered') AND ${messages.businessId} = ${businessId}`
+      );
 
     const contactsChange =
       contactsLastMonth.count > 0
@@ -892,7 +951,9 @@ export class DatabaseStorage implements IStorage {
       messagesChange:
         messagesChange === null ? null : Math.round(messagesChange * 100) / 100,
       campaignsChange:
-        campaignsChange === null ? null : Math.round(campaignsChange * 100) / 100,
+        campaignsChange === null
+          ? null
+          : Math.round(campaignsChange * 100) / 100,
       deliveryRateChange:
         deliveryRateChange === null
           ? null
@@ -931,7 +992,7 @@ export class DatabaseStorage implements IStorage {
       .select({ count: count() })
       .from(campaigns)
       .where(
-        sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`,
+        sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`
       );
 
     const now = new Date();
@@ -939,7 +1000,9 @@ export class DatabaseStorage implements IStorage {
     const [messagesThisMonth] = await db
       .select({ count: count() })
       .from(messages)
-      .where(sql`${messages.createdAt} >= ${firstDayOfMonth} AND ${messages.businessId} = ${businessId}`);
+      .where(
+        sql`${messages.createdAt} >= ${firstDayOfMonth} AND ${messages.businessId} = ${businessId}`
+      );
 
     return {
       activeCampaigns: activeCampaigns.count,
@@ -948,24 +1011,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAnalytics(
-    range: 'thisMonth' | 'lastMonth' | 'thisWeek' | 'lastWeek',
+    range: "thisMonth" | "lastMonth" | "thisWeek" | "lastWeek"
   ): Promise<Analytics[]> {
     const businessId = this.requireBusinessId();
     const now = new Date();
     let start: Date;
     let end = new Date();
     switch (range) {
-      case 'thisMonth':
+      case "thisMonth":
         start = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
-      case 'lastMonth':
+      case "lastMonth":
         start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         end = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
-      case 'thisWeek':
+      case "thisWeek":
         start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
-      case 'lastWeek':
+      case "lastWeek":
         start = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
         end = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
@@ -978,7 +1041,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(analytics)
       .where(
-        sql`${analytics.businessId} = ${businessId} AND ${analytics.date} >= ${start} AND ${analytics.date} < ${end}`,
+        sql`${analytics.businessId} = ${businessId} AND ${analytics.date} >= ${start} AND ${analytics.date} < ${end}`
       )
       .orderBy(desc(analytics.date));
   }
@@ -1017,7 +1080,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertBusinessProfile(
-    profile: InsertBusinessProfile,
+    profile: InsertBusinessProfile
   ): Promise<BusinessProfile> {
     const businessId = this.requireBusinessId();
     const existing = await this.getBusinessProfile();
@@ -1046,7 +1109,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertTwilioCredentials(
-    creds: InsertTwilioCredential & { messagingServiceSid?: string },
+    creds: InsertTwilioCredential & { messagingServiceSid?: string }
   ): Promise<TwilioCredential> {
     const businessId = this.requireBusinessId();
     const existing = await this.getTwilioCredentials();
@@ -1075,7 +1138,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setPhoneNumbers(
-    numbers: InsertBusinessPhoneNumber[],
+    numbers: InsertBusinessPhoneNumber[]
   ): Promise<BusinessPhoneNumber[]> {
     const businessId = this.requireBusinessId();
     await db
@@ -1084,7 +1147,7 @@ export class DatabaseStorage implements IStorage {
     if (numbers.length === 0) return [];
     const rows = await db
       .insert(businessPhoneNumbers)
-      .values(numbers.map(n => ({ ...n, businessId })))
+      .values(numbers.map((n) => ({ ...n, businessId })))
       .returning();
     return rows;
   }
@@ -1099,7 +1162,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertTwilioA2PConfig(
-    config: InsertTwilioA2pConfig,
+    config: InsertTwilioA2pConfig
   ): Promise<TwilioA2pConfig> {
     const businessId = this.requireBusinessId();
     const existing = await this.getTwilioA2PConfig();
@@ -1124,11 +1187,12 @@ export class DatabaseStorage implements IStorage {
   // context has been established.
   async getUserByUsername(username: string): Promise<User | undefined> {
     const base = db.select().from(users);
-    const q = this.businessId !== undefined
-      ? base.where(
-          sql`${users.username} = ${username} AND ${users.businessId} = ${this.businessId}`,
-        )
-      : base.where(eq(users.username, username));
+    const q =
+      this.businessId !== undefined
+        ? base.where(
+            sql`${users.username} = ${username} AND ${users.businessId} = ${this.businessId}`
+          )
+        : base.where(eq(users.username, username));
     const [user] = await q;
     return user || undefined;
   }
@@ -1154,12 +1218,100 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return newUser;
   }
+
+  // Credits
+  async getCredits(): Promise<BusinessCredits> {
+    const businessId = this.requireBusinessId();
+    const [credits] = await db
+      .select()
+      .from(businessCredits)
+      .where(eq(businessCredits.businessId, businessId));
+
+    if (!credits) {
+      // Create initial credits record if it doesn't exist
+      const [newCredits] = await db
+        .insert(businessCredits)
+        .values({
+          businessId,
+          balance: 0,
+        })
+        .returning();
+      return newCredits;
+    }
+
+    return credits;
+  }
+
+  async adjustCredits(
+    amount: number,
+    type: string,
+    description?: string,
+    metadata?: Record<string, any>
+  ): Promise<BusinessCredits> {
+    const businessId = this.requireBusinessId();
+
+    // Use a transaction to ensure atomicity
+    return await db.transaction(async (tx) => {
+      // Get current credits or create if doesn't exist
+      let [credits] = await tx
+        .select()
+        .from(businessCredits)
+        .where(eq(businessCredits.businessId, businessId));
+
+      if (!credits) {
+        [credits] = await tx
+          .insert(businessCredits)
+          .values({
+            businessId,
+            balance: 0,
+          })
+          .returning();
+      }
+
+      // Update balance
+      const newBalance = credits.balance + amount;
+      if (newBalance < 0) {
+        throw new Error(
+          `Insufficient credits. Current balance: ${credits.balance}, requested adjustment: ${amount}`
+        );
+      }
+
+      const [updatedCredits] = await tx
+        .update(businessCredits)
+        .set({
+          balance: newBalance,
+          updatedAt: new Date(),
+        })
+        .where(eq(businessCredits.businessId, businessId))
+        .returning();
+
+      // Record the transaction
+      await tx.insert(creditTransactions).values({
+        businessId,
+        type,
+        amount,
+        description,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      });
+
+      return updatedCredits;
+    });
+  }
+
+  async getCreditTransactions(): Promise<CreditTransaction[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.businessId, businessId))
+      .orderBy(desc(creditTransactions.createdAt));
+  }
 }
 
 export const storage = new DatabaseStorage();
 
 export async function findTwilioCredentialByAccountSid(
-  accountSid: string,
+  accountSid: string
 ): Promise<TwilioCredential | undefined> {
   const [row] = await db
     .select()
@@ -1169,7 +1321,7 @@ export async function findTwilioCredentialByAccountSid(
 }
 
 export async function findBusinessIdByPhoneNumber(
-  phoneNumber: string,
+  phoneNumber: string
 ): Promise<number | undefined> {
   const normalized = normalizePhoneNumber(phoneNumber);
   const [row] = await db

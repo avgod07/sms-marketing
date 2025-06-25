@@ -23,6 +23,17 @@ export async function seedData() {
 
     const biz = storage.forBusiness(business.id);
 
+    // Seed initial credits for the demo business
+    try {
+      await biz.adjustCredits(
+        100,
+        "seeding",
+        "Initial credits for demo business"
+      );
+    } catch (error) {
+      // Credits might already exist, that's okay
+    }
+
     const passwordHash = await bcrypt.hash(demoPassword, 10);
 
     let existingUser = await storage.getUserByUsername(demoUsername);
@@ -32,23 +43,13 @@ export async function seedData() {
         passwordHash,
         clerkId: null,
       });
-      logInfo(`Created demo user \"${demoUsername}\"`);
-    } else {
-      logInfo(`User "${demoUsername}" already exists. Skipping user creation.`);
     }
-
-    logInfo(
-      `Demo credentials: username \"${demoUsername}\" / password \"${demoPassword}\"`,
-    );
 
     // Check if we already have contact data
     const existingContacts = await biz.getContacts();
     if (existingContacts.length > 0) {
-      logInfo("Sample data already exists, skipping seed");
       return;
     }
-
-    logInfo("Seeding sample data...");
 
     // Add sample contacts
     const sampleContacts = [
@@ -92,17 +93,20 @@ export async function seedData() {
     const sampleCampaigns = [
       {
         name: "Black Friday Sale",
-        message: "🔥 BLACK FRIDAY: 50% OFF everything! Use code BF50. Limited time only. Shop now: bit.ly/shop50",
+        message:
+          "🔥 BLACK FRIDAY: 50% OFF everything! Use code BF50. Limited time only. Shop now: bit.ly/shop50",
         status: "completed",
       },
       {
         name: "Welcome Series",
-        message: "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
+        message:
+          "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
         status: "in_progress",
       },
       {
         name: "VIP Exclusive",
-        message: "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
+        message:
+          "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
         status: "in_progress",
       },
     ];
@@ -167,6 +171,17 @@ export async function seedData() {
 
     const biz2 = storage.forBusiness(business2.id);
 
+    // Seed initial credits for the second business
+    try {
+      await biz2.adjustCredits(
+        50,
+        "seeding",
+        "Initial credits for second demo business"
+      );
+    } catch (error) {
+      // Credits might already exist, that's okay
+    }
+
     let secondUser = await storage.getUserByUsername(secondUsername);
     if (!secondUser) {
       secondUser = await biz2.createUser({
@@ -174,9 +189,6 @@ export async function seedData() {
         passwordHash,
         clerkId: null,
       });
-      logInfo(`Created demo user \"${secondUsername}\"`);
-    } else {
-      logInfo(`User "${secondUsername}" already exists. Skipping user creation.`);
     }
 
     const existingSecondContacts = await biz2.getContacts();
