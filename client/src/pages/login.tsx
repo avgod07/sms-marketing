@@ -11,7 +11,7 @@ export default function Login() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +20,12 @@ export default function Login() {
     if (!isLoaded) return;
     setLoading(true);
     try {
-      const result = await signIn.create({ identifier: email, password });
+      console.debug("Login attempt", {
+        identifier,
+        password: "*".repeat(password.length),
+      });
+      const result = await signIn.create({ identifier, password });
+      console.debug("Clerk signIn response", result);
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         navigate("/");
@@ -50,12 +55,12 @@ export default function Login() {
       >
         <h1 className="text-2xl font-bold text-center">Sign In</h1>
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="identifier">Email or Phone</Label>
           <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="identifier"
+            type="text"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
           />
         </div>
