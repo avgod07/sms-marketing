@@ -37,6 +37,7 @@ export default function Login() {
         });
       }
     } catch (err: any) {
+      console.error("signIn error", err);
       toast({
         title: "Error",
         description: handleApiError(err),
