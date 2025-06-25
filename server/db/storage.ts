@@ -156,6 +156,7 @@ export interface IStorage {
   // scoping to a business. They are used during authentication
   // before the tenant context is known.
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByClerkId(clerkId: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 }
@@ -1134,6 +1135,14 @@ export class DatabaseStorage implements IStorage {
 
   async getUserById(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByClerkId(clerkId: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkId, clerkId));
     return user || undefined;
   }
 
