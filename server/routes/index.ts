@@ -51,7 +51,7 @@ import {
   registerBusinessForA2P,
   registerCampaignForA2P,
 } from "../services/a2p.js";
-import { clerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
+import { requireAuth } from "@clerk/express";
 import { ensureAuthenticated } from "../middlewares/auth.middleware";
 import { logError, logInfo } from "../utils/logger.util";
 import { nanoid } from "nanoid";
@@ -65,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return storage.forBusiness(req.user.businessId);
   }
   // Authentication routes handled by Clerk
-  app.get("/api/me", clerkExpressRequireAuth(), ensureAuthenticated, (req, res) => {
+  app.get("/api/me", requireAuth(), ensureAuthenticated, (req, res) => {
     res.json(req.user || null);
   });
 
@@ -107,13 +107,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (m) =>
           m.phoneNumber === To &&
           m.status !== "delivered" &&
-          m.status !== "failed",
+          m.status !== "failed"
       );
       if (message) {
         await bizStore.updateMessageStatus(
           message.id,
           status,
-          status === "delivered" ? new Date() : undefined,
+          status === "delivered" ? new Date() : undefined
         );
       }
 
@@ -165,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await bizStore.updateMessageStatusBySid(
         MessageSid,
         status,
-        ErrorCode ? parseInt(ErrorCode, 10) : undefined,
+        ErrorCode ? parseInt(ErrorCode, 10) : undefined
       );
 
       if (updated) {
@@ -275,7 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Require authentication for subsequent API routes
-  app.use(clerkExpressRequireAuth());
+  app.use(requireAuth());
   app.use("/api", ensureAuthenticated);
 
   // Dashboard routes
@@ -410,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const client = twilio(
         creds.accountSid,
-        decrypt(creds.authTokenEncrypted),
+        decrypt(creds.authTokenEncrypted)
       );
 
       const customer = await client.trusthub.v1.customerProfiles.create({
@@ -592,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const client = twilio(
         creds.accountSid,
-        decrypt(creds.authTokenEncrypted),
+        decrypt(creds.authTokenEncrypted)
       );
       const numbers = await client.incomingPhoneNumbers.list();
       res.json(
@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sid: n.sid,
           phoneNumber: n.phoneNumber,
           friendlyName: n.friendlyName,
-        })),
+        }))
       );
     } catch (error) {
       logError("Error fetching phone numbers:", error);
@@ -622,12 +622,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const client = twilio(
         creds.accountSid,
-        decrypt(creds.authTokenEncrypted),
+        decrypt(creds.authTokenEncrypted)
       );
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
 
       const fetched = await Promise.all(
-        data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch()),
+        data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
       );
 
       for (const num of fetched) {
@@ -645,7 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fetched.map((n) => ({
           phoneNumber: n.phoneNumber,
           isDefault: n.sid === data.defaultSid,
-        })),
+        }))
       );
 
       res.json(records);
@@ -668,7 +670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const client = twilio(
         creds.accountSid,
-        decrypt(creds.authTokenEncrypted),
+        decrypt(creds.authTokenEncrypted)
       );
       const page = parseInt((req.query.page as string) || "0", 10);
       const pageResult = await client
@@ -709,14 +711,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
 
       try {
         const { phoneSid, serviceSid } =
           await TwilioService.purchaseAndAssignNumber(
             creds,
             phoneNumber,
-            webhookUrl,
+            webhookUrl
           );
 
         if (!creds.messagingServiceSid) {
@@ -776,9 +780,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const client = twilio(
         creds.accountSid,
-        decrypt(creds.authTokenEncrypted),
+        decrypt(creds.authTokenEncrypted)
       );
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
       const num = await client.incomingPhoneNumbers.create({
         phoneNumber,
         smsUrl: webhookUrl,
@@ -821,7 +827,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         phoneNumber: defaultNum?.phoneNumber || null,
-        serviceSid: defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+        serviceSid:
+          defaultNum?.serviceSid || creds?.messagingServiceSid || null,
       });
     } catch (error) {
       logError("Error completing onboarding:", error);
@@ -844,7 +851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         creds,
         business,
         profile,
-        config,
+        config
       );
       await biz(req).upsertBusinessProfile({
         ...profile,
@@ -1231,7 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const received = await biz(req).hasContactReceivedCoupon(
           contact.id,
-          code,
+          code
         );
         if (!received) {
           return res.status(400).json({
@@ -1242,7 +1249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const alreadyRedeemed = await biz(req).hasContactRedeemedCoupon(
           contact.id,
-          coupon.id,
+          coupon.id
         );
         if (alreadyRedeemed) {
           return res.status(400).json({
@@ -1273,7 +1280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logError("Error redeeming coupon:", error);
         res.status(500).json({ message: "Failed to redeem coupon" });
       }
-    },
+    }
   );
 
   app.delete("/api/coupons/:id", async (req, res) => {
@@ -1317,7 +1324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let messages;
       if (campaignId) {
         messages = await biz(req).getMessagesByCampaign(
-          parseInt(campaignId as string),
+          parseInt(campaignId as string)
         );
       } else {
         messages = await biz(req).getMessages();
@@ -1378,7 +1385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id,
         status,
         deliveredAt ? new Date(deliveredAt) : undefined,
-        errorCode,
+        errorCode
       );
       res.json(message);
     } catch (error) {
