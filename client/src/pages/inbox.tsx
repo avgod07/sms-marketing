@@ -10,6 +10,7 @@ import { emitMessageSend } from "@/lib/socket";
 import { useMessageSocket } from "@/hooks/use-message-socket";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { handleApiError } from "@/lib/handleApiError";
 import type { Message as ApiMessage } from "@shared/schema";
 
@@ -30,13 +31,13 @@ interface Conversation {
   active: boolean;
 }
 
-
 export default function Inbox() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reply, setReply] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const { data: user } = useAuth();
   const debouncedSearch = useDebounce(searchQuery, 300);
   const trimmedSearch = debouncedSearch.trim().toLowerCase();
   const selected =
@@ -50,6 +51,8 @@ export default function Inbox() {
   });
 
   useEffect(() => {
+    if (!user) return; // Only load conversations when user is authenticated
+    
     async function loadConversations() {
       try {
         const res = await fetch("/api/conversations");
@@ -90,10 +93,10 @@ export default function Inbox() {
       }
     }
     loadConversations();
-  }, []);
+  }, [user]); // Add user as dependency
 
   useEffect(() => {
-    if (selectedId === null) return;
+    if (selectedId === null || !user) return; // Only load messages when user is authenticated
     async function loadMessages() {
       try {
         const res = await fetch(`/api/conversations/${selectedId}/messages`);
@@ -125,7 +128,7 @@ export default function Inbox() {
       }
     }
     loadMessages();
-  }, [selectedId]);
+  }, [selectedId, user]); // Add user as dependency
 
   useMessageSocket({
     onMessage: (data) => {

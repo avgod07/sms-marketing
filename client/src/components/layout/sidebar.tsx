@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useClerk } from "@clerk/clerk-react";
 import { useCredits } from "@/hooks/use-credits";
 import { useSetupStatus } from "@/hooks/use-setup-status";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   LayoutDashboard,
   Users,
@@ -43,8 +44,10 @@ export default function Sidebar() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   const { signOut } = useClerk();
-  const { data: setup } = useSetupStatus();
+  const { data: user } = useAuth();
+  const { data: setup } = useSetupStatus(!!user);
   const showOnboarding =
+    !!user &&
     !setup?.onboardingComplete &&
     (!setup?.phoneConfigured || !setup?.hasContacts || !setup?.hasCoupons);
 
