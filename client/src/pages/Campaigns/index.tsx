@@ -18,6 +18,7 @@ import { formatNumber } from "@/lib/utils";
 import type { Campaign } from "@shared/schema";
 import type { CampaignStats } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 
@@ -25,16 +26,17 @@ export default function Campaigns() {
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { toast } = useToast();
+  const { data: user } = useAuth();
 
   const { data: campaignStats, isLoading: statsLoading } = useQuery<CampaignStats>({
     queryKey: ["/api/campaigns/stats"],
+    enabled: !!user,
   });
 
   const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
+    enabled: !!user,
   });
-
-
 
   const deleteCampaignMutation = useMutation({
     mutationFn: () =>
@@ -75,12 +77,9 @@ export default function Campaigns() {
     },
   });
 
-
-
   const handleDuplicate = (campaign: Campaign) => {
     duplicateCampaignMutation.mutate(campaign);
   };
-
 
   const handleDelete = (campaign: Campaign) => {
     setDeletingCampaign(campaign);
@@ -107,7 +106,6 @@ export default function Campaigns() {
       bgColor: "bg-blue-50",
     },
   ];
-
 
   return (
     <div className="fade-in">
@@ -139,30 +137,29 @@ export default function Campaigns() {
 
       {/* Content */}
       <div className="p-8">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index} className="card-hover">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium">{stat.title}</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
-                    </p>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={index} className="card-hover">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">{stat.title}</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                      </p>
+                    </div>
+                    <div className={`w-12 h-12 ${stat.bgColor} rounded-full flex items-center justify-center`}>
+                      <Icon className={`w-6 h-6 ${stat.color}`} />
+                    </div>
                   </div>
-                  <div className={`w-12 h-12 ${stat.bgColor} rounded-full flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
 
         {/* All Campaigns */}
         <Card>

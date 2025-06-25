@@ -8,6 +8,7 @@ import {
   errorHandler,
   setupGlobalErrorHandling,
 } from "./middlewares/error.middleware";
+import { requireAuth } from "@clerk/express";
 
 const app = express();
 
@@ -20,6 +21,9 @@ setupGlobalErrorHandling();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 setupAuth(app);
+
+// Only apply requireAuth to /api routes
+app.use("/api", requireAuth());
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -1,9 +1,9 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express } from "express";
 import { requireAuth } from "@clerk/express";
 
 export function setupAuth(app: Express) {
-  // Register Clerk middleware globally if needed
-  // app.use(requireAuth());
+  // Do not apply requireAuth globally!
+  // Only use requireAuth on /api routes or individual API endpoints.
 }
 
 export const ensureAuthenticated = requireAuth();

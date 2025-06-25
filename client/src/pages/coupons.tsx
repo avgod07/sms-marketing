@@ -34,6 +34,7 @@ import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
+import { useAuth } from "@/hooks/use-auth";
 import { useDebounce } from "@/hooks/use-debounce";
 import type { Coupon, CouponRedemption } from "@shared/schema";
 import RedemptionTable from "@/components/coupons/redemption-table";
@@ -55,7 +56,8 @@ export default function Coupons() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const { toast } = useToast();
-  const { data: setup } = useSetupStatus();
+  const { data: user } = useAuth();
+  const { data: setup } = useSetupStatus(!!user);
 
   const { data: coupons, isLoading } = useQuery<Coupon[]>({
     queryKey: [
@@ -68,6 +70,7 @@ export default function Coupons() {
         endDate,
       },
     ],
+    enabled: !!user,
   });
 
   const {

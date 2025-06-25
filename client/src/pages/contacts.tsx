@@ -52,12 +52,12 @@ export default function Contacts() {
   const { data: user } = useAuth() as { data: User | null };
   const { toast } = useToast();
 
-
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts", { search: trimmedSearch }],
+    enabled: !!user,
   });
 
-  const { data: setup } = useSetupStatus();
+  const { data: setup } = useSetupStatus(!!user);
 
   const {
     data: redemptions,
@@ -69,7 +69,6 @@ export default function Contacts() {
     enabled: !!historyContact,
     queryFn: getQueryFn({ on401: "throw" }),
   });
-
 
   const createContactMutation = useMutation({
     mutationFn: (data: ContactFormValues) => {
@@ -158,7 +157,6 @@ export default function Contacts() {
     deleteContactMutation.mutate();
   };
 
-
   const loadHtml2Pdf = () => {
     if ((window as any).html2pdf) {
       return Promise.resolve();
@@ -218,7 +216,6 @@ export default function Contacts() {
 
       {/* Content */}
       <div className="p-8">
-
 
         {/* Contact Management Section */}
         <Card>

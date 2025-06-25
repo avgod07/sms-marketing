@@ -976,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(contacts);
     } catch (error) {
-      logError("Error fetching contacts:", error);
+      logDetailedError("Error fetching contacts", error);
       res.status(500).json({ message: "Failed to fetch contacts" });
     }
   });
@@ -1077,7 +1077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaigns = await biz.getCampaigns();
       res.json(campaigns);
     } catch (error) {
-      logError("Error fetching campaigns:", error);
+      logDetailedError("Error fetching campaigns", error);
       res.status(500).json({ message: "Failed to fetch campaigns" });
     }
   });
