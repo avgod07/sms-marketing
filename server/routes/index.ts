@@ -64,8 +64,31 @@ async function getBizForRequest(req: any) {
   const clerkAuth = typeof req.auth === "function" ? req.auth() : req.auth;
   const clerkUserId = clerkAuth?.userId;
   if (!clerkUserId) throw new Error("No Clerk user ID found in request");
-  const user = await storage.getUserByClerkId(clerkUserId);
-  if (!user) throw new Error("No local user found for Clerk user ID");
+
+  let user = await storage.getUserByClerkId(clerkUserId);
+
+  // If no local user exists, create one automatically
+  if (!user) {
+    logInfo(`Creating local user for Clerk user ${clerkUserId}`);
+
+    // Create a new business for this user
+    const business = await storage.createBusiness({
+      name: `Business for ${clerkUserId.slice(0, 8)}`,
+    });
+
+    // Create a local user record
+    user = await storage.forBusiness(business.id).createUser({
+      username: `user_${clerkUserId.slice(0, 8)}`,
+      passwordHash: "", // Not needed for Clerk users
+      clerkId: clerkUserId,
+    });
+
+    logInfo(`Created local user for Clerk user ${clerkUserId}`, {
+      userId: user.id,
+      businessId: business.id,
+    });
+  }
+
   return { biz: storage.forBusiness(user.businessId), user };
 }
 
@@ -1490,12 +1513,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication routes handled by Clerk
-  app.get("/api/me", requireAuth(), (req, res) => {
-    const auth =
-      typeof (req as any).auth === "function"
-        ? (req as any).auth()
-        : (req as any).auth;
-    res.json(auth || null);
+  app.get("/api/me", requireAuth(), async (req, res) => {
+    try {
+      const auth =
+        typeof (req as any).auth === "function"
+          ? (req as any).auth()
+          : (req as any).auth;
+
+      if (!auth?.userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Check if user has a local account
+      const user = await storage.getUserByClerkId(auth.userId);
+
+      res.json({
+        ...auth,
+        hasLocalAccount: !!user,
+        userId: user?.id,
+        businessId: user?.businessId,
+      });
+    } catch (error) {
+      logError("Error in /api/me:", error);
+      res.status(500).json({ message: "Failed to get user info" });
+    }
   });
 
   const httpServer = createServer(app);

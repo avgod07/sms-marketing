@@ -20,10 +20,12 @@ import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 
 function Router() {
   const [location, navigate] = useLocation();
-  const { data: user, isLoading } = useAuth();
+  const { data: user, isLoading, isClerkAuthenticated } = useAuth();
+  const { data: setupStatus, isLoading: setupLoading } = useSetupStatus(!!user);
 
   const isAuthPage =
     location === "/login" ||
@@ -33,13 +35,20 @@ function Router() {
   const isPublicPage = location.startsWith("/join/");
 
   useEffect(() => {
-    if (!isLoading && !user && !isAuthPage && !isPublicPage) {
+    // Only redirect if user is fully authenticated (has both Clerk user and local user)
+    if (!isLoading && !setupLoading && user && isAuthPage) {
+      // Check setup status to determine where to redirect
+      if (setupStatus && !setupStatus.onboardingComplete) {
+        navigate("/onboarding");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+    // Only redirect to login if user is not authenticated and not on auth/public pages
+    if (!isLoading && !isClerkAuthenticated && !isAuthPage && !isPublicPage) {
       navigate("/login");
     }
-    if (!isLoading && user && isAuthPage) {
-      navigate("/");
-    }
-  }, [isLoading, user, isAuthPage, isPublicPage, navigate]);
+  }, [isLoading, setupLoading, user, isClerkAuthenticated, isAuthPage, isPublicPage, setupStatus, navigate]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -50,6 +59,7 @@ function Router() {
           <Route path="/signup" component={Signup} />
           <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/contacts" component={Contacts} />
           <Route path="/campaigns/new" component={NewCampaignPage} />
