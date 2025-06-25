@@ -1,73 +1,35 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import session from "express-session";
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import bcrypt from "bcryptjs";
+import { getAuth, clerkClient } from "@clerk/clerk-sdk-node";
 import { storage } from "../db/storage";
-import type { User } from "@shared/schema";
 
-export function setupAuth(app: Express) {
-  const envSecret = process.env.SESSION_SECRET;
-
-  if (!envSecret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET must be set in production");
-    } else {
-      console.warn(
-        "SESSION_SECRET is not set. Using fallback secret for development.",
-      );
-    }
-  }
-
-  app.use(
-    session({
-      secret: envSecret || "secret",
-      resave: false,
-      saveUninitialized: false,
-    }),
-  );
-  app.use(passport.initialize());
-  app.use(passport.session());
+export function setupAuth(_app: Express) {
+  // Clerk middleware is registered in the routes file
 }
 
-passport.use(
-  new LocalStrategy(async (username: string, password: string, done: (err: any, user?: User | false, info?: any) => void) => {
-    try {
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return done(null, false, { message: "Incorrect username" });
-      }
-      const match = await bcrypt.compare(password, user.passwordHash);
-      if (!match) {
-        return done(null, false, { message: "Incorrect password" });
-      }
-      return done(null, user);
-    } catch (err) {
-      return done(err);
-    }
-  }),
-);
-
-passport.serializeUser((user: User, done: (err: any, id?: number) => void) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id: number, done: (err: any, user?: User | null) => void) => {
-  try {
-    const user = await storage.getUserById(id);
-    done(null, user || null);
-  } catch (err) {
-    done(err);
-  }
-});
-
-export function ensureAuthenticated(
+export async function ensureAuthenticated(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    return next();
+  const { userId } = getAuth(req);
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
   }
-  res.status(401).json({ message: "Unauthorized" });
+
+  let user = await storage.getUserByClerkId(userId);
+  if (!user) {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email =
+      clerkUser?.primaryEmailAddress?.emailAddress ||
+      clerkUser.emailAddresses?.[0]?.emailAddress ||
+      `${userId}@example.com`;
+    const defaultBusinessName = email.split("@")[0] || "Untitled";
+    const business = await storage.createBusiness({ name: defaultBusinessName });
+    user = await storage
+      .forBusiness(business.id)
+      .createUser({ username: email, passwordHash: "", clerkId: userId });
+  }
+
+  (req as any).user = user;
+  next();
 }

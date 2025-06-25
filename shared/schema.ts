@@ -158,6 +158,7 @@ export const users = pgTable("users", {
     .notNull(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  clerkId: varchar("clerk_id", { length: 64 }).unique(),
   onboardingComplete: boolean("onboarding_complete")
     .default(false)
     .notNull(),
@@ -372,7 +373,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   businessId: true,
   createdAt: true,
-});
+}).partial({ clerkId: true });
 
 // Types
 export type Contact = typeof contacts.$inferSelect;
