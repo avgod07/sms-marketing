@@ -19,6 +19,19 @@ import {
   type InsertBusinessProfile,
 } from "@shared/schema";
 import { z } from "zod";
+import { requireAuth } from "@clerk/express";
+import { ensureAuthenticated } from "../middlewares/auth.middleware";
+import twilio from "twilio";
+import { executeCampaign } from "../services/campaign.js";
+import {
+  registerBusinessForA2P,
+  registerCampaignForA2P,
+} from "../services/a2p.js";
+import { logError, logInfo } from "../utils/logger.util";
+import { nanoid } from "nanoid";
+import { createRateLimiter } from "../middlewares/rate-limit.middleware";
+import { validateCoupon } from "../middlewares/coupon.middleware";
+import { encrypt, decrypt } from "../utils/encryption.util";
 
 const businessProfileSchema = insertBusinessProfileSchema.extend({
   name: z.string().optional(),
@@ -45,28 +58,71 @@ const a2pConfigSchema = z.object({
   volume: z.enum(volumeOptions),
   useCases: z.array(z.string()).min(1),
 });
-import twilio from "twilio";
-import { executeCampaign } from "../services/campaign.js";
-import {
-  registerBusinessForA2P,
-  registerCampaignForA2P,
-} from "../services/a2p.js";
-import { requireAuth } from "@clerk/express";
-import { ensureAuthenticated } from "../middlewares/auth.middleware";
-import { logError, logInfo } from "../utils/logger.util";
-import { nanoid } from "nanoid";
-import { createRateLimiter } from "../middlewares/rate-limit.middleware";
-import { validateCoupon } from "../middlewares/coupon.middleware";
-import { encrypt, decrypt } from "../utils/encryption.util";
+
+// Helper to get business context for a request
+async function getBizForRequest(req: any) {
+  const clerkAuth = typeof req.auth === "function" ? req.auth() : req.auth;
+  const clerkUserId = clerkAuth?.userId;
+  if (!clerkUserId) throw new Error("No Clerk user ID found in request");
+  const user = await storage.getUserByClerkId(clerkUserId);
+  if (!user) throw new Error("No local user found for Clerk user ID");
+  return { biz: storage.forBusiness(user.businessId), user };
+}
+
+function logDetailedError(context: string, error: any) {
+  if (error instanceof Error) {
+    logError(`${context}: ${error.message}\n${error.stack}`);
+  } else {
+    logError(`${context}:`, error);
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
-  function biz(req: any) {
-    return storage.forBusiness(req.user.businessId);
-  }
-  // Authentication routes handled by Clerk
-  app.get("/api/me", requireAuth(), ensureAuthenticated, (req, res) => {
-    res.json(req.user || null);
+
+  // Simple endpoint to create local user for Clerk users
+  app.post("/api/auth/setup", requireAuth(), async (req, res) => {
+    try {
+      const clerkAuth =
+        typeof (req as any).auth === "function"
+          ? (req as any).auth()
+          : (req as any).auth;
+      const clerkUserId = clerkAuth?.userId;
+      if (!clerkUserId) {
+        return res.status(400).json({ message: "No Clerk user ID found" });
+      }
+
+      // Check if user already exists
+      let user = await storage.getUserByClerkId(clerkUserId);
+      if (user) {
+        return res.json({ message: "User already exists", userId: user.id });
+      }
+
+      // Create a new business for this user
+      const business = await storage.createBusiness({
+        name: `Business for ${clerkUserId.slice(0, 8)}`,
+      });
+
+      // Create a local user record
+      user = await storage.forBusiness(business.id).createUser({
+        username: `user_${clerkUserId.slice(0, 8)}`,
+        passwordHash: "", // Not needed for Clerk users
+        clerkId: clerkUserId,
+      });
+
+      logInfo(`Created local user for Clerk user ${clerkUserId}`, {
+        userId: user.id,
+        businessId: business.id,
+      });
+      res.json({
+        message: "User created successfully",
+        userId: user.id,
+        businessId: business.id,
+      });
+    } catch (error) {
+      logError("Error setting up user:", error);
+      res.status(500).json({ message: "Failed to setup user" });
+    }
   });
 
   // Twilio status webhook endpoint (unauthenticated)
@@ -274,14 +330,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Require authentication for subsequent API routes
-  app.use(requireAuth());
-  app.use("/api", ensureAuthenticated);
-
   // Dashboard routes
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", requireAuth(), async (req, res) => {
     try {
-      const stats = await biz(req).getDashboardStats();
+      const { biz } = await getBizForRequest(req);
+      const stats = await biz.getDashboardStats();
       const defaults = {
         totalContacts: 0,
         messagesSent: 0,
@@ -294,7 +347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       res.json({ ...defaults, ...(stats || {}) });
     } catch (error) {
-      logError("Error fetching dashboard stats:", error);
+      logDetailedError("Error fetching dashboard stats", error);
       const defaults = {
         totalContacts: 0,
         messagesSent: 0,
@@ -311,8 +364,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analytics", async (req, res) => {
+  app.get("/api/analytics", requireAuth(), async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { range } = req.query as { range?: string };
       if (
         !range ||
@@ -320,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ) {
         return res.status(400).json({ message: "Invalid range" });
       }
-      const analytics = await biz(req).getAnalytics(range as any);
+      const analytics = await biz.getAnalytics(range as any);
       res.json(analytics);
     } catch (error) {
       logError("Error fetching analytics:", error);
@@ -328,19 +382,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/setup/status", async (req, res) => {
+  app.get("/api/setup/status", requireAuth(), async (req, res) => {
     try {
-      const contactStats = await biz(req).getContactStats();
-      const couponStats = await biz(req).getCouponStats();
-      const creds = await biz(req).getTwilioCredentials();
+      const { biz, user } = await getBizForRequest(req);
+      const contactStats = await biz.getContactStats();
+      const couponStats = await biz.getCouponStats();
+      const creds = await biz.getTwilioCredentials();
       res.json({
         phoneConfigured: !!creds,
         hasContacts: contactStats.allContacts > 0,
         hasCoupons: couponStats.allCoupons > 0,
-        onboardingComplete: !!req.user?.onboardingComplete,
+        onboardingComplete: !!user.onboardingComplete,
       });
     } catch (error) {
-      logError("Error fetching setup status:", error);
+      logDetailedError("Error fetching setup status", error);
       res.status(500).json({ message: "Failed to fetch setup status" });
     }
   });
@@ -358,7 +413,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/business-profile", async (req, res) => {
     try {
-      const profile = await biz(req).getBusinessProfile();
+      const { biz } = await getBizForRequest(req);
+      const profile = await biz.getBusinessProfile();
       res.json(profile || null);
     } catch (error) {
       logError("Error fetching business profile:", error);
@@ -368,14 +424,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/business-profile", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const data = businessProfileSchema.parse(req.body);
       const { name, ...profile } = data as {
         name?: string;
       } & InsertBusinessProfile;
       if (name) {
-        await biz(req).updateBusiness({ name });
+        await biz.updateBusiness({ name });
       }
-      const saved = await biz(req).upsertBusinessProfile(profile);
+      const saved = await biz.upsertBusinessProfile(profile);
       res.json(saved);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -401,9 +458,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/onboarding/business-profile", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const data = onboardingProfileSchema.parse(req.body);
 
-      const creds = await biz(req).getTwilioCredentials();
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -419,12 +477,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         policySid: "RNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       });
 
-      const existing = await biz(req).getBusinessProfile();
+      const existing = await biz.getBusinessProfile();
       if (!existing) {
         return res.status(400).json({ message: "Business profile missing" });
       }
 
-      const saved = await biz(req).upsertBusinessProfile({
+      const saved = await biz.upsertBusinessProfile({
         ...existing,
         customerProfileSid: customer.sid,
         registrationStatus: customer.status || existing.registrationStatus,
@@ -449,9 +507,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/onboarding/register-campaign", async (req, res) => {
     try {
-      const creds = await biz(req).getTwilioCredentials();
-      const profile = await biz(req).getBusinessProfile();
-      const config = await biz(req).getTwilioA2PConfig();
+      const { biz } = await getBizForRequest(req);
+      const creds = await biz.getTwilioCredentials();
+      const profile = await biz.getBusinessProfile();
+      const config = await biz.getTwilioA2PConfig();
       if (!creds || !profile || !config) {
         return res
           .status(400)
@@ -466,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await registerCampaignForA2P(creds, profile, config);
-      const saved = await biz(req).upsertBusinessProfile({
+      const saved = await biz.upsertBusinessProfile({
         ...profile,
         brandSid: result.brandSid,
         campaignSid: result.campaignSid,
@@ -481,11 +540,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/twilio/credentials", async (req, res) => {
     try {
-      const creds = await biz(req).getTwilioCredentials();
+      const { biz } = await getBizForRequest(req);
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.json(null);
       }
-      const numbers = await biz(req).getPhoneNumbers();
+      const numbers = await biz.getPhoneNumbers();
       const phoneNumber = numbers.find((n) => n.isDefault)?.phoneNumber || null;
       res.json({
         accountSid: creds.accountSid,
@@ -501,7 +561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/twilio/a2p-config", async (req, res) => {
     try {
-      const config = await biz(req).getTwilioA2PConfig();
+      const { biz } = await getBizForRequest(req);
+      const config = await biz.getTwilioA2PConfig();
       res.json(config || null);
     } catch (error) {
       logError("Error fetching A2P config:", error);
@@ -511,8 +572,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/twilio/a2p-config", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const data = a2pConfigSchema.parse(req.body);
-      const saved = await biz(req).upsertTwilioA2PConfig(data);
+      const saved = await biz.upsertTwilioA2PConfig(data);
       res.json(saved);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -534,6 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/twilio/connect", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { accountSid, authToken, messagingServiceSid, phoneNumber } =
         twilioCredsSchema.parse(req.body);
 
@@ -562,14 +625,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const encrypted = encrypt(authToken);
-      await biz(req).upsertTwilioCredentials({
+      await biz.upsertTwilioCredentials({
         accountSid,
         authTokenEncrypted: encrypted,
         messagingServiceSid: serviceSid,
       });
 
       if (phoneNumber) {
-        await biz(req).setPhoneNumbers([{ phoneNumber, isDefault: true }]);
+        await biz.setPhoneNumbers([{ phoneNumber, isDefault: true }]);
       }
 
       res.json({ messagingServiceSid: serviceSid });
@@ -586,7 +649,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/twilio/numbers", async (req, res) => {
     try {
-      const creds = await biz(req).getTwilioCredentials();
+      const { biz } = await getBizForRequest(req);
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -615,8 +679,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/twilio/numbers", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const data = numberSchema.parse(req.body);
-      const creds = await biz(req).getTwilioCredentials();
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -643,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .update({ smsUrl: webhookUrl });
       }
 
-      const records = await biz(req).setPhoneNumbers(
+      const records = await biz.setPhoneNumbers(
         fetched.map((n) => ({
           phoneNumber: n.phoneNumber,
           isDefault: n.sid === data.defaultSid,
@@ -664,7 +729,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/twilio/available-tollfree", async (req, res) => {
     try {
-      const creds = await biz(req).getTwilioCredentials();
+      const { biz } = await getBizForRequest(req);
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -685,7 +751,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/onboarding/available-numbers", async (req, res) => {
     try {
-      const creds = await biz(req).getTwilioCredentials();
+      const { biz } = await getBizForRequest(req);
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -706,8 +773,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/onboarding/reserve-number", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { phoneNumber } = reserveSchema.parse(req.body);
-      const creds = await biz(req).getTwilioCredentials();
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -724,14 +792,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
         if (!creds.messagingServiceSid) {
-          await biz(req).upsertTwilioCredentials({
+          await biz.upsertTwilioCredentials({
             accountSid: creds.accountSid,
             authTokenEncrypted: creds.authTokenEncrypted,
             messagingServiceSid: serviceSid,
           });
         }
 
-        await biz(req).setPhoneNumbers([
+        await biz.setPhoneNumbers([
           {
             phoneNumber,
             isDefault: true,
@@ -773,8 +841,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/twilio/tollfree", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { phoneNumber } = tollFreeSchema.parse(req.body);
-      const creds = await biz(req).getTwilioCredentials();
+      const creds = await biz.getTwilioCredentials();
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
@@ -794,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .services(creds.messagingServiceSid)
           .phoneNumbers.create({ phoneNumberSid: num.sid });
       }
-      const [record] = await biz(req).setPhoneNumbers([
+      const [record] = await biz.setPhoneNumbers([
         { phoneNumber: num.phoneNumber, isDefault: true },
       ]);
       res.json(record);
@@ -811,6 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/onboarding/complete", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       await db
         .update(users)
         .set({ onboardingComplete: true })
@@ -821,8 +891,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (req.user as any).onboardingComplete = true;
       }
 
-      const numbers = await biz(req).getPhoneNumbers();
-      const creds = await biz(req).getTwilioCredentials();
+      const numbers = await biz.getPhoneNumbers();
+      const creds = await biz.getTwilioCredentials();
       const defaultNum = numbers.find((n) => n.isDefault);
 
       res.json({
@@ -838,10 +908,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/twilio/a2p/register", async (req, res) => {
     try {
-      const creds = await biz(req).getTwilioCredentials();
-      const profile = await biz(req).getBusinessProfile();
-      const business = await biz(req).getBusiness();
-      const config = await biz(req).getTwilioA2PConfig();
+      const { biz } = await getBizForRequest(req);
+      const creds = await biz.getTwilioCredentials();
+      const profile = await biz.getBusinessProfile();
+      const business = await biz.getBusiness();
+      const config = await biz.getTwilioA2PConfig();
       if (!creds || !profile || !config) {
         return res
           .status(400)
@@ -853,7 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profile,
         config
       );
-      await biz(req).upsertBusinessProfile({
+      await biz.upsertBusinessProfile({
         ...profile,
         customerProfileSid: result.customerProfileSid,
         brandSid: result.brandSid,
@@ -870,13 +941,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contact routes
   app.get("/api/contacts", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { search } = req.query as { search?: string };
 
       let contacts;
       if (search) {
-        contacts = await biz(req).searchContacts(search);
+        contacts = await biz.searchContacts(search);
       } else {
-        contacts = await biz(req).getContacts();
+        contacts = await biz.getContacts();
       }
 
       res.json(contacts);
@@ -888,7 +960,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contacts/stats", async (req, res) => {
     try {
-      const stats = await biz(req).getContactStats();
+      const { biz } = await getBizForRequest(req);
+      const stats = await biz.getContactStats();
       res.json(stats);
     } catch (error) {
       logError("Error fetching contact stats:", error);
@@ -898,8 +971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contacts/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const contact = await biz(req).getContact(id);
+      const contact = await biz.getContact(id);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
@@ -912,12 +986,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contacts/:id/redemptions", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const contact = await biz(req).getContact(id);
+      const contact = await biz.getContact(id);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      const redemptions = await biz(req).getContactRedemptions(id);
+      const redemptions = await biz.getContactRedemptions(id);
       res.json(redemptions);
     } catch (error) {
       logError("Error fetching contact redemptions:", error);
@@ -927,8 +1002,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/contacts", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const validatedData = insertContactSchema.parse(req.body);
-      const contact = await biz(req).createContact(validatedData);
+      const contact = await biz.createContact(validatedData);
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -943,9 +1019,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/contacts/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
       const validatedData = insertContactSchema.partial().parse(req.body);
-      const contact = await biz(req).updateContact(id, validatedData);
+      const contact = await biz.updateContact(id, validatedData);
       res.json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -960,8 +1037,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/contacts/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      await biz(req).deleteContact(id);
+      await biz.deleteContact(id);
       res.status(204).send();
     } catch (error) {
       logError("Error deleting contact:", error);
@@ -972,7 +1050,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Campaign routes
   app.get("/api/campaigns", async (req, res) => {
     try {
-      const campaigns = await biz(req).getCampaigns();
+      const { biz } = await getBizForRequest(req);
+      const campaigns = await biz.getCampaigns();
       res.json(campaigns);
     } catch (error) {
       logError("Error fetching campaigns:", error);
@@ -982,7 +1061,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/campaigns/stats", async (req, res) => {
     try {
-      const stats = await biz(req).getCampaignStats();
+      const { biz } = await getBizForRequest(req);
+      const stats = await biz.getCampaignStats();
       res.json(stats);
     } catch (error) {
       logError("Error fetching campaign stats:", error);
@@ -992,8 +1072,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/campaigns/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const campaign = await biz(req).getCampaign(id);
+      const campaign = await biz.getCampaign(id);
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
@@ -1006,10 +1087,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/campaigns", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const validatedData = simpleCampaignSchema.parse(req.body);
-      const campaign = await biz(req).createCampaign(validatedData);
+      const campaign = await biz.createCampaign(validatedData);
 
-      const results = await executeCampaign(biz(req), campaign.id);
+      const results = await executeCampaign(biz, campaign.id);
 
       res.status(201).json({
         campaign,
@@ -1030,8 +1112,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/campaigns/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const existing = await biz(req).getCampaign(id);
+      const existing = await biz.getCampaign(id);
       if (!existing) {
         return res.status(404).json({ message: "Campaign not found" });
       }
@@ -1041,7 +1124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .json({ message: "Completed campaigns cannot be edited" });
       }
       const validatedData = simpleCampaignSchema.partial().parse(req.body);
-      const campaign = await biz(req).updateCampaign(id, validatedData);
+      const campaign = await biz.updateCampaign(id, validatedData);
       res.json(campaign);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1056,8 +1139,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/campaigns/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      await biz(req).deleteCampaign(id);
+      await biz.deleteCampaign(id);
       res.status(204).send();
     } catch (error) {
       logError("Error deleting campaign:", error);
@@ -1067,12 +1151,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/campaigns/:id/duplicate", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const campaign = await biz(req).getCampaign(id);
+      const campaign = await biz.getCampaign(id);
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
-      const copy = await biz(req).createCampaign({
+      const copy = await biz.createCampaign({
         name: `${campaign.name} (Copy)`,
         message: campaign.message,
         status: "in_progress",
@@ -1087,14 +1172,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Send campaign
   app.post("/api/campaigns/:id/send", async (req, res) => {
     try {
-      const campaignId = parseInt(req.params.id);
-      const campaign = await biz(req).getCampaign(campaignId);
+      const { biz } = await getBizForRequest(req);
+      const id = parseInt(req.params.id);
+      const campaign = await biz.getCampaign(id);
 
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
       }
 
-      const results = await executeCampaign(biz(req), campaignId);
+      const results = await executeCampaign(biz, id);
 
       res.json({
         message: "Campaign sent successfully",
@@ -1111,6 +1197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Coupon routes
   app.get("/api/coupons", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { search, status, type, startDate, endDate } = req.query as {
         search?: string;
         status?: string;
@@ -1119,7 +1206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate?: string;
       };
 
-      const coupons = await biz(req).searchCoupons({
+      const coupons = await biz.searchCoupons({
         search,
         status,
         type,
@@ -1135,8 +1222,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/coupons/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const coupon = await biz(req).getCoupon(id);
+      const coupon = await biz.getCoupon(id);
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
@@ -1149,12 +1237,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/coupons/:id/redemptions", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      const coupon = await biz(req).getCoupon(id);
+      const coupon = await biz.getCoupon(id);
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
-      const redemptions = await biz(req).getCouponRedemptions(id);
+      const redemptions = await biz.getCouponRedemptions(id);
       res.json(redemptions);
     } catch (error) {
       logError("Error fetching coupon redemptions:", error);
@@ -1164,6 +1253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/coupons", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const data = { ...req.body };
       if (!data.code) {
         data.code = nanoid(8).toUpperCase();
@@ -1175,7 +1265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.validDays = Number(data.validDays);
       }
       const validatedData = insertCouponSchema.parse(data);
-      const coupon = await biz(req).createCoupon(validatedData);
+      const coupon = await biz.createCoupon(validatedData);
       res.status(201).json(coupon);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -1193,6 +1283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/coupons/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
       const data = { ...req.body };
       if (data.expirationDate) {
@@ -1202,7 +1293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.validDays = Number(data.validDays);
       }
       const validatedData = insertCouponSchema.partial().parse(data);
-      const coupon = await biz(req).updateCoupon(id, validatedData);
+      const coupon = await biz.updateCoupon(id, validatedData);
       res.json(coupon);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1221,6 +1312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateCoupon,
     async (req, res) => {
       try {
+        const { biz } = await getBizForRequest(req);
         const coupon = (req as any).coupon;
         const code = req.params.code;
 
@@ -1231,15 +1323,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const phoneNumber = normalizePhoneNumber(rawPhone);
 
-        const contact = await biz(req).getContactByPhoneNumber(phoneNumber);
+        const contact = await biz.getContactByPhoneNumber(phoneNumber);
         if (!contact) {
           return res.status(404).json({ message: "Contact not found" });
         }
 
-        const received = await biz(req).hasContactReceivedCoupon(
-          contact.id,
-          code
-        );
+        const received = await biz.hasContactReceivedCoupon(contact.id, code);
         if (!received) {
           return res.status(400).json({
             message:
@@ -1247,7 +1336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const alreadyRedeemed = await biz(req).hasContactRedeemedCoupon(
+        const alreadyRedeemed = await biz.hasContactRedeemedCoupon(
           contact.id,
           coupon.id
         );
@@ -1260,10 +1349,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const contactId = contact.id;
 
         const currentCount = coupon.usageCount ?? 0;
-        const updated = await biz(req).updateCoupon(coupon.id, {
+        const updated = await biz.updateCoupon(coupon.id, {
           usageCount: currentCount + 1,
         });
-        await biz(req).createCouponRedemption({
+        await biz.createCouponRedemption({
           couponId: coupon.id,
           contactId,
           phoneNumber,
@@ -1285,8 +1374,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/coupons/:id", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
-      await biz(req).deleteCoupon(id);
+      await biz.deleteCoupon(id);
       res.status(204).send();
     } catch (error) {
       logError("Error deleting coupon:", error);
@@ -1297,7 +1387,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Conversation routes
   app.get("/api/conversations", async (req, res) => {
     try {
-      const convs = await biz(req).getConversationSummaries();
+      const { biz } = await getBizForRequest(req);
+      const convs = await biz.getConversationSummaries();
       res.json(convs);
     } catch (error) {
       logError("Error fetching conversations:", error);
@@ -1307,8 +1398,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/conversations/:contactId/messages", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const contactId = parseInt(req.params.contactId);
-      const msgs = await biz(req).getMessagesByContact(contactId);
+      const msgs = await biz.getMessagesByContact(contactId);
       res.json(msgs);
     } catch (error) {
       logError("Error fetching messages by contact:", error);
@@ -1319,15 +1411,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message routes
   app.get("/api/messages", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const { campaignId } = req.query;
 
       let messages;
       if (campaignId) {
-        messages = await biz(req).getMessagesByCampaign(
+        messages = await biz.getMessagesByCampaign(
           parseInt(campaignId as string)
         );
       } else {
-        messages = await biz(req).getMessages();
+        messages = await biz.getMessages();
       }
 
       res.json(messages);
@@ -1339,15 +1432,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/messages", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const validatedData = insertMessageSchema.parse(req.body);
 
-      const contact = await biz(req).getContact(validatedData.contactId);
+      const contact = await biz.getContact(validatedData.contactId);
       if (!contact || !contact.active) {
         return res.status(400).json({ message: "Contact is inactive" });
       }
 
-      const creds = await biz(req).getTwilioCredentials();
-      const numbers = await biz(req).getPhoneNumbers();
+      const creds = await biz.getTwilioCredentials();
+      const numbers = await biz.getPhoneNumbers();
       const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
       const result = await TwilioService.sendSMS(creds, {
@@ -1359,7 +1453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contactId: validatedData.contactId,
       });
 
-      const message = await biz(req).createMessage({
+      const message = await biz.createMessage({
         ...validatedData,
         status: result.success ? "sent" : "failed",
         messageSid: result.messageSid,
@@ -1379,9 +1473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/messages/:id/status", async (req, res) => {
     try {
+      const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
       const { status, deliveredAt, errorCode } = req.body;
-      const message = await biz(req).updateMessageStatus(
+      const message = await biz.updateMessageStatus(
         id,
         status,
         deliveredAt ? new Date(deliveredAt) : undefined,
@@ -1392,6 +1487,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logError("Error updating message status:", error);
       res.status(500).json({ message: "Failed to update message status" });
     }
+  });
+
+  // Authentication routes handled by Clerk
+  app.get("/api/me", requireAuth(), (req, res) => {
+    const auth =
+      typeof (req as any).auth === "function"
+        ? (req as any).auth()
+        : (req as any).auth;
+    res.json(auth || null);
   });
 
   const httpServer = createServer(app);

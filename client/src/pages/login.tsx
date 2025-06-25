@@ -1,5 +1,9 @@
-import { RedirectToSignIn } from "@clerk/clerk-react";
+import { SignIn } from "@clerk/clerk-react";
 
 export default function Login() {
-  return <RedirectToSignIn />;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+      <SignIn path="/login" routing="path" />
+    </div>
+  );
 }
