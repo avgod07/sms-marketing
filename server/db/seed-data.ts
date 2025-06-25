@@ -27,7 +27,11 @@ export async function seedData() {
 
     let existingUser = await storage.getUserByUsername(demoUsername);
     if (!existingUser) {
-      existingUser = await biz.createUser({ username: demoUsername, passwordHash });
+      existingUser = await biz.createUser({
+        username: demoUsername,
+        passwordHash,
+        clerkId: null,
+      });
       logInfo(`Created demo user \"${demoUsername}\"`);
     } else {
       logInfo(`User "${demoUsername}" already exists. Skipping user creation.`);
@@ -165,7 +169,11 @@ export async function seedData() {
 
     let secondUser = await storage.getUserByUsername(secondUsername);
     if (!secondUser) {
-      secondUser = await biz2.createUser({ username: secondUsername, passwordHash });
+      secondUser = await biz2.createUser({
+        username: secondUsername,
+        passwordHash,
+        clerkId: null,
+      });
       logInfo(`Created demo user \"${secondUsername}\"`);
     } else {
       logInfo(`User "${secondUsername}" already exists. Skipping user creation.`);
