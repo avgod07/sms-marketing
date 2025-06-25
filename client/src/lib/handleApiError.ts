@@ -48,6 +48,12 @@ export function handleApiError(error: unknown, defaultMessage = 'Something went 
   if (message === 'Coupon not found') {
     return 'This coupon is no longer active';
   }
+  if (message === 'form_identifier_not_found') {
+    return 'Invalid credentials';
+  }
+  if (message === 'missing_requirements') {
+    return 'Please complete the sign up process to continue.';
+  }
   if (status && status >= 500) {
     return defaultMessage;
   }

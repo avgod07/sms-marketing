@@ -23,14 +23,16 @@ export default function Signup() {
     if (!isLoaded) return;
     setLoading(true);
     try {
-      await signUp.create({
+      const created = await signUp.create({
         emailAddress: email,
         password,
         phoneNumber,
       });
+      console.debug("Clerk signUp create", created);
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err: any) {
+      console.error("signUp error", err);
       toast({
         title: "Error",
         description: handleApiError(err),
@@ -47,9 +49,16 @@ export default function Signup() {
     setLoading(true);
     try {
       const result = await signUp.attemptEmailAddressVerification({ code });
+      console.debug("Clerk email verification result", result);
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         navigate("/onboarding");
+      } else if (result.status === "missing_requirements") {
+        toast({
+          title: "Finish sign up",
+          description: "Please complete the remaining steps before signing in.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",
@@ -58,6 +67,7 @@ export default function Signup() {
         });
       }
     } catch (err: any) {
+      console.error("email verification error", err);
       toast({
         title: "Error",
         description: handleApiError(err),
