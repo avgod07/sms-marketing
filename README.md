@@ -48,7 +48,7 @@ This project relies on Node.js and Docker for local development. Follow these st
    ```
 
    The Vite dev server runs inside the container and forwards port `5001` on your host to port `5000` in the container.
-   Open `http://localhost:5001` in your browser to view the app.
+   Open `http://localhost:5001` in your browser to view the app. When running outside the dev container, the Express API serves the app on `http://localhost:5000` and Clerk expects your frontend on `http://localhost:5001` by default.
 
 6. **Production build**
 
@@ -93,7 +93,7 @@ existing ones is easier to reason about.
 
 Authentication is handled by [Clerk](https://clerk.com/). The application uses Clerk's hosted sign-in and sign-up pages.
 
-Set `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in your environment. The frontend is wrapped in `ClerkProvider` and the backend validates requests using Clerk's Node SDK.
+Set `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_FRONTEND_API`, and `CLERK_SECRET_KEY` in your environment. The frontend is wrapped in `ClerkProvider` and the backend validates requests using Clerk's Node SDK.
 
 When a user authenticates for the first time, the backend provisions a business and user record tied to the Clerk user ID. All subsequent API calls must include a valid Clerk session cookie or token.
 
@@ -136,3 +136,4 @@ You can run this command inside the dev container now that the Docker CLI is ava
 
 The server writes JSON logs to `logs/app.log` by default. Set the `LOG_FILE` environment variable to change the path or `LOG_SERVICE_URL` to POST logs to a remote service.
 Control verbosity with `LOG_LEVEL` (`error`, `warn`, `info`, or `debug`).
+
