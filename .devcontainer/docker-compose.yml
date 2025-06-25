@@ -4,6 +4,18 @@ services:
     volumes:
       - ..:/workspace:cached
     command: sleep infinity
+    env_file:
+      - ../.env
+    environment:
+      # Use the Postgres service hostname inside the devcontainer
+      DATABASE_URL: postgres://sms:sms@db:5432/sms
+      # Clerk keys are also loaded from the env_file, but you can set them
+      # explicitly if desired. The defaults below read from your host .env file.
+      CLERK_SECRET_KEY: sk_test_LxjXsxPmL71xn0JzqQZrjqA9pLVrltabRCpBKqrPbJ
+      CLERK_PUBLISHABLE_KEY: pk_test_bm90ZWQtd2Vhc2VsLTI3LmNsZXJrLmFjY291bnRzLmRldiQ
+      VITE_CLERK_PUBLISHABLE_KEY: pk_test_bm90ZWQtd2Vhc2VsLTI3LmNsZXJrLmFjY291bnRzLmRldiQ
+      CLERK_PROXY_URL: http://localhost:5000
+      VITE_CLERK_PROXY_URL: http://localhost:5001
     ports:
       # Expose container port 5000 on host port 5001
       - "5001:5000"
