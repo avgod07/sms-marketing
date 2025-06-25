@@ -1,15 +1,16 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { getAuth, clerkClient } from "@clerk/clerk-sdk-node";
+import { clerkClient } from "@clerk/express";
+import { getAuth } from "@clerk/express";
 import { storage } from "../db/storage";
 
 export function setupAuth(_app: Express) {
-  // Clerk middleware is registered in the routes file
+  // Clerk middleware is registeredd in the routes file
 }
 
 export async function ensureAuthenticated(
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) {
   const { userId } = getAuth(req);
   if (!userId) {
@@ -24,7 +25,9 @@ export async function ensureAuthenticated(
       clerkUser.emailAddresses?.[0]?.emailAddress ||
       `${userId}@example.com`;
     const defaultBusinessName = email.split("@")[0] || "Untitled";
-    const business = await storage.createBusiness({ name: defaultBusinessName });
+    const business = await storage.createBusiness({
+      name: defaultBusinessName,
+    });
     user = await storage
       .forBusiness(business.id)
       .createUser({ username: email, passwordHash: "", clerkId: userId });
