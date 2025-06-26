@@ -18,6 +18,7 @@ import Inbox from "@/pages/inbox";
 import JoinPage from "@/pages/auth/join";
 import Login from "@/pages/auth/login";
 import Signup from "@/pages/auth/signup";
+import CheckoutSuccess from "@/pages/checkout-success";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useSetupStatus } from "@/hooks/use-setup-status";
@@ -58,6 +59,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
           <Route path="/join/:businessId" component={JoinPage} />
+          <Route path="/checkout-success" component={CheckoutSuccess} />
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/onboarding" component={OnboardingPage} />

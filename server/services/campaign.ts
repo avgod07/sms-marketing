@@ -7,24 +7,46 @@ export interface CampaignExecutionResult {
   totalContacts: number;
 }
 
+export class InsufficientCreditsError extends Error {
+  constructor(message = "Insufficient credits") {
+    super(message);
+    this.name = "InsufficientCreditsError";
+  }
+}
+
 export async function executeCampaign(
   bizStorage: IStorage,
-  campaignId: number,
+  campaignId: number
 ): Promise<CampaignExecutionResult> {
   const campaign = await bizStorage.getCampaign(campaignId);
   if (!campaign) {
     throw new Error("Campaign not found");
   }
 
-  const contacts = (await bizStorage.getContacts()).filter(c => c.active);
+  const contacts = (await bizStorage.getContacts()).filter((c) => c.active);
 
   if (contacts.length === 0) {
     return { sentCount: 0, failedCount: 0, totalContacts: 0 };
   }
 
+  // --- CREDIT CHECK & DEDUCTION ---
+  const credits = await bizStorage.getCredits();
+  const balance = credits?.balance || 0;
+  if (balance < contacts.length) {
+    throw new InsufficientCreditsError();
+  }
+  // Deduct credits atomically (one per message)
+  await bizStorage.adjustCredits(
+    -contacts.length,
+    "send_sms",
+    `Sent ${contacts.length} SMS for campaign ${campaignId}`,
+    { campaignId }
+  );
+  // --- END CREDIT CHECK & DEDUCTION ---
+
   const allCoupons = await bizStorage.getCoupons();
-  const campaignCoupons = allCoupons.filter(c =>
-    campaign.message.includes(c.code),
+  const campaignCoupons = allCoupons.filter((c) =>
+    campaign.message.includes(c.code)
   );
 
   for (const contact of contacts) {
@@ -39,9 +61,9 @@ export async function executeCampaign(
 
   const creds = await bizStorage.getTwilioCredentials();
   const numbers = await bizStorage.getPhoneNumbers();
-  const defaultNumber = numbers.find(n => n.isDefault)?.phoneNumber;
+  const defaultNumber = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-  const smsMessages = contacts.map(contact => ({
+  const smsMessages = contacts.map((contact) => ({
     to: contact.phoneNumber,
     message: campaign.message,
     campaignId: campaign.id,
@@ -81,7 +103,8 @@ export async function executeCampaign(
 
   const totalAttempts = sentCount + failedCount;
   const failureRate = totalAttempts > 0 ? failedCount / totalAttempts : 0;
-  const status = sentCount === 0 || failureRate >= 0.8 ? "failed" : "in_progress";
+  const status =
+    sentCount === 0 || failureRate >= 0.8 ? "failed" : "in_progress";
 
   await bizStorage.updateCampaign(campaignId, {
     status,

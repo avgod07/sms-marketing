@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DatabaseStorage } from './storage';
-import { campaigns, couponRecipients, messages, coupons } from '@shared/schema';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { DatabaseStorage } from "./storage";
+import { campaigns, couponRecipients, messages, coupons } from "@shared/schema";
 
 let insertMock: any;
 let updateMock: any;
@@ -15,7 +15,7 @@ let returningMock: any;
 let deleteMock: any;
 let transactionMock: any;
 
-vi.mock('../config/db.config', () => ({
+vi.mock("../config/db.config", () => ({
   db: {
     insert: (...args: any[]) => insertMock(...args),
     update: (...args: any[]) => updateMock(...args),
@@ -45,30 +45,30 @@ beforeEach(() => {
   });
 });
 
-describe('DatabaseStorage phone normalization', () => {
-  it('normalizes phone numbers on createContact', async () => {
+describe("DatabaseStorage phone normalization", () => {
+  it("normalizes phone numbers on createContact", async () => {
     const storage = new DatabaseStorage(1);
     await storage.createContact({
-      firstName: 'A',
-      lastName: 'B',
-      phoneNumber: '(123) 456-7890',
+      firstName: "A",
+      lastName: "B",
+      phoneNumber: "(123) 456-7890",
     });
     expect(valuesMock).toHaveBeenCalledWith(
-      expect.objectContaining({ phoneNumber: '+11234567890' }),
+      expect.objectContaining({ phoneNumber: "+11234567890" })
     );
   });
 
-  it('normalizes phone numbers on updateContact', async () => {
+  it("normalizes phone numbers on updateContact", async () => {
     const storage = new DatabaseStorage(1);
-    await storage.updateContact(2, { phoneNumber: '(123) 456-7890' });
+    await storage.updateContact(2, { phoneNumber: "(123) 456-7890" });
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ phoneNumber: '+11234567890' }),
+      expect.objectContaining({ phoneNumber: "+11234567890" })
     );
   });
 });
 
-describe('DatabaseStorage.deleteCampaign', () => {
-  it('removes messages and recipients before deleting campaign', async () => {
+describe("DatabaseStorage.deleteCampaign", () => {
+  it("removes messages and recipients before deleting campaign", async () => {
     const storage = new DatabaseStorage(2);
 
     await storage.deleteCampaign(5);
@@ -81,8 +81,8 @@ describe('DatabaseStorage.deleteCampaign', () => {
   });
 });
 
-describe('DatabaseStorage.getMessagesByContact', () => {
-  it('queries by contact and orders ascending', async () => {
+describe("DatabaseStorage.getMessagesByContact", () => {
+  it("queries by contact and orders ascending", async () => {
     const storage = new DatabaseStorage(3);
     await storage.getMessagesByContact(7);
 
@@ -93,13 +93,13 @@ describe('DatabaseStorage.getMessagesByContact', () => {
   });
 });
 
-describe('Coupons unique index', () => {
-  it('allows same code for different businesses', async () => {
+describe("Coupons unique index", () => {
+  it("allows same code for different businesses", async () => {
     const s1 = new DatabaseStorage(1);
     const s2 = new DatabaseStorage(2);
 
-    await s1.createCoupon({ code: 'SALE', type: 'percent', value: '10' });
-    await s2.createCoupon({ code: 'SALE', type: 'percent', value: '10' });
+    await s1.createCoupon({ code: "SALE", type: "percent", value: "10" });
+    await s2.createCoupon({ code: "SALE", type: "percent", value: "10" });
 
     expect(insertMock).toHaveBeenCalledTimes(2);
     expect(valuesMock.mock.calls[0][0].businessId).toBe(1);

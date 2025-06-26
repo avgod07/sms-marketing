@@ -3,10 +3,12 @@
 This project relies on Node.js and Docker for local development. Follow these steps to get a local instance running.
 
 ## Prerequisites
+
 - [Node.js](https://nodejs.org/) 20+
 - [Docker](https://www.docker.com/) with Compose support
 
 ## Setup
+
 1. **Install dependencies**
 
    ```bash
@@ -55,20 +57,22 @@ This project relies on Node.js and Docker for local development. Follow these st
    To create a production build and start it locally:
 
    ```bash
-  npm run build
-  npm start
-  ```
+   npm run build
+   npm start
+   ```
+
+````
 
 7. **Reset the database**
 
-   Run the reset script from **inside the dev container** to wipe any existing
-   data and recreate the schema:
+ Run the reset script from **inside the dev container** to wipe any existing
+ data and recreate the schema:
 
-   ```bash
-   ./scripts/reset-db.sh [--seed]
-   ```
+ ```bash
+ ./scripts/reset-db.sh [--seed]
+````
 
- Pass `--seed` to automatically populate the database with the sample data.
+Pass `--seed` to automatically populate the database with the sample data.
 
 ## Server Structure
 
@@ -121,7 +125,6 @@ recipients and records the redemption alongside the contact for auditing purpose
 
 If you use VS Code with the Dev Containers extension, the provided `.devcontainer` setup will automatically start the app and database services. The compose file maps port `5000` inside the container to `5001` on your host so it doesn't conflict with other services.
 
-
 ## Troubleshooting
 
 If the devcontainer fails to start and Docker reports that port 5000 is already in use, you may have an old container still running with the previous port mapping. Remove it (and the data volume) and try again:
@@ -137,3 +140,15 @@ You can run this command inside the dev container now that the Docker CLI is ava
 The server writes JSON logs to `logs/app.log` by default. Set the `LOG_FILE` environment variable to change the path or `LOG_SERVICE_URL` to POST logs to a remote service.
 Control verbosity with `LOG_LEVEL` (`error`, `warn`, `info`, or `debug`).
 
+## Stripe Integration (for Credits)
+
+Add these to your `.env`:
+
+```
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+- Get your keys from the Stripe dashboard.
+- STRIPE_SECRET_KEY is used for API calls.
+- STRIPE_WEBHOOK_SECRET is used to verify incoming webhooks.
