@@ -7,6 +7,92 @@ This project relies on Node.js and Docker for local development. Follow these st
 - [Node.js](https://nodejs.org/) 20+
 - [Docker](https://www.docker.com/) with Compose support
 
+## Environment Variables
+
+This application requires several environment variables to function properly. Create a `.env` file in the root directory with the following variables:
+
+### Required Variables
+
+#### Database
+
+```bash
+# PostgreSQL connection string
+DATABASE_URL=postgres://username:password@localhost:5432/database_name
+```
+
+#### Authentication (Clerk)
+
+```bash
+# Get these from your Clerk dashboard: https://dashboard.clerk.com/
+CLERK_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
+CLERK_SECRET_KEY=sk_test_your_secret_key_here
+# Frontend Clerk key (same as CLERK_PUBLISHABLE_KEY)
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
+```
+
+#### Payment Processing (Stripe)
+
+```bash
+# Get these from your Stripe dashboard: https://dashboard.stripe.com/
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+```
+
+#### SMS Service (Twilio)
+
+```bash
+# Get these from your Twilio dashboard: https://console.twilio.com/
+TWILIO_ACCOUNT_SID=ACyour_account_sid_here
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=+1234567890
+```
+
+#### Security
+
+```bash
+# Generate a strong encryption key for sensitive data
+# Use: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ENCRYPTION_KEY=your_32_character_encryption_key_here
+```
+
+### Optional Variables
+
+#### Logging
+
+```bash
+# Log level: error, warn, info, debug
+LOG_LEVEL=info
+# Log file path (optional)
+LOG_FILE=logs/app.log
+# External log service URL (optional)
+LOG_SERVICE_URL=
+```
+
+#### Development
+
+```bash
+# Node environment
+NODE_ENV=development
+# Port for the server
+PORT=5000
+```
+
+### Security Notes
+
+⚠️ **Important Security Considerations:**
+
+1. **Never commit your `.env` file** - It's already in `.gitignore`
+2. **Use different keys for development and production**
+3. **Generate a unique `ENCRYPTION_KEY`** for each environment
+4. **Rotate your API keys regularly**
+5. **Use environment-specific webhook secrets** for Stripe
+
+### Getting API Keys
+
+- **Clerk**: Sign up at [clerk.com](https://clerk.com/) and create a new application
+- **Stripe**: Create an account at [stripe.com](https://stripe.com/) and get your test keys
+- **Twilio**: Sign up at [twilio.com](https://twilio.com/) and get your credentials from the console
+
 ## Setup
 
 1. **Install dependencies**
@@ -61,16 +147,14 @@ This project relies on Node.js and Docker for local development. Follow these st
    npm start
    ```
 
-````
-
 7. **Reset the database**
 
- Run the reset script from **inside the dev container** to wipe any existing
- data and recreate the schema:
+Run the reset script from **inside the dev container** to wipe any existing
+data and recreate the schema:
 
- ```bash
- ./scripts/reset-db.sh [--seed]
-````
+```bash
+./scripts/reset-db.sh [--seed]
+```
 
 Pass `--seed` to automatically populate the database with the sample data.
 

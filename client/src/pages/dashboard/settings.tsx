@@ -218,7 +218,7 @@ export default function Settings() {
 
 
 function BillingTab() {
-  const { data: credits } = useCredits();
+  const { data: credits, isLoading, error } = useCredits();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(10);
@@ -246,7 +246,7 @@ function BillingTab() {
         data: {
           amount,
           successUrl: `${window.location.origin}/checkout-success`,
-          cancelUrl: `${window.location.origin}/dashboard/settings?tab=billing`,
+          cancelUrl: `${window.location.origin}/settings?tab=billing`,
         },
       });
 
@@ -264,6 +264,30 @@ function BillingTab() {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-32 bg-gray-200 rounded-lg mb-6"></div>
+          <div className="h-24 bg-gray-200 rounded-lg mb-6"></div>
+          <div className="h-10 bg-gray-200 rounded w-32"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-red-600">Error loading credits: {error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -283,7 +307,7 @@ function BillingTab() {
       </Card>
 
       <div className="bg-blue-50 rounded-lg p-6 text-center">
-        <p className="text-4xl font-bold text-blue-600">{credits ?? "--"}</p>
+        <p className="text-4xl font-bold text-blue-600">{credits?.balance ?? "--"}</p>
         <p className="text-gray-600 mt-1">Credits Remaining</p>
       </div>
 

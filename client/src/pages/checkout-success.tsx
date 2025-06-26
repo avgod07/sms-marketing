@@ -18,7 +18,7 @@ export default function CheckoutSuccess() {
   };
 
   const handleReturnToSettings = () => {
-    navigate("/dashboard/settings?tab=billing");
+    navigate("/settings?tab=billing");
   };
 
   return (

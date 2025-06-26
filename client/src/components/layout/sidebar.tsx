@@ -187,7 +187,7 @@ function CreditsDisplay() {
   const { data: credits } = useCredits();
   return (
     <div className="w-full rounded-md bg-primary py-2 text-center text-sm font-medium text-white">
-      {`Credits: ${credits ?? "--"}`}
+      {`Credits: ${credits?.balance ?? "--"}`}
     </div>
   );
 }
