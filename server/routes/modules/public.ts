@@ -3,15 +3,38 @@ import { z } from "zod";
 import { insertContactSchema } from "@shared/schema";
 import { storage } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
+import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
 
 export function registerPublicRoutes(app: Express) {
+  const publicContactRateLimiter = createRateLimiter({
+    windowMs: 60_000,
+    max: 5,
+  }); // 5 contacts per minute per IP
+
   const publicContactSchema = insertContactSchema.extend({
     businessId: z.number().positive("Business ID must be a positive number"),
   });
 
-  app.post("/public/contacts", async (req, res) => {
+  app.post("/public/contacts", publicContactRateLimiter, async (req, res) => {
     try {
       const { businessId, ...contact } = publicContactSchema.parse(req.body);
+
+      // Validate business exists and is active
+      try {
+        await storage.forBusiness(businessId).getBusiness();
+      } catch (error) {
+        return res.status(404).json({ message: "Business not found" });
+      }
+
+      // Check if phone number already exists for this business
+      const existingContact = await storage
+        .forBusiness(businessId)
+        .getContactByPhoneNumber(contact.phoneNumber);
+      if (existingContact) {
+        return res
+          .status(409)
+          .json({ message: "Contact with this phone number already exists" });
+      }
 
       const contactStore = storage.forBusiness(businessId);
       const newContact = await contactStore.createContact(contact);

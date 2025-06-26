@@ -1,12 +1,13 @@
 import type { Express } from "express";
 import { z } from "zod";
+import { requireAuth } from "@clerk/express";
 import { insertMessageSchema } from "@shared/schema";
 import { TwilioService } from "../../services/twilio.js";
 import { getBizForRequest } from "./utils";
 import { logError } from "../../utils/logger.util";
 
 export function registerMessageRoutes(app: Express) {
-  app.get("/api/conversations", async (req, res) => {
+  app.get("/api/conversations", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const convs = await biz.getConversationSummaries();
@@ -17,26 +18,32 @@ export function registerMessageRoutes(app: Express) {
     }
   });
 
-  app.get("/api/conversations/:contactId/messages", async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const contactId = parseInt(req.params.contactId);
-      const msgs = await biz.getMessagesByContact(contactId);
-      res.json(msgs);
-    } catch (error) {
-      logError("Error fetching messages by contact:", error);
-      res.status(500).json({ message: "Failed to fetch messages" });
+  app.get(
+    "/api/conversations/:contactId/messages",
+    requireAuth(),
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
+        const contactId = parseInt(req.params.contactId);
+        const msgs = await biz.getMessagesByContact(contactId);
+        res.json(msgs);
+      } catch (error) {
+        logError("Error fetching messages by contact:", error);
+        res.status(500).json({ message: "Failed to fetch messages" });
+      }
     }
-  });
+  );
 
-  app.get("/api/messages", async (req, res) => {
+  app.get("/api/messages", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { campaignId } = req.query;
 
       let messages;
       if (campaignId) {
-        messages = await biz.getMessagesByCampaign(parseInt(campaignId as string));
+        messages = await biz.getMessagesByCampaign(
+          parseInt(campaignId as string)
+        );
       } else {
         messages = await biz.getMessages();
       }
@@ -48,7 +55,7 @@ export function registerMessageRoutes(app: Express) {
     }
   });
 
-  app.post("/api/messages", async (req, res) => {
+  app.post("/api/messages", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = insertMessageSchema.parse(req.body);
@@ -80,14 +87,16 @@ export function registerMessageRoutes(app: Express) {
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating message:", error);
       res.status(500).json({ message: "Failed to create message" });
     }
   });
 
-  app.patch("/api/messages/:id/status", async (req, res) => {
+  app.patch("/api/messages/:id/status", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);

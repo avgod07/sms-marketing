@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { z } from "zod";
+import { requireAuth } from "@clerk/express";
 import {
   simpleCampaignSchema,
   getBizForRequest,
@@ -12,7 +13,7 @@ import {
 } from "../../services/campaign.js";
 
 export function registerCampaignRoutes(app: Express) {
-  app.get("/api/campaigns", async (req, res) => {
+  app.get("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const campaigns = await biz.getCampaigns();
@@ -23,7 +24,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.get("/api/campaigns/stats", async (req, res) => {
+  app.get("/api/campaigns/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const stats = await biz.getCampaignStats();
@@ -34,7 +35,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.get("/api/campaigns/:id", async (req, res) => {
+  app.get("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -49,7 +50,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns", async (req, res) => {
+  app.post("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = simpleCampaignSchema.parse(req.body);
@@ -79,7 +80,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/campaigns/:id", async (req, res) => {
+  app.patch("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -106,7 +107,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/campaigns/:id", async (req, res) => {
+  app.delete("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -118,7 +119,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns/:id/duplicate", async (req, res) => {
+  app.post("/api/campaigns/:id/duplicate", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -138,7 +139,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns/:id/send", async (req, res) => {
+  app.post("/api/campaigns/:id/send", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);

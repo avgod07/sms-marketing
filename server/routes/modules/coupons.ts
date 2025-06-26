@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { z } from "zod";
+import { requireAuth } from "@clerk/express";
 import { insertCouponSchema } from "@shared/schema";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { logError, logInfo } from "../../utils/logger.util";
@@ -11,7 +12,7 @@ import { getBizForRequest, logDetailedError } from "./utils";
 export function registerCouponRoutes(app: Express) {
   const redeemRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
 
-  app.get("/api/coupons", async (req, res) => {
+  app.get("/api/coupons", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { search, status, type, startDate, endDate } = req.query as {
@@ -36,7 +37,7 @@ export function registerCouponRoutes(app: Express) {
     }
   });
 
-  app.get("/api/coupons/:id", async (req, res) => {
+  app.get("/api/coupons/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -51,7 +52,7 @@ export function registerCouponRoutes(app: Express) {
     }
   });
 
-  app.get("/api/coupons/:id/redemptions", async (req, res) => {
+  app.get("/api/coupons/:id/redemptions", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -67,7 +68,7 @@ export function registerCouponRoutes(app: Express) {
     }
   });
 
-  app.post("/api/coupons", async (req, res) => {
+  app.post("/api/coupons", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const data = { ...req.body } as any;
@@ -85,7 +86,9 @@ export function registerCouponRoutes(app: Express) {
       res.status(201).json(coupon);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       if (error.code === "23505") {
         return res.status(400).json({ message: "Coupon code already exists" });
@@ -95,7 +98,7 @@ export function registerCouponRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/coupons/:id", async (req, res) => {
+  app.patch("/api/coupons/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -111,7 +114,9 @@ export function registerCouponRoutes(app: Express) {
       res.json(coupon);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating coupon:", error);
       res.status(500).json({ message: "Failed to update coupon" });
@@ -120,6 +125,7 @@ export function registerCouponRoutes(app: Express) {
 
   app.post(
     "/api/coupons/:code/redeem",
+    requireAuth(),
     redeemRateLimiter,
     validateCoupon,
     async (req, res) => {
@@ -143,7 +149,8 @@ export function registerCouponRoutes(app: Express) {
         const received = await biz.hasContactReceivedCoupon(contact.id, code);
         if (!received) {
           return res.status(400).json({
-            message: "This contact was not part of the campaign that received this coupon.",
+            message:
+              "This contact was not part of the campaign that received this coupon.",
           });
         }
 
@@ -183,7 +190,7 @@ export function registerCouponRoutes(app: Express) {
     }
   );
 
-  app.delete("/api/coupons/:id", async (req, res) => {
+  app.delete("/api/coupons/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);

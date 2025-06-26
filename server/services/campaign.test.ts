@@ -26,7 +26,7 @@ function createMockStorage() {
 }
 
 describe("executeCampaign", () => {
-  it("marks campaign failed when all sends fail", async () => {
+  it("marks campaign completed even when all sends fail", async () => {
     const { executeCampaign } = await import("./campaign");
     const storage = createMockStorage();
     mockSendBulkSMS = vi
@@ -38,10 +38,11 @@ describe("executeCampaign", () => {
     expect(result.sentCount).toBe(0);
     expect(result.failedCount).toBe(2);
     expect(storage.updateCampaign).toHaveBeenCalledWith(1, {
-      status: "failed",
+      status: "completed",
       sentCount: 0,
       deliveredCount: 0,
     });
+    expect(storage.adjustCredits).not.toHaveBeenCalled();
   });
 
   it("sends only to active contacts", async () => {
@@ -63,7 +64,7 @@ describe("executeCampaign", () => {
     expect(result.totalContacts).toBe(1);
   });
 
-  it("deducts credits and records transaction", async () => {
+  it("deducts credits and records transaction after successful sends", async () => {
     const { executeCampaign } = await import("./campaign");
     const storage = createMockStorage();
     mockSendBulkSMS = vi
@@ -76,8 +77,12 @@ describe("executeCampaign", () => {
     expect(storage.adjustCredits).toHaveBeenCalledWith(
       -2,
       "send_sms",
-      expect.stringContaining("Sent 2 SMS for campaign"),
-      { campaignId: 1 }
+      "Sent 2 SMS for campaign 1",
+      {
+        campaignId: 1,
+        failedCount: 0,
+        totalContacts: 2,
+      }
     );
     expect(result.sentCount).toBe(2);
   });

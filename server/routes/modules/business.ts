@@ -60,7 +60,7 @@ export function registerBusinessRoutes(app: Express) {
     }
   });
 
-  app.get("/api/business-profile", async (req, res) => {
+  app.get("/api/business-profile", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const profile = await biz.getBusinessProfile();
@@ -71,7 +71,7 @@ export function registerBusinessRoutes(app: Express) {
     }
   });
 
-  app.post("/api/business-profile", async (req, res) => {
+  app.post("/api/business-profile", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const data = businessProfileSchema.parse(req.body) as {

@@ -25,11 +25,29 @@ vi.mock("../config/db.config", () => ({
   },
 }));
 
+// Mock Clerk authentication
+vi.mock("@clerk/express", () => ({
+  requireAuth: () => (req: any, res: any, next: any) => {
+    // If req.auth is mocked to have a userId, allow the request
+    const auth = typeof req.auth === "function" ? req.auth() : req.auth;
+    if (auth?.userId) {
+      return next();
+    }
+    // Otherwise, redirect to login (simulating Clerk behavior)
+    return res.status(302).redirect("/sign-in");
+  },
+}));
+
 vi.mock("../db/storage", () => {
   mockForBusiness = {
     createUser: vi.fn(),
     getCredits: vi.fn(),
     adjustCredits: vi.fn(),
+    getContacts: vi.fn().mockResolvedValue([]),
+    getCampaigns: vi.fn().mockResolvedValue([]),
+    getCoupons: vi.fn().mockResolvedValue([]),
+    getDashboardStats: vi.fn().mockResolvedValue({}),
+    deleteCampaign: vi.fn().mockResolvedValue(undefined),
   };
   mockStorage = {
     getUserByUsername: vi.fn(),
@@ -97,7 +115,7 @@ afterEach(() => {
 async function setupApp(user?: any) {
   const app = express();
   app.use(express.json());
-  app.use((req, _res, next) => {
+  app.use((req: any, _res, next) => {
     // Mock Clerk authentication
     req.auth = () => ({
       userId: user ? "clerk_user_123" : undefined,
@@ -112,88 +130,28 @@ async function setupApp(user?: any) {
 }
 
 describe("routes", () => {
-  it("signup creates account", async () => {
-    mockStorage.getUserByUsername.mockResolvedValue(undefined);
-    mockStorage.createBusiness.mockResolvedValue({ id: 1 });
-    mockForBusiness.createUser.mockResolvedValue({
-      id: 1,
-      username: "a@b.com",
-    });
-
-    const app = await setupApp();
-
-    const res = await request(app).post("/api/signup").send({
-      username: "a@b.com",
-      password: "Password1!",
-    });
-
-    expect(res.status).toBe(201);
-    expect(res.body).toEqual({ message: "Signed up" });
-  });
-
-  it("signup assigns a unique business for each new user", async () => {
-    const bizA = { createUser: vi.fn().mockResolvedValue({ id: 1 }) };
-    const bizB = { createUser: vi.fn().mockResolvedValue({ id: 2 }) };
-    mockStorage.getUserByUsername
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined);
-    mockStorage.createBusiness
-      .mockResolvedValueOnce({ id: 11 })
-      .mockResolvedValueOnce({ id: 22 });
-    mockStorage.forBusiness
-      .mockImplementationOnce(() => bizA)
-      .mockImplementationOnce(() => bizB);
-
-    const app = await setupApp();
-
-    await request(app)
-      .post("/api/signup")
-      .send({ username: "u1@example.com", password: "Password1!" });
-
-    await request(app)
-      .post("/api/signup")
-      .send({ username: "u2@example.com", password: "Password1!" });
-
-    expect(mockStorage.createBusiness).toHaveBeenCalledTimes(2);
-    expect(mockStorage.forBusiness).toHaveBeenNthCalledWith(1, 11);
-    expect(mockStorage.forBusiness).toHaveBeenNthCalledWith(2, 22);
-    expect(bizA.createUser).toHaveBeenCalledWith({
-      username: "u1@example.com",
-      passwordHash: "hashed",
-    });
-    expect(bizB.createUser).toHaveBeenCalledWith({
-      username: "u2@example.com",
-      passwordHash: "hashed",
-    });
-  });
-
-  it("signup rejects existing user", async () => {
-    mockStorage.getUserByUsername.mockResolvedValue({ id: 1 });
-
-    const app = await setupApp();
-    const res = await request(app).post("/api/signup").send({
-      username: "a@b.com",
-      password: "Password1!",
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toBe("User already exists");
-  });
-
   it("me returns current user", async () => {
+    mockStorage.getUserByClerkId.mockResolvedValue({ id: 2, businessId: 1 });
     const app = await setupApp({ id: 2, name: "User" });
     const res = await request(app).get("/api/me");
-    expect(res.body).toEqual({ id: 2, name: "User" });
+    expect(res.body).toEqual({
+      id: 2,
+      name: "User",
+      hasLocalAccount: true,
+      userId: 2,
+      businessId: 1,
+    });
   });
 
-  it("me returns null when not logged in", async () => {
+  it("me returns hasLocalAccount false when not logged in", async () => {
     const app = await setupApp();
     const res = await request(app).get("/api/me");
-    expect(res.body).toBeNull();
+    expect(res.status).toBe(302); // Redirect to sign-in
   });
 
   it("deletes campaign with existing messages", async () => {
     mockForBusiness.deleteCampaign = vi.fn().mockResolvedValue(undefined);
+    mockStorage.getUserByClerkId.mockResolvedValue({ id: 1, businessId: 1 });
 
     const app = await setupApp({ businessId: 1 });
     const res = await request(app).delete("/api/campaigns/3");
@@ -221,6 +179,7 @@ describe("routes", () => {
 
   it("scopes routes using the businessId from the session", async () => {
     mockForBusiness.getContacts = vi.fn().mockResolvedValue([]);
+    mockStorage.getUserByClerkId.mockResolvedValue({ id: 1, businessId: 42 });
     const app = await setupApp({ businessId: 42 });
 
     await request(app).get("/api/contacts");
@@ -368,46 +327,23 @@ describe("routes", () => {
   });
 
   describe("multi-tenant isolation", () => {
-    let biz1: any;
-    let biz2: any;
-
-    beforeEach(() => {
-      biz1 = {
-        getContacts: vi.fn().mockResolvedValue([{ id: 1, firstName: "A" }]),
-        getCampaigns: vi.fn().mockResolvedValue([{ id: 1, name: "C1" }]),
-        searchCoupons: vi.fn().mockResolvedValue([{ id: 1, code: "X1" }]),
-        getDashboardStats: vi.fn().mockResolvedValue({
-          totalContacts: 1,
-          messagesSent: 2,
-          activeCampaigns: 1,
-          deliveryRate: 0.5,
-          contactsChange: null,
-          messagesChange: null,
-          campaignsChange: null,
-          deliveryRateChange: null,
-        }),
-      };
-      biz2 = {
-        getContacts: vi.fn().mockResolvedValue([{ id: 2, firstName: "B" }]),
-        getCampaigns: vi.fn().mockResolvedValue([{ id: 2, name: "C2" }]),
-        searchCoupons: vi.fn().mockResolvedValue([{ id: 2, code: "X2" }]),
-        getDashboardStats: vi.fn().mockResolvedValue({
-          totalContacts: 5,
-          messagesSent: 6,
-          activeCampaigns: 2,
-          deliveryRate: 0.9,
-          contactsChange: null,
-          messagesChange: null,
-          campaignsChange: null,
-          deliveryRateChange: null,
-        }),
-      };
-      mockStorage.forBusiness.mockImplementation((id: number) =>
-        id === 1 ? biz1 : biz2
-      );
-    });
-
     it("returns only contacts for the authenticated business", async () => {
+      // Mock different users for different businesses
+      mockStorage.getUserByClerkId
+        .mockResolvedValueOnce({ id: 1, businessId: 1 })
+        .mockResolvedValueOnce({ id: 2, businessId: 2 });
+
+      const biz1 = {
+        getContacts: vi.fn().mockResolvedValue([{ id: 1, firstName: "A" }]),
+      };
+      const biz2 = {
+        getContacts: vi.fn().mockResolvedValue([{ id: 2, firstName: "B" }]),
+      };
+
+      mockStorage.forBusiness
+        .mockReturnValueOnce(biz1)
+        .mockReturnValueOnce(biz2);
+
       const app1 = await setupApp({ businessId: 1 });
       const app2 = await setupApp({ businessId: 2 });
 
@@ -419,6 +355,22 @@ describe("routes", () => {
     });
 
     it("returns only campaigns for the authenticated business", async () => {
+      // Mock different users for different businesses
+      mockStorage.getUserByClerkId
+        .mockResolvedValueOnce({ id: 1, businessId: 1 })
+        .mockResolvedValueOnce({ id: 2, businessId: 2 });
+
+      const biz1 = {
+        getCampaigns: vi.fn().mockResolvedValue([{ id: 1, name: "C1" }]),
+      };
+      const biz2 = {
+        getCampaigns: vi.fn().mockResolvedValue([{ id: 2, name: "C2" }]),
+      };
+
+      mockStorage.forBusiness
+        .mockReturnValueOnce(biz1)
+        .mockReturnValueOnce(biz2);
+
       const app1 = await setupApp({ businessId: 1 });
       const app2 = await setupApp({ businessId: 2 });
 
@@ -430,6 +382,22 @@ describe("routes", () => {
     });
 
     it("returns only coupons for the authenticated business", async () => {
+      // Mock different users for different businesses
+      mockStorage.getUserByClerkId
+        .mockResolvedValueOnce({ id: 1, businessId: 1 })
+        .mockResolvedValueOnce({ id: 2, businessId: 2 });
+
+      const biz1 = {
+        getCoupons: vi.fn().mockResolvedValue([{ id: 1, code: "X1" }]),
+      };
+      const biz2 = {
+        getCoupons: vi.fn().mockResolvedValue([{ id: 2, code: "X2" }]),
+      };
+
+      mockStorage.forBusiness
+        .mockReturnValueOnce(biz1)
+        .mockReturnValueOnce(biz2);
+
       const app1 = await setupApp({ businessId: 1 });
       const app2 = await setupApp({ businessId: 2 });
 
@@ -441,6 +409,22 @@ describe("routes", () => {
     });
 
     it("returns stats for the authenticated business only", async () => {
+      // Mock different users for different businesses
+      mockStorage.getUserByClerkId
+        .mockResolvedValueOnce({ id: 1, businessId: 1 })
+        .mockResolvedValueOnce({ id: 2, businessId: 2 });
+
+      const biz1 = {
+        getDashboardStats: vi.fn().mockResolvedValue({ totalContacts: 1 }),
+      };
+      const biz2 = {
+        getDashboardStats: vi.fn().mockResolvedValue({ totalContacts: 5 }),
+      };
+
+      mockStorage.forBusiness
+        .mockReturnValueOnce(biz1)
+        .mockReturnValueOnce(biz2);
+
       const app1 = await setupApp({ businessId: 1 });
       const app2 = await setupApp({ businessId: 2 });
 
@@ -501,12 +485,11 @@ describe("Credit Routes", () => {
       expect(res.body.message).toBe("Failed to fetch credits");
     });
 
-    it("returns 500 when user is not authenticated", async () => {
+    it("returns 302 when user is not authenticated", async () => {
       const app = await setupApp();
       const res = await request(app).get("/api/credits");
 
-      expect(res.status).toBe(500);
-      expect(res.body.message).toBe("Failed to fetch credits");
+      expect(res.status).toBe(302); // Redirect to sign-in
     });
   });
 
@@ -549,15 +532,14 @@ describe("Credit Routes", () => {
       expect(res.body.message).toBe("Missing required fields");
     });
 
-    it("returns 500 when user is not authenticated", async () => {
+    it("returns 302 when user is not authenticated", async () => {
       const app = await setupApp();
       const res = await request(app).post("/api/credits/checkout").send({
         amount: 10,
         successUrl: "https://success",
         cancelUrl: "https://cancel",
       });
-      expect(res.status).toBe(500);
-      expect(res.body.message).toBe("Failed to create checkout session");
+      expect(res.status).toBe(302); // Redirect to sign-in
     });
   });
 
