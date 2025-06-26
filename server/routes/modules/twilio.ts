@@ -4,10 +4,17 @@ import { decrypt, encrypt } from "../../utils/encryption.util";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
 import { socketService } from "../../socket";
-import { storage, findTwilioCredentialByAccountSid, findBusinessIdByPhoneNumber } from "../../db/storage";
+import {
+  storage,
+  findTwilioCredentialByAccountSid,
+  findBusinessIdByPhoneNumber,
+} from "../../db/storage";
 import { logError } from "../../utils/logger.util";
 import { z } from "zod";
-import { registerBusinessForA2P, registerCampaignForA2P } from "../../services/a2p.js";
+import {
+  registerBusinessForA2P,
+  registerCampaignForA2P,
+} from "../../services/a2p.js";
 import { a2pConfigSchema, getBizForRequest } from "./utils";
 import { db } from "../../config/db.config";
 import { users } from "@shared/schema";
@@ -180,7 +187,7 @@ export function registerTwilioRoutes(app: Express) {
         await TwilioService.sendSMS(creds, {
           to: normalizedFrom,
           message:
-            "You’ve been removed from our list. You will no longer receive messages from us.",
+            "You've been removed from our list. You will no longer receive messages from us.",
           from,
           messagingServiceSid: creds?.messagingServiceSid || undefined,
           contactId: contact.id,
@@ -442,7 +449,9 @@ export function registerTwilioRoutes(app: Express) {
         creds.accountSid,
         decrypt(creds.authTokenEncrypted)
       );
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
 
       const fetched = await Promise.all(
         data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
@@ -511,14 +520,17 @@ export function registerTwilioRoutes(app: Express) {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
 
       try {
-        const { phoneSid, serviceSid } = await TwilioService.purchaseAndAssignNumber(
-          creds,
-          phoneNumber,
-          webhookUrl
-        );
+        const { phoneSid, serviceSid } =
+          await TwilioService.purchaseAndAssignNumber(
+            creds,
+            phoneNumber,
+            webhookUrl
+          );
 
         if (!creds.messagingServiceSid) {
           await biz.upsertTwilioCredentials({
@@ -551,7 +563,9 @@ export function registerTwilioRoutes(app: Express) {
           });
         }
         logError("Error purchasing phone number:", err);
-        return res.status(500).json({ message: "Failed to purchase phone number" });
+        return res
+          .status(500)
+          .json({ message: "Failed to purchase phone number" });
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -578,7 +592,9 @@ export function registerTwilioRoutes(app: Express) {
         creds.accountSid,
         decrypt(creds.authTokenEncrypted)
       );
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
       const num = await client.incomingPhoneNumbers.create({
         phoneNumber,
         smsUrl: webhookUrl,
@@ -605,15 +621,11 @@ export function registerTwilioRoutes(app: Express) {
 
   app.post("/api/onboarding/complete", async (req, res) => {
     try {
-      const { biz } = await getBizForRequest(req);
+      const { biz, user } = await getBizForRequest(req);
       await db
         .update(users)
         .set({ onboardingComplete: true })
-        .where(eq(users.id, (req.user as any).id));
-
-      if (req.user) {
-        (req.user as any).onboardingComplete = true;
-      }
+        .where(eq(users.id, user.id));
 
       const numbers = await biz.getPhoneNumbers();
       const creds = await biz.getTwilioCredentials();
@@ -621,7 +633,8 @@ export function registerTwilioRoutes(app: Express) {
 
       res.json({
         phoneNumber: defaultNum?.phoneNumber || null,
-        serviceSid: defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+        serviceSid:
+          defaultNum?.serviceSid || creds?.messagingServiceSid || null,
       });
     } catch (error) {
       logError("Error completing onboarding:", error);

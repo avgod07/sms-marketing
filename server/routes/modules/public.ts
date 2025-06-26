@@ -6,12 +6,13 @@ import { logError } from "../../utils/logger.util";
 
 export function registerPublicRoutes(app: Express) {
   const publicContactSchema = insertContactSchema.extend({
-    businessId: z.number(),
+    businessId: z.number().positive("Business ID must be a positive number"),
   });
 
   app.post("/public/contacts", async (req, res) => {
     try {
       const { businessId, ...contact } = publicContactSchema.parse(req.body);
+
       const contactStore = storage.forBusiness(businessId);
       const newContact = await contactStore.createContact(contact);
       res.status(201).json(newContact);
