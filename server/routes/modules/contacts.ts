@@ -1,11 +1,12 @@
 import type { Express } from "express";
 import { z } from "zod";
+import { requireAuth } from "@clerk/express";
 import { insertContactSchema } from "@shared/schema";
 import { getBizForRequest, logDetailedError } from "./utils";
 import { logError } from "../../utils/logger.util";
 
 export function registerContactRoutes(app: Express) {
-  app.get("/api/contacts", async (req, res) => {
+  app.get("/api/contacts", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { search } = req.query as { search?: string };
@@ -24,7 +25,7 @@ export function registerContactRoutes(app: Express) {
     }
   });
 
-  app.get("/api/contacts/stats", async (req, res) => {
+  app.get("/api/contacts/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const stats = await biz.getContactStats();
@@ -35,7 +36,7 @@ export function registerContactRoutes(app: Express) {
     }
   });
 
-  app.get("/api/contacts/:id", async (req, res) => {
+  app.get("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -50,7 +51,7 @@ export function registerContactRoutes(app: Express) {
     }
   });
 
-  app.get("/api/contacts/:id/redemptions", async (req, res) => {
+  app.get("/api/contacts/:id/redemptions", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -66,7 +67,7 @@ export function registerContactRoutes(app: Express) {
     }
   });
 
-  app.post("/api/contacts", async (req, res) => {
+  app.post("/api/contacts", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = insertContactSchema.parse(req.body);
@@ -74,14 +75,16 @@ export function registerContactRoutes(app: Express) {
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating contact:", error);
       res.status(500).json({ message: "Failed to create contact" });
     }
   });
 
-  app.patch("/api/contacts/:id", async (req, res) => {
+  app.patch("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -90,14 +93,16 @@ export function registerContactRoutes(app: Express) {
       res.json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating contact:", error);
       res.status(500).json({ message: "Failed to update contact" });
     }
   });
 
-  app.delete("/api/contacts/:id", async (req, res) => {
+  app.delete("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);

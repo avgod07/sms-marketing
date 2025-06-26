@@ -1,5 +1,6 @@
 import type { IStorage } from "../db/storage";
-import { TwilioService } from "./twilio";
+import { TwilioService } from "./twilio.js";
+import { logError } from "../utils/logger.util";
 
 export interface CampaignExecutionResult {
   sentCount: number;
@@ -29,20 +30,13 @@ export async function executeCampaign(
     return { sentCount: 0, failedCount: 0, totalContacts: 0 };
   }
 
-  // --- CREDIT CHECK & DEDUCTION ---
+  // --- CREDIT CHECK ONLY (no deduction yet) ---
   const credits = await bizStorage.getCredits();
   const balance = credits?.balance || 0;
   if (balance < contacts.length) {
     throw new InsufficientCreditsError();
   }
-  // Deduct credits atomically (one per message)
-  await bizStorage.adjustCredits(
-    -contacts.length,
-    "send_sms",
-    `Sent ${contacts.length} SMS for campaign ${campaignId}`,
-    { campaignId }
-  );
-  // --- END CREDIT CHECK & DEDUCTION ---
+  // --- END CREDIT CHECK ---
 
   const allCoupons = await bizStorage.getCoupons();
   const campaignCoupons = allCoupons.filter((c) =>
@@ -72,45 +66,47 @@ export async function executeCampaign(
     messagingServiceSid: creds?.messagingServiceSid || undefined,
   }));
 
-  const results = await TwilioService.sendBulkSMS(creds, smsMessages);
+  try {
+    const results = await TwilioService.sendBulkSMS(creds, smsMessages);
 
-  let sentCount = 0;
-  let deliveredCount = 0;
-  let failedCount = 0;
+    let sentCount = 0;
+    let deliveredCount = 0;
+    let failedCount = 0;
 
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
-    const contact = contacts[i];
-
-    const messageData = {
-      phoneNumber: contact.phoneNumber,
-      contactId: contact.id,
-      content: campaign.message,
-      status: result.success ? "sent" : "failed",
-      campaignId: campaign.id,
-      messageSid: result.messageSid,
-    };
-
-    await bizStorage.createMessage(messageData);
-
-    if (result.success) {
-      sentCount++;
-      deliveredCount++; // Assume delivered until webhook updates
-    } else {
-      failedCount++;
+    // Process results and count successes/failures
+    for (const result of results) {
+      if (result.success) {
+        sentCount++;
+      } else {
+        failedCount++;
+      }
     }
+
+    // Only deduct credits for successfully sent messages
+    if (sentCount > 0) {
+      await bizStorage.adjustCredits(
+        -sentCount,
+        "send_sms",
+        `Sent ${sentCount} SMS for campaign ${campaignId}`,
+        { campaignId, totalContacts: contacts.length, failedCount }
+      );
+    }
+
+    // Update campaign with results
+    await bizStorage.updateCampaign(campaignId, {
+      status: "completed",
+      sentCount,
+      deliveredCount,
+    });
+
+    return { sentCount, failedCount, totalContacts: contacts.length };
+  } catch (error) {
+    // If SMS sending fails completely, don't deduct any credits
+    logError("Campaign execution failed, no credits deducted", {
+      campaignId,
+      error: error instanceof Error ? error.message : String(error),
+      contactsCount: contacts.length,
+    });
+    throw error;
   }
-
-  const totalAttempts = sentCount + failedCount;
-  const failureRate = totalAttempts > 0 ? failedCount / totalAttempts : 0;
-  const status =
-    sentCount === 0 || failureRate >= 0.8 ? "failed" : "in_progress";
-
-  await bizStorage.updateCampaign(campaignId, {
-    status,
-    sentCount: (campaign.sentCount || 0) + sentCount,
-    deliveredCount: (campaign.deliveredCount || 0) + deliveredCount,
-  });
-
-  return { sentCount, failedCount, totalContacts: contacts.length };
 }
