@@ -3,15 +3,22 @@ import { z } from "zod";
 import { insertContactSchema } from "@shared/schema";
 import { storage } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
+import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
 
 export function registerPublicRoutes(app: Express) {
-  const publicContactSchema = insertContactSchema.extend({
-    businessId: z.number(),
+  const publicContactRateLimiter = createRateLimiter({
+    windowMs: 60_000,
+    max: 5,
   });
 
-  app.post("/public/contacts", async (req, res) => {
+  const publicContactSchema = insertContactSchema.extend({
+    businessId: z.number().positive("Business ID must be a positive number"),
+  });
+
+  app.post("/public/contacts", publicContactRateLimiter, async (req, res) => {
     try {
       const { businessId, ...contact } = publicContactSchema.parse(req.body);
+
       const contactStore = storage.forBusiness(businessId);
       const newContact = await contactStore.createContact(contact);
       res.status(201).json(newContact);

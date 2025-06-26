@@ -1,11 +1,16 @@
 import type { Express } from "express";
+import { requireAuth } from "@clerk/express";
 import { z } from "zod";
-import { simpleCampaignSchema, getBizForRequest, logDetailedError } from "./utils";
+import {
+  simpleCampaignSchema,
+  getBizForRequest,
+  logDetailedError,
+} from "./utils";
 import { logError } from "../../utils/logger.util";
 import { executeCampaign } from "../../services/campaign.js";
 
 export function registerCampaignRoutes(app: Express) {
-  app.get("/api/campaigns", async (req, res) => {
+  app.get("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const campaigns = await biz.getCampaigns();
@@ -16,7 +21,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.get("/api/campaigns/stats", async (req, res) => {
+  app.get("/api/campaigns/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const stats = await biz.getCampaignStats();
@@ -27,7 +32,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.get("/api/campaigns/:id", async (req, res) => {
+  app.get("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -42,7 +47,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns", async (req, res) => {
+  app.post("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = simpleCampaignSchema.parse(req.body);
@@ -58,14 +63,16 @@ export function registerCampaignRoutes(app: Express) {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error creating campaign:", error);
       res.status(500).json({ message: "Failed to create campaign" });
     }
   });
 
-  app.patch("/api/campaigns/:id", async (req, res) => {
+  app.patch("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -74,21 +81,25 @@ export function registerCampaignRoutes(app: Express) {
         return res.status(404).json({ message: "Campaign not found" });
       }
       if (existing.status === "completed") {
-        return res.status(400).json({ message: "Completed campaigns cannot be edited" });
+        return res
+          .status(400)
+          .json({ message: "Completed campaigns cannot be edited" });
       }
       const validatedData = simpleCampaignSchema.partial().parse(req.body);
       const campaign = await biz.updateCampaign(id, validatedData);
       res.json(campaign);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating campaign:", error);
       res.status(500).json({ message: "Failed to update campaign" });
     }
   });
 
-  app.delete("/api/campaigns/:id", async (req, res) => {
+  app.delete("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -100,7 +111,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns/:id/duplicate", async (req, res) => {
+  app.post("/api/campaigns/:id/duplicate", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);
@@ -120,7 +131,7 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns/:id/send", async (req, res) => {
+  app.post("/api/campaigns/:id/send", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const id = parseInt(req.params.id);

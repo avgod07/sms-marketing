@@ -1,13 +1,21 @@
 import type { Express } from "express";
+import { requireAuth } from "@clerk/express";
 import twilio from "twilio";
 import { decrypt, encrypt } from "../../utils/encryption.util";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
 import { socketService } from "../../socket";
-import { storage, findTwilioCredentialByAccountSid, findBusinessIdByPhoneNumber } from "../../db/storage";
+import {
+  storage,
+  findTwilioCredentialByAccountSid,
+  findBusinessIdByPhoneNumber,
+} from "../../db/storage";
 import { logError } from "../../utils/logger.util";
 import { z } from "zod";
-import { registerBusinessForA2P, registerCampaignForA2P } from "../../services/a2p.js";
+import {
+  registerBusinessForA2P,
+  registerCampaignForA2P,
+} from "../../services/a2p.js";
 import { a2pConfigSchema, getBizForRequest } from "./utils";
 import { db } from "../../config/db.config";
 import { users } from "@shared/schema";
@@ -180,7 +188,7 @@ export function registerTwilioRoutes(app: Express) {
         await TwilioService.sendSMS(creds, {
           to: normalizedFrom,
           message:
-            "You’ve been removed from our list. You will no longer receive messages from us.",
+            "You've been removed from our list. You will no longer receive messages from us.",
           from,
           messagingServiceSid: creds?.messagingServiceSid || undefined,
           contactId: contact.id,
@@ -209,89 +217,97 @@ export function registerTwilioRoutes(app: Express) {
     repPhone: z.string().min(1),
   });
 
-  app.post("/api/onboarding/business-profile", async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const data = onboardingProfileSchema.parse(req.body);
+  app.post(
+    "/api/onboarding/business-profile",
+    requireAuth(),
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
+        const data = onboardingProfileSchema.parse(req.body);
 
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
+        const creds = await biz.getTwilioCredentials();
+        if (!creds) {
+          return res.status(400).json({ message: "Twilio not connected" });
+        }
 
-      const client = twilio(
-        creds.accountSid,
-        decrypt(creds.authTokenEncrypted)
-      );
+        const client = twilio(
+          creds.accountSid,
+          decrypt(creds.authTokenEncrypted)
+        );
 
-      const customer = await client.trusthub.v1.customerProfiles.create({
-        friendlyName: data.name,
-        email: data.repEmail,
-        policySid: "RNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      });
-
-      const existing = await biz.getBusinessProfile();
-      if (!existing) {
-        return res.status(400).json({ message: "Business profile missing" });
-      }
-
-      const saved = await biz.upsertBusinessProfile({
-        ...existing,
-        customerProfileSid: customer.sid,
-        registrationStatus: customer.status || existing.registrationStatus,
-      });
-
-      res.json({
-        sid: saved.customerProfileSid,
-        status: saved.registrationStatus,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error creating Twilio business profile:", error);
-      const message: string =
-        (error as any)?.message || "Failed to create business profile";
-      res.status(500).json({ message });
-    }
-  });
-
-  app.post("/api/onboarding/register-campaign", async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const creds = await biz.getTwilioCredentials();
-      const profile = await biz.getBusinessProfile();
-      const config = await biz.getTwilioA2PConfig();
-      if (!creds || !profile || !config) {
-        return res
-          .status(400)
-          .json({ message: "Missing profile, credentials or config" });
-      }
-
-      if (profile.campaignSid) {
-        return res.json({
-          sid: profile.campaignSid,
-          status: profile.registrationStatus,
+        const customer = await client.trusthub.v1.customerProfiles.create({
+          friendlyName: data.name,
+          email: data.repEmail,
+          policySid: "RNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
         });
+
+        const existing = await biz.getBusinessProfile();
+        if (!existing) {
+          return res.status(400).json({ message: "Business profile missing" });
+        }
+
+        const saved = await biz.upsertBusinessProfile({
+          ...existing,
+          customerProfileSid: customer.sid,
+          registrationStatus: customer.status || existing.registrationStatus,
+        });
+
+        res.json({
+          sid: saved.customerProfileSid,
+          status: saved.registrationStatus,
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        logError("Error creating Twilio business profile:", error);
+        const message: string =
+          (error as any)?.message || "Failed to create business profile";
+        res.status(500).json({ message });
       }
-
-      const result = await registerCampaignForA2P(creds, profile, config);
-      const saved = await biz.upsertBusinessProfile({
-        ...profile,
-        brandSid: result.brandSid,
-        campaignSid: result.campaignSid,
-        registrationStatus: result.status,
-      });
-      res.json({ sid: saved.campaignSid, status: saved.registrationStatus });
-    } catch (error) {
-      logError("Error registering campaign:", error);
-      res.status(500).json({ message: "Failed to register campaign" });
     }
-  });
+  );
 
-  app.get("/api/twilio/credentials", async (req, res) => {
+  app.post(
+    "/api/onboarding/register-campaign",
+    requireAuth(),
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
+        const creds = await biz.getTwilioCredentials();
+        const profile = await biz.getBusinessProfile();
+        const config = await biz.getTwilioA2PConfig();
+        if (!creds || !profile || !config) {
+          return res
+            .status(400)
+            .json({ message: "Missing profile, credentials or config" });
+        }
+
+        if (profile.campaignSid) {
+          return res.json({
+            sid: profile.campaignSid,
+            status: profile.registrationStatus,
+          });
+        }
+
+        const result = await registerCampaignForA2P(creds, profile, config);
+        const saved = await biz.upsertBusinessProfile({
+          ...profile,
+          brandSid: result.brandSid,
+          campaignSid: result.campaignSid,
+          registrationStatus: result.status,
+        });
+        res.json({ sid: saved.campaignSid, status: saved.registrationStatus });
+      } catch (error) {
+        logError("Error registering campaign:", error);
+        res.status(500).json({ message: "Failed to register campaign" });
+      }
+    }
+  );
+
+  app.get("/api/twilio/credentials", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const creds = await biz.getTwilioCredentials();
@@ -312,7 +328,7 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.get("/api/twilio/a2p-config", async (req, res) => {
+  app.get("/api/twilio/a2p-config", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const config = await biz.getTwilioA2PConfig();
@@ -323,7 +339,7 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.post("/api/twilio/a2p-config", async (req, res) => {
+  app.post("/api/twilio/a2p-config", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const data = a2pConfigSchema.parse(req.body);
@@ -347,7 +363,7 @@ export function registerTwilioRoutes(app: Express) {
     phoneNumber: z.string().optional(),
   });
 
-  app.post("/api/twilio/connect", async (req, res) => {
+  app.post("/api/twilio/connect", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { accountSid, authToken, messagingServiceSid, phoneNumber } =
@@ -400,7 +416,7 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.get("/api/twilio/numbers", async (req, res) => {
+  app.get("/api/twilio/numbers", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const creds = await biz.getTwilioCredentials();
@@ -430,7 +446,7 @@ export function registerTwilioRoutes(app: Express) {
     sids: z.array(z.string()),
   });
 
-  app.post("/api/twilio/numbers", async (req, res) => {
+  app.post("/api/twilio/numbers", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const data = numberSchema.parse(req.body);
@@ -442,7 +458,9 @@ export function registerTwilioRoutes(app: Express) {
         creds.accountSid,
         decrypt(creds.authTokenEncrypted)
       );
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
 
       const fetched = await Promise.all(
         data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
@@ -481,7 +499,7 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.get("/api/twilio/available-tollfree", async (req, res) => {
+  app.get("/api/twilio/available-tollfree", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const creds = await biz.getTwilioCredentials();
@@ -503,70 +521,79 @@ export function registerTwilioRoutes(app: Express) {
 
   const reserveSchema = z.object({ phoneNumber: z.string() });
 
-  app.post("/api/onboarding/reserve-number", async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const { phoneNumber } = reserveSchema.parse(req.body);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
-
+  app.post(
+    "/api/onboarding/reserve-number",
+    requireAuth(),
+    async (req, res) => {
       try {
-        const { phoneSid, serviceSid } = await TwilioService.purchaseAndAssignNumber(
-          creds,
-          phoneNumber,
-          webhookUrl
-        );
-
-        if (!creds.messagingServiceSid) {
-          await biz.upsertTwilioCredentials({
-            accountSid: creds.accountSid,
-            authTokenEncrypted: creds.authTokenEncrypted,
-            messagingServiceSid: serviceSid,
-          });
+        const { biz } = await getBizForRequest(req);
+        const { phoneNumber } = reserveSchema.parse(req.body);
+        const creds = await biz.getTwilioCredentials();
+        if (!creds) {
+          return res.status(400).json({ message: "Twilio not connected" });
         }
+        const webhookUrl = `${req.protocol}://${req.get(
+          "host"
+        )}/api/twilio/webhook`;
 
-        await biz.setPhoneNumbers([
-          {
+        try {
+          const { phoneSid, serviceSid } =
+            await TwilioService.purchaseAndAssignNumber(
+              creds,
+              phoneNumber,
+              webhookUrl
+            );
+
+          if (!creds.messagingServiceSid) {
+            await biz.upsertTwilioCredentials({
+              accountSid: creds.accountSid,
+              authTokenEncrypted: creds.authTokenEncrypted,
+              messagingServiceSid: serviceSid,
+            });
+          }
+
+          await biz.setPhoneNumbers([
+            {
+              phoneNumber,
+              isDefault: true,
+              phoneSid,
+              serviceSid,
+              assignmentStatus: "assigned",
+            },
+          ]);
+
+          res.json({
             phoneNumber,
-            isDefault: true,
             phoneSid,
             serviceSid,
             assignmentStatus: "assigned",
-          },
-        ]);
-
-        res.json({
-          phoneNumber,
-          phoneSid,
-          serviceSid,
-          assignmentStatus: "assigned",
-        });
-      } catch (err: any) {
-        if (err?.status === 400 || err?.status === 409) {
-          return res.status(400).json({
-            message: "Number is no longer available. Please choose another.",
           });
+        } catch (err: any) {
+          if (err?.status === 400 || err?.status === 409) {
+            return res.status(400).json({
+              message: "Number is no longer available. Please choose another.",
+            });
+          }
+          logError("Error purchasing phone number:", err);
+          return res
+            .status(500)
+            .json({ message: "Failed to purchase phone number" });
         }
-        logError("Error purchasing phone number:", err);
-        return res.status(500).json({ message: "Failed to purchase phone number" });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        logError("Error reserving number:", error);
+        res.status(500).json({ message: "Failed to reserve number" });
       }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error reserving number:", error);
-      res.status(500).json({ message: "Failed to reserve number" });
     }
-  });
+  );
 
   const tollFreeSchema = z.object({ phoneNumber: z.string() });
 
-  app.post("/api/twilio/tollfree", async (req, res) => {
+  app.post("/api/twilio/tollfree", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const { phoneNumber } = tollFreeSchema.parse(req.body);
@@ -578,7 +605,9 @@ export function registerTwilioRoutes(app: Express) {
         creds.accountSid,
         decrypt(creds.authTokenEncrypted)
       );
-      const webhookUrl = `${req.protocol}://${req.get("host")}/api/twilio/webhook`;
+      const webhookUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/api/twilio/webhook`;
       const num = await client.incomingPhoneNumbers.create({
         phoneNumber,
         smsUrl: webhookUrl,
@@ -603,7 +632,7 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.post("/api/onboarding/complete", async (req, res) => {
+  app.post("/api/onboarding/complete", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       await db
@@ -621,7 +650,8 @@ export function registerTwilioRoutes(app: Express) {
 
       res.json({
         phoneNumber: defaultNum?.phoneNumber || null,
-        serviceSid: defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+        serviceSid:
+          defaultNum?.serviceSid || creds?.messagingServiceSid || null,
       });
     } catch (error) {
       logError("Error completing onboarding:", error);
@@ -629,7 +659,7 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.post("/api/twilio/a2p/register", async (req, res) => {
+  app.post("/api/twilio/a2p/register", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
       const creds = await biz.getTwilioCredentials();
