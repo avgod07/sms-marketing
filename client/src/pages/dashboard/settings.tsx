@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useCredits } from "@/hooks/use-credits";
 import { differenceInCalendarDays, format } from "date-fns";
+import { useLocation } from "wouter";
 
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
@@ -32,6 +33,17 @@ import type { TwilioSettings } from "@shared/api-types";
 
 export default function Settings() {
   const { toast } = useToast();
+  const [location] = useLocation();
+  const [activeTab, setActiveTab] = useState("account");
+
+  // Parse tab from URL query parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.split('?')[1]);
+    const tab = urlParams.get('tab');
+    if (tab && ['account', 'sms', 'billing'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location]);
 
   const { data: creds } = useQuery<TwilioSettings | null>({
     queryKey: ["/api/twilio/credentials"],
@@ -99,7 +111,7 @@ export default function Settings() {
       </header>
 
       <div className="p-8">
-        <Tabs defaultValue="account" className="max-w-4xl">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
           <TabsList className="mb-4">
             <TabsTrigger value="account">Account</TabsTrigger>
             <TabsTrigger value="sms">SMS Configuration</TabsTrigger>
@@ -207,11 +219,51 @@ export default function Settings() {
 
 function BillingTab() {
   const { data: credits } = useCredits();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(10);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const trialEnd = new Date();
   trialEnd.setDate(trialEnd.getDate() + 5);
   const daysLeft = differenceInCalendarDays(trialEnd, new Date());
+
+  const handlePurchaseCredits = async () => {
+    if (amount < 1) {
+      toast({
+        title: "Error",
+        description: "Please select a valid amount of credits",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await apiRequest({
+        method: "POST",
+        url: "/api/credits/checkout",
+        data: {
+          amount,
+          successUrl: `${window.location.origin}/checkout-success`,
+          cancelUrl: `${window.location.origin}/dashboard/settings?tab=billing`,
+        },
+      });
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: handleApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -242,7 +294,65 @@ function BillingTab() {
           <DialogHeader>
             <DialogTitle>Buy Credits</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600">Purchase additional credits here.</p>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Purchase additional credits to send SMS campaigns. Each credit allows you to send one SMS message.
+            </p>
+            
+            <div className="space-y-2">
+              <Label htmlFor="credit-amount">Number of Credits</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {[10, 50, 100].map((value) => (
+                  <Button
+                    key={value}
+                    variant={amount === value ? "default" : "outline"}
+                    onClick={() => setAmount(value)}
+                    className="w-full"
+                  >
+                    {value}
+                  </Button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[250, 500].map((value) => (
+                  <Button
+                    key={value}
+                    variant={amount === value ? "default" : "outline"}
+                    onClick={() => setAmount(value)}
+                    className="w-full"
+                  >
+                    {value}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Price:</span> ${(amount * 0.01).toFixed(2)} USD
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                $0.01 per credit
+              </p>
+            </div>
+
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePurchaseCredits}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                {isSubmitting ? "Processing..." : "Purchase Credits"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

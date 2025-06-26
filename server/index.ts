@@ -10,6 +10,8 @@ import {
 } from "./middlewares/error.middleware";
 import { requireAuth } from "@clerk/express";
 
+// IMPORTANT: express.json() must NOT be applied before the Stripe webhook route (/api/webhooks/stripe).
+// That route uses express.raw({ type: 'application/json' }) for signature verification.
 const app = express();
 
 // Add health check route before anything else

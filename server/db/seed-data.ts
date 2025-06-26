@@ -38,7 +38,7 @@ export async function seedData() {
     }
 
     logInfo(
-      `Demo credentials: username \"${demoUsername}\" / password \"${demoPassword}\"`,
+      `Demo credentials: username \"${demoUsername}\" / password \"${demoPassword}\"`
     );
 
     // Check if we already have contact data
@@ -92,17 +92,20 @@ export async function seedData() {
     const sampleCampaigns = [
       {
         name: "Black Friday Sale",
-        message: "🔥 BLACK FRIDAY: 50% OFF everything! Use code BF50. Limited time only. Shop now: bit.ly/shop50",
+        message:
+          "🔥 BLACK FRIDAY: 50% OFF everything! Use code BF50. Limited time only. Shop now: bit.ly/shop50",
         status: "completed",
       },
       {
         name: "Welcome Series",
-        message: "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
+        message:
+          "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
         status: "in_progress",
       },
       {
         name: "VIP Exclusive",
-        message: "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
+        message:
+          "🌟 VIP EXCLUSIVE: Early access to our new collection! Shop before everyone else: bit.ly/vip-early",
         status: "in_progress",
       },
     ];
@@ -152,6 +155,17 @@ export async function seedData() {
 
     logInfo("Sample data seeded successfully!");
 
+    // Seed initial credits for the first business
+    const existingCredits = await biz.getCredits();
+    if (!existingCredits) {
+      await biz.adjustCredits(
+        100,
+        "initial_seed",
+        "Initial credit balance for seeded business"
+      );
+      logInfo("Seeded 100 credits for first business");
+    }
+
     // ----- Optional second business for multi-tenant testing -----
     const secondBusinessName = "Second Seeded Business";
     const secondUsername = "demo2";
@@ -176,7 +190,9 @@ export async function seedData() {
       });
       logInfo(`Created demo user \"${secondUsername}\"`);
     } else {
-      logInfo(`User "${secondUsername}" already exists. Skipping user creation.`);
+      logInfo(
+        `User "${secondUsername}" already exists. Skipping user creation.`
+      );
     }
 
     const existingSecondContacts = await biz2.getContacts();
@@ -187,6 +203,17 @@ export async function seedData() {
         phoneNumber: "+15550000000",
         email: "jane@example.com",
       });
+    }
+
+    // Seed initial credits for the second business
+    const existingSecondCredits = await biz2.getCredits();
+    if (!existingSecondCredits) {
+      await biz2.adjustCredits(
+        50,
+        "initial_seed",
+        "Initial credit balance for second seeded business"
+      );
+      logInfo("Seeded 50 credits for second business");
     }
   } catch (error) {
     console.error("Error seeding data:", error);

@@ -1,8 +1,15 @@
 import type { Express } from "express";
 import { z } from "zod";
-import { simpleCampaignSchema, getBizForRequest, logDetailedError } from "./utils";
+import {
+  simpleCampaignSchema,
+  getBizForRequest,
+  logDetailedError,
+} from "./utils";
 import { logError } from "../../utils/logger.util";
-import { executeCampaign } from "../../services/campaign.js";
+import {
+  executeCampaign,
+  InsufficientCreditsError,
+} from "../../services/campaign.js";
 
 export function registerCampaignRoutes(app: Express) {
   app.get("/api/campaigns", async (req, res) => {
@@ -58,7 +65,14 @@ export function registerCampaignRoutes(app: Express) {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      if (error instanceof InsufficientCreditsError) {
+        return res
+          .status(400)
+          .json({ message: "Insufficient credits to send campaign" });
       }
       logError("Error creating campaign:", error);
       res.status(500).json({ message: "Failed to create campaign" });
@@ -74,14 +88,18 @@ export function registerCampaignRoutes(app: Express) {
         return res.status(404).json({ message: "Campaign not found" });
       }
       if (existing.status === "completed") {
-        return res.status(400).json({ message: "Completed campaigns cannot be edited" });
+        return res
+          .status(400)
+          .json({ message: "Completed campaigns cannot be edited" });
       }
       const validatedData = simpleCampaignSchema.partial().parse(req.body);
       const campaign = await biz.updateCampaign(id, validatedData);
       res.json(campaign);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
       }
       logError("Error updating campaign:", error);
       res.status(500).json({ message: "Failed to update campaign" });
@@ -139,6 +157,11 @@ export function registerCampaignRoutes(app: Express) {
         totalContacts: results.totalContacts,
       });
     } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        return res
+          .status(400)
+          .json({ message: "Insufficient credits to send campaign" });
+      }
       logError("Error sending campaign:", error);
       res.status(500).json({ message: "Failed to send campaign" });
     }

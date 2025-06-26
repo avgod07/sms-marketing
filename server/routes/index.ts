@@ -9,6 +9,7 @@ import { registerContactRoutes } from "./modules/contacts";
 import { registerCampaignRoutes } from "./modules/campaigns";
 import { registerCouponRoutes } from "./modules/coupons";
 import { registerMessageRoutes } from "./modules/messages";
+import { registerCreditsRoutes } from "./modules/credits";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   registerAuthRoutes(app);
@@ -20,6 +21,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCampaignRoutes(app);
   registerCouponRoutes(app);
   registerMessageRoutes(app);
+  registerCreditsRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

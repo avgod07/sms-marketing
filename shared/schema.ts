@@ -77,7 +77,7 @@ export const messages = pgTable(
     errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
     sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
     deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),
-  }),
+  })
 );
 
 export const coupons = pgTable(
@@ -101,9 +101,9 @@ export const coupons = pgTable(
   (table) => ({
     codeIdx: uniqueIndex("coupons_business_id_code_idx").on(
       table.businessId,
-      table.code,
+      table.code
     ),
-  }),
+  })
 );
 
 export const couponRedemptions = pgTable("coupon_redemptions", {
@@ -146,7 +146,7 @@ export const analytics = pgTable("analytics", {
   totalContacts: integer("total_contacts").default(0),
   messagesSent: integer("messages_sent").default(0),
   deliveryRate: decimal("delivery_rate", { precision: 5, scale: 2 }).default(
-    "0.00",
+    "0.00"
   ),
   clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
 });
@@ -159,9 +159,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   clerkId: varchar("clerk_id", { length: 64 }).unique(),
-  onboardingComplete: boolean("onboarding_complete")
-    .default(false)
-    .notNull(),
+  onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -240,6 +238,29 @@ export const twilioA2pConfigs = pgTable("twilio_a2p_config", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const businessCredits = pgTable("business_credits", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  balance: integer("balance").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const creditTransactions = pgTable("credit_transactions", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
+  type: text("type").notNull(), // 'purchase', 'sms_sent', 'refund', 'adjustment'
+  amount: integer("amount").notNull(), // positive for credits added, negative for credits used
+  description: text("description"),
+  metadata: text("metadata"), // JSON string for storing additional data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -273,6 +294,8 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   twilioCredentials: many(twilioCredentials),
   phoneNumbers: many(businessPhoneNumbers),
   a2pConfig: many(twilioA2pConfigs),
+  businessCredits: many(businessCredits),
+  creditTransactions: many(creditTransactions),
 }));
 
 // Insert schemas
@@ -313,7 +336,7 @@ export const insertCouponSchema = createInsertSchema(coupons).omit({
 });
 
 export const insertCouponRedemptionSchema = createInsertSchema(
-  couponRedemptions,
+  couponRedemptions
 ).omit({
   id: true,
   businessId: true,
@@ -321,7 +344,7 @@ export const insertCouponRedemptionSchema = createInsertSchema(
 });
 
 export const insertCouponRecipientSchema = createInsertSchema(
-  couponRecipients,
+  couponRecipients
 ).omit({
   id: true,
   businessId: true,
@@ -334,7 +357,7 @@ export const insertBusinessSchema = createInsertSchema(businesses).omit({
 });
 
 export const insertBusinessProfileSchema = createInsertSchema(
-  businessProfiles,
+  businessProfiles
 ).omit({
   id: true,
   businessId: true,
@@ -343,7 +366,7 @@ export const insertBusinessProfileSchema = createInsertSchema(
 });
 
 export const insertTwilioCredentialSchema = createInsertSchema(
-  twilioCredentials,
+  twilioCredentials
 ).omit({
   id: true,
   businessId: true,
@@ -352,7 +375,7 @@ export const insertTwilioCredentialSchema = createInsertSchema(
 });
 
 export const insertBusinessPhoneNumberSchema = createInsertSchema(
-  businessPhoneNumbers,
+  businessPhoneNumbers
 ).omit({
   id: true,
   businessId: true,
@@ -361,7 +384,7 @@ export const insertBusinessPhoneNumberSchema = createInsertSchema(
 });
 
 export const insertTwilioA2pConfigSchema = createInsertSchema(
-  twilioA2pConfigs,
+  twilioA2pConfigs
 ).omit({
   id: true,
   businessId: true,
@@ -369,11 +392,30 @@ export const insertTwilioA2pConfigSchema = createInsertSchema(
   updatedAt: true,
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users)
+  .omit({
+    id: true,
+    businessId: true,
+    createdAt: true,
+  })
+  .partial({ clerkId: true });
+
+export const insertBusinessCreditSchema = createInsertSchema(
+  businessCredits
+).omit({
   id: true,
   businessId: true,
   createdAt: true,
-}).partial({ clerkId: true });
+  updatedAt: true,
+});
+
+export const insertCreditTransactionSchema = createInsertSchema(
+  creditTransactions
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+});
 
 // Types
 export type Contact = typeof contacts.$inferSelect;
@@ -420,3 +462,11 @@ export type InsertBusinessPhoneNumber = z.infer<
 
 export type TwilioA2pConfig = typeof twilioA2pConfigs.$inferSelect;
 export type InsertTwilioA2pConfig = z.infer<typeof insertTwilioA2pConfigSchema>;
+
+export type BusinessCredit = typeof businessCredits.$inferSelect;
+export type InsertBusinessCredit = z.infer<typeof insertBusinessCreditSchema>;
+
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type InsertCreditTransaction = z.infer<
+  typeof insertCreditTransactionSchema
+>;
