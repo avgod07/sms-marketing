@@ -359,7 +359,7 @@ function BillingTab() {
             <div className="space-y-2">
               <Label htmlFor="credit-amount">Number of Credits</Label>
               <div className="grid grid-cols-3 gap-2">
-                {[10, 50, 100].map((value) => (
+                {[50, 100, 250].map((value) => (
                   <Button
                     key={value}
                     variant={amount === value && !customAmount ? "default" : "outline"}
@@ -371,7 +371,7 @@ function BillingTab() {
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {[250, 500].map((value) => (
+                {[500, 1000].map((value) => (
                   <Button
                     key={value}
                     variant={amount === value && !customAmount ? "default" : "outline"}
