@@ -90,7 +90,7 @@ export function registerCreditsRoutes(app: Express) {
         }
 
         // Validate amount matches expected credits (1 cent per credit)
-        const expectedAmount = credits * 100; // $0.01 per credit in cents
+        const expectedAmount = credits * 1; // $0.01 per credit in cents
         if (session.amount_total !== expectedAmount) {
           logError("Amount mismatch in Stripe webhook", {
             session,

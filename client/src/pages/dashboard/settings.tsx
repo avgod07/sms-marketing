@@ -222,6 +222,7 @@ function BillingTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(10);
+  const [customAmount, setCustomAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const trialEnd = new Date();
@@ -229,10 +230,22 @@ function BillingTab() {
   const daysLeft = differenceInCalendarDays(trialEnd, new Date());
 
   const handlePurchaseCredits = async () => {
-    if (amount < 1) {
+    const finalAmount = customAmount ? parseInt(customAmount) : amount;
+    
+    if (!finalAmount || finalAmount < 1) {
       toast({
         title: "Error",
-        description: "Please select a valid amount of credits",
+        description: "Please select a valid amount of credits (minimum 1)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Stripe requires minimum $0.50, which is 50 credits at $0.01 each
+    if (finalAmount < 50) {
+      toast({
+        title: "Error",
+        description: "Minimum purchase is 50 credits ($0.50) to meet payment processor requirements",
         variant: "destructive",
       });
       return;
@@ -244,7 +257,7 @@ function BillingTab() {
         method: "POST",
         url: "/api/credits/checkout",
         data: {
-          amount,
+          amount: finalAmount,
           successUrl: `${window.location.origin}/checkout-success`,
           cancelUrl: `${window.location.origin}/settings?tab=billing`,
         },
@@ -263,6 +276,23 @@ function BillingTab() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAmountSelect = (selectedAmount: number) => {
+    setAmount(selectedAmount);
+    setCustomAmount(""); // Clear custom amount when selecting predefined amount
+  };
+
+  const handleCustomAmountChange = (value: string) => {
+    setCustomAmount(value);
+    // Clear predefined amount selection when using custom amount
+    if (value) {
+      setAmount(0);
+    }
+  };
+
+  const getFinalAmount = () => {
+    return customAmount ? parseInt(customAmount) || 0 : amount;
   };
 
   if (isLoading) {
@@ -322,6 +352,9 @@ function BillingTab() {
             <p className="text-sm text-gray-600">
               Purchase additional credits to send SMS campaigns. Each credit allows you to send one SMS message.
             </p>
+            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              <strong>Note:</strong> Minimum purchase is 50 credits ($0.50) to meet payment processor requirements.
+            </p>
             
             <div className="space-y-2">
               <Label htmlFor="credit-amount">Number of Credits</Label>
@@ -329,8 +362,8 @@ function BillingTab() {
                 {[10, 50, 100].map((value) => (
                   <Button
                     key={value}
-                    variant={amount === value ? "default" : "outline"}
-                    onClick={() => setAmount(value)}
+                    variant={amount === value && !customAmount ? "default" : "outline"}
+                    onClick={() => handleAmountSelect(value)}
                     className="w-full"
                   >
                     {value}
@@ -341,19 +374,32 @@ function BillingTab() {
                 {[250, 500].map((value) => (
                   <Button
                     key={value}
-                    variant={amount === value ? "default" : "outline"}
-                    onClick={() => setAmount(value)}
+                    variant={amount === value && !customAmount ? "default" : "outline"}
+                    onClick={() => handleAmountSelect(value)}
                     className="w-full"
                   >
                     {value}
                   </Button>
                 ))}
               </div>
+              
+              <div className="mt-3">
+                <Label htmlFor="custom-amount">Or enter custom amount</Label>
+                <Input
+                  id="custom-amount"
+                  type="number"
+                  min="1"
+                  placeholder="Enter number of credits"
+                  value={customAmount}
+                  onChange={(e) => handleCustomAmountChange(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-sm text-gray-600">
-                <span className="font-medium">Price:</span> ${(amount * 0.01).toFixed(2)} USD
+                <span className="font-medium">Price:</span> ${(getFinalAmount() * 0.01).toFixed(2)} USD
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 $0.01 per credit
@@ -370,7 +416,7 @@ function BillingTab() {
               </Button>
               <Button
                 onClick={handlePurchaseCredits}
-                disabled={isSubmitting}
+                disabled={isSubmitting || getFinalAmount() < 50}
                 className="flex-1"
               >
                 {isSubmitting ? "Processing..." : "Purchase Credits"}
