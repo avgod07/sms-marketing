@@ -67,6 +67,29 @@ vi.mock("../services/twilio.js", () => {
   return { TwilioService: { sendSMS: mockSendSMS } };
 });
 
+vi.mock("../services/stripe", () => ({
+  createCheckoutSession: vi
+    .fn()
+    .mockResolvedValue({ url: "https://stripe.test/session" }),
+  verifyWebhookSignature: vi.fn((signature, payload) => {
+    if (signature === "valid") {
+      return {
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: "sess_123",
+            metadata: { businessId: "1", credits: "50" },
+            amount_total: 50, // $0.50 in cents
+            payment_status: "paid",
+            currency: "usd",
+          },
+        },
+      };
+    }
+    throw new Error("Invalid signature");
+  }),
+}));
+
 vi.mock("../socket", () => ({
   socketService: { broadcast: (mockBroadcast = vi.fn()) },
 }));
@@ -497,7 +520,7 @@ describe("Credit Routes", () => {
     it("returns a Stripe session URL on success", async () => {
       const app = await setupApp({ id: 1, businessId: 1 });
       const res = await request(app).post("/api/credits/checkout").send({
-        amount: 10,
+        amount: 50,
         successUrl: "https://success",
         cancelUrl: "https://cancel",
       });
@@ -518,7 +541,7 @@ describe("Credit Routes", () => {
       const app = await setupApp({ id: 1, businessId: 1 });
       const res = await request(app)
         .post("/api/credits/checkout")
-        .send({ amount: 10, cancelUrl: "https://cancel" });
+        .send({ amount: 50, cancelUrl: "https://cancel" });
       expect(res.status).toBe(400);
       expect(res.body.message).toBe("Missing required fields");
     });
@@ -527,7 +550,7 @@ describe("Credit Routes", () => {
       const app = await setupApp({ id: 1, businessId: 1 });
       const res = await request(app)
         .post("/api/credits/checkout")
-        .send({ amount: 10, successUrl: "https://success" });
+        .send({ amount: 50, successUrl: "https://success" });
       expect(res.status).toBe(400);
       expect(res.body.message).toBe("Missing required fields");
     });
@@ -535,7 +558,7 @@ describe("Credit Routes", () => {
     it("returns 302 when user is not authenticated", async () => {
       const app = await setupApp();
       const res = await request(app).post("/api/credits/checkout").send({
-        amount: 10,
+        amount: 50,
         successUrl: "https://success",
         cancelUrl: "https://cancel",
       });
@@ -557,7 +580,7 @@ describe("Credit Routes", () => {
       expect(res.body.received).toBe(true);
       expect(mockStorage.forBusiness).toHaveBeenCalledWith(1);
       expect(mockForBusiness.adjustCredits).toHaveBeenCalledWith(
-        10,
+        50,
         "purchase",
         "Stripe purchase",
         {

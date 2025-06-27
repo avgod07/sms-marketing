@@ -30,7 +30,7 @@ export async function createCheckoutSession({
   cancelUrl: string;
 }): Promise<Stripe.Checkout.Session> {
   // You may want to price credits dynamically or use a fixed price per credit
-  const pricePerCredit = 100; // in cents (e.g., $1.00 per credit)
+  const pricePerCredit = 1; // in cents (e.g., $0.01 per credit)
   const totalAmount = amount * pricePerCredit;
 
   return await getStripe().checkout.sessions.create({

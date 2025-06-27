@@ -22,7 +22,10 @@ vi.mock("stripe", () => {
             data: {
               object: {
                 id: "sess_123",
-                metadata: { businessId: "1", credits: "10" },
+                metadata: { businessId: "1", credits: "50" },
+                amount_total: 50, // $0.50 in cents
+                payment_status: "paid",
+                currency: "usd",
               },
             },
           };
@@ -80,7 +83,7 @@ describe("stripeService", () => {
       const session = event.data.object as any;
       expect(session.id).toBe("sess_123");
       expect(session.metadata.businessId).toBe("1");
-      expect(session.metadata.credits).toBe("10");
+      expect(session.metadata.credits).toBe("50");
     }
   });
 
