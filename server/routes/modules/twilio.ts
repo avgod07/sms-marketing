@@ -756,10 +756,17 @@ export function registerTwilioRoutes(app: Express) {
   app.post("/api/onboarding/complete", requireAuth(), async (req, res) => {
     try {
       const { biz, user } = await getBizForRequest(req);
+      // Mark onboarding as complete
       await db
         .update(users)
         .set({ onboardingComplete: true })
         .where(eq(users.id, user.id));
+
+      // Fetch onboarding progress to get the business name
+      const progress = await biz.getOnboardingProgress();
+      if (progress && progress.businessName) {
+        await biz.updateBusiness({ name: progress.businessName });
+      }
 
       const numbers = await biz.getPhoneNumbers();
       const creds = await biz.getTwilioCredentials();
