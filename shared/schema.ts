@@ -238,20 +238,6 @@ export const twilioA2pConfigs = pgTable("twilio_a2p_config", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const onboardingProgress = pgTable("onboarding_progress", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull()
-    .unique(),
-  step: integer("step").default(1).notNull(),
-  businessInfo: text("business_info"),
-  monthlyVolume: text("monthly_volume"),
-  useCases: text("use_cases").array(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const businessCredits = pgTable("business_credits", {
   id: serial("id").primaryKey(),
   businessId: integer("business_id")
@@ -406,15 +392,6 @@ export const insertTwilioA2pConfigSchema = createInsertSchema(
   updatedAt: true,
 });
 
-export const insertOnboardingProgressSchema = createInsertSchema(
-  onboardingProgress
-).omit({
-  id: true,
-  businessId: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export const insertUserSchema = createInsertSchema(users)
   .omit({
     id: true,
@@ -492,9 +469,4 @@ export type InsertBusinessCredit = z.infer<typeof insertBusinessCreditSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<
   typeof insertCreditTransactionSchema
->;
-
-export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
-export type InsertOnboardingProgress = z.infer<
-  typeof insertOnboardingProgressSchema
 >;
