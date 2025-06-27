@@ -43,9 +43,6 @@ import {
   creditTransactions,
   type CreditTransaction,
   type InsertCreditTransaction,
-  onboardingProgress,
-  type OnboardingProgress,
-  type InsertOnboardingProgress,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -75,10 +72,6 @@ export interface IStorage {
   upsertTwilioA2PConfig(
     config: InsertTwilioA2pConfig
   ): Promise<TwilioA2pConfig>;
-  getOnboardingProgress(): Promise<OnboardingProgress | undefined>;
-  upsertOnboardingProgress(
-    progress: Partial<InsertOnboardingProgress>
-  ): Promise<OnboardingProgress>;
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
@@ -1184,35 +1177,6 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db
       .insert(twilioA2pConfigs)
       .values({ ...config, businessId })
-      .returning();
-    return row;
-  }
-
-  async getOnboardingProgress(): Promise<OnboardingProgress | undefined> {
-    const businessId = this.requireBusinessId();
-    const [row] = await db
-      .select()
-      .from(onboardingProgress)
-      .where(eq(onboardingProgress.businessId, businessId));
-    return row || undefined;
-  }
-
-  async upsertOnboardingProgress(
-    progress: Partial<InsertOnboardingProgress>
-  ): Promise<OnboardingProgress> {
-    const businessId = this.requireBusinessId();
-    const existing = await this.getOnboardingProgress();
-    if (existing) {
-      const [row] = await db
-        .update(onboardingProgress)
-        .set({ ...progress, updatedAt: new Date() })
-        .where(eq(onboardingProgress.businessId, businessId))
-        .returning();
-      return row;
-    }
-    const [row] = await db
-      .insert(onboardingProgress)
-      .values({ ...progress, businessId })
       .returning();
     return row;
   }
