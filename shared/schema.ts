@@ -261,6 +261,38 @@ export const creditTransactions = pgTable("credit_transactions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const onboardingProgress = pgTable("onboarding_progress", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  step: integer("step").notNull().default(1),
+
+  // Step 1: Basic Business Info (from business info form)
+  businessName: text("business_name"),
+  websiteUrl: text("website_url"),
+  address1: text("address1"),
+  address2: text("address2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  email: text("email"),
+  phoneNumber: text("phone_number"),
+
+  // Step 2: Monthly Volume (for A2P)
+  monthlyVolume: text("monthly_volume"),
+
+  // Step 3: Use Cases (for A2P)
+  useCases: text("use_cases").array(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -296,6 +328,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   a2pConfig: many(twilioA2pConfigs),
   businessCredits: many(businessCredits),
   creditTransactions: many(creditTransactions),
+  onboardingProgress: many(onboardingProgress),
 }));
 
 // Insert schemas
@@ -417,6 +450,15 @@ export const insertCreditTransactionSchema = createInsertSchema(
   createdAt: true,
 });
 
+export const insertOnboardingProgressSchema = createInsertSchema(
+  onboardingProgress
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
@@ -469,4 +511,9 @@ export type InsertBusinessCredit = z.infer<typeof insertBusinessCreditSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<
   typeof insertCreditTransactionSchema
+>;
+
+export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
+export type InsertOnboardingProgress = z.infer<
+  typeof insertOnboardingProgressSchema
 >;

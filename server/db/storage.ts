@@ -43,6 +43,9 @@ import {
   creditTransactions,
   type CreditTransaction,
   type InsertCreditTransaction,
+  onboardingProgress,
+  type OnboardingProgress,
+  type InsertOnboardingProgress,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -183,6 +186,12 @@ export interface IStorage {
     metadata?: Record<string, any>
   ): Promise<BusinessCredit>;
   getCreditTransactions(): Promise<CreditTransaction[]>;
+
+  // Onboarding Progress
+  getOnboardingProgress(): Promise<OnboardingProgress | undefined>;
+  upsertOnboardingProgress(
+    progress: InsertOnboardingProgress
+  ): Promise<OnboardingProgress>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1291,6 +1300,36 @@ export class DatabaseStorage implements IStorage {
       .from(creditTransactions)
       .where(eq(creditTransactions.businessId, businessId))
       .orderBy(desc(creditTransactions.createdAt));
+  }
+
+  // Onboarding Progress
+  async getOnboardingProgress(): Promise<OnboardingProgress | undefined> {
+    const businessId = this.requireBusinessId();
+    const [progress] = await db
+      .select()
+      .from(onboardingProgress)
+      .where(eq(onboardingProgress.businessId, businessId));
+    return progress || undefined;
+  }
+
+  async upsertOnboardingProgress(
+    progress: InsertOnboardingProgress
+  ): Promise<OnboardingProgress> {
+    const businessId = this.requireBusinessId();
+    const existing = await this.getOnboardingProgress();
+    if (existing) {
+      const [row] = await db
+        .update(onboardingProgress)
+        .set({ ...progress, updatedAt: new Date() })
+        .where(eq(onboardingProgress.businessId, businessId))
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .insert(onboardingProgress)
+      .values({ ...progress, businessId })
+      .returning();
+    return row;
   }
 }
 

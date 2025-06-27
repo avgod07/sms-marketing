@@ -7,6 +7,8 @@ import { OnboardingProvider, useOnboarding } from "@/components/onboarding/onboa
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const steps = [
   "Business Info",
@@ -16,6 +18,8 @@ const steps = [
 ];
 
 function Content() {
+  const queryClient = useQueryClient();
+  
   const {
     step,
     setStep,
@@ -25,10 +29,68 @@ function Content() {
     setMonthlyVolume,
     useCases,
     setUseCases,
+    saveProgress,
+    isLoading,
+    isSaving,
   } = useOnboarding();
   const [, navigate] = useLocation();
 
-  const handleClose = () => navigate("/");
+  const handleClose = async () => {
+    try {
+      await saveProgress();
+      navigate("/");
+    } catch (error) {
+      console.error("Failed to save progress:", error);
+      // Still navigate away even if save fails
+      navigate("/");
+    }
+  };
+
+  const handleStepChange = async (newStep: number) => {
+    try {
+      await saveProgress();
+      setStep(newStep);
+    } catch (error) {
+      console.error("Failed to save progress:", error);
+      // Still change step even if save fails
+      setStep(newStep);
+    }
+  };
+
+  const handleBack = (newStep: number) => {
+    // For back navigation, change step immediately and save in background
+    setStep(newStep);
+    // Save progress in background without waiting
+    saveProgress().catch((error) => {
+      console.error("Failed to save progress on back navigation:", error);
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="fade-in">
+        <header className="bg-white border-b border-gray-200 px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Onboarding</h1>
+              <p className="text-gray-600 mt-1">Let's set up your account.</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-8">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span>Loading your progress...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in">
@@ -38,6 +100,12 @@ function Content() {
             <h1 className="text-2xl font-bold text-gray-900">Onboarding</h1>
             <p className="text-gray-600 mt-1">Let's set up your account.</p>
           </div>
+          {isSaving && (
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Saving...</span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -50,40 +118,43 @@ function Content() {
             {step === 1 && (
               <BusinessInfoForm
                 initialValues={businessInfo}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   setBusinessInfo(data);
-                  setStep(2);
+                  await saveProgress();
+                  handleStepChange(2);
                 }}
-                onCancel={handleClose}
+                isSaving={isSaving}
               />
             )}
             {step === 2 && (
               <MonthlyVolumeForm
                 initialValues={{ volume: monthlyVolume }}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   setMonthlyVolume(data.volume);
-                  setStep(3);
+                  await saveProgress();
+                  handleStepChange(3);
                 }}
-                onBack={() => setStep(1)}
-                onCancel={handleClose}
+                onBack={() => handleBack(1)}
+                isSaving={isSaving}
               />
             )}
             {step === 3 && (
               <UseCaseForm
                 initialValues={{ useCases }}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   setUseCases(data.useCases);
-                  setStep(4);
+                  await saveProgress();
+                  handleStepChange(4);
                 }}
-                onBack={() => setStep(2)}
-                onCancel={handleClose}
+                onBack={() => handleBack(2)}
+                isSaving={isSaving}
               />
             )}
             {step === 4 && (
               <TollFreeNumberForm
                 onSuccess={() => navigate("/")}
-                onBack={() => setStep(3)}
-                onCancel={handleClose}
+                onBack={() => handleBack(3)}
+                isSaving={isSaving}
               />
             )}
           </CardContent>

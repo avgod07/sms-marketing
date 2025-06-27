@@ -5,17 +5,18 @@ import { Button } from "@/components/ui/button";
 import { cn, formatTollFree } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { handleApiError } from "@/lib/handleApiError";
+import { Loader2 } from "lucide-react";
 
 interface TollFreeNumberFormProps {
   onSuccess: () => void;
   onBack?: () => void;
-  onCancel?: () => void;
+  isSaving?: boolean;
 }
 
 export default function TollFreeNumberForm({
   onSuccess,
   onBack,
-  onCancel,
+  isSaving = false,
 }: TollFreeNumberFormProps) {
   const { toast } = useToast();
   const [page, setPage] = useState(0);
@@ -81,14 +82,10 @@ export default function TollFreeNumberForm({
             Back
           </Button>
         )}
-        <div className="ml-auto space-x-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Save &amp; Close
-            </Button>
-          )}
-          <Button type="submit" disabled={!selected || mutation.isPending}>
-            {mutation.isPending ? "Submitting..." : "Submit"}
+        <div className="ml-auto">
+          <Button type="submit" disabled={!selected || mutation.isPending || isSaving}>
+            {mutation.isPending || isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {mutation.isPending ? "Submitting..." : "Save & Continue"}
           </Button>
         </div>
       </div>

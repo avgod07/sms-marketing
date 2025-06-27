@@ -5,6 +5,7 @@ import { z } from "zod";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 export const volumeOptions = [
   "Less than 1K",
@@ -27,14 +28,14 @@ interface MonthlyVolumeFormProps {
   initialValues?: MonthlyVolumeFormValues;
   onSubmit: (data: MonthlyVolumeFormValues) => void;
   onBack?: () => void;
-  onCancel?: () => void;
+  isSaving?: boolean;
 }
 
 export default function MonthlyVolumeForm({
   initialValues,
   onSubmit,
   onBack,
-  onCancel,
+  isSaving = false,
 }: MonthlyVolumeFormProps) {
   const form = useForm<MonthlyVolumeFormValues>({
     resolver: zodResolver(schema),
@@ -79,14 +80,10 @@ export default function MonthlyVolumeForm({
             Back
           </Button>
         )}
-        <div className="ml-auto space-x-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Save &amp; Close
-            </Button>
-          )}
-          <Button type="submit" disabled={!form.formState.isValid}>
-            Next
+        <div className="ml-auto">
+          <Button type="submit" disabled={!form.formState.isValid || isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save & Continue
           </Button>
         </div>
       </div>
