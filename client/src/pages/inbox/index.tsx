@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { handleApiError } from "@/lib/handleApiError";
 import type { Message as ApiMessage } from "@shared/schema";
+import { useSetupStatus } from "@/hooks/use-setup-status";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface Message {
   id: number;
@@ -49,6 +51,7 @@ export default function Inbox() {
     const target = `${c.contactName ?? ""} ${c.phone}`.toLowerCase();
     return target.includes(trimmedSearch);
   });
+  const { data: setup } = useSetupStatus(!!user);
 
   useEffect(() => {
     if (!user) return; // Only load conversations when user is authenticated
@@ -253,132 +256,140 @@ export default function Inbox() {
           <p className="text-gray-600 mt-1">View and reply to incoming messages</p>
         </div>
       </header>
-
       <div className="flex-1 p-8">
         <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
           <div className="flex h-full w-full">
-      {/* Conversations Sidebar */}
-      <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
-        <div className="p-4 border-b">
-          <div className="relative mt-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {filteredConversations.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                {conversations.length === 0 ? (
-                  <MessageSquareText className="w-6 h-6 text-gray-400" />
+            {/* Conversations Sidebar */}
+            <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
+              <div className="p-4 border-b">
+                <div className="relative mt-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      {conversations.length === 0 ? (
+                        <MessageSquareText className="w-6 h-6 text-gray-400" />
+                      ) : (
+                        <Search className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {conversations.length === 0
+                        ? "No conversations yet"
+                        : "No conversations match your search"}
+                    </h3>
+                    <p className="text-gray-500">
+                      {conversations.length === 0
+                        ? "Messages will appear here when customers reply"
+                        : "Try adjusting your search"}
+                    </p>
+                  </div>
                 ) : (
-                  <Search className="w-6 h-6 text-gray-400" />
+                  filteredConversations.map((conv) => {
+                    const last = conv.messages[conv.messages.length - 1];
+                    if (!last) return null;
+                    const isActive = conv.id === selectedId;
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => {
+                        setSelectedId(conv.id);
+                        setConversations(prev =>
+                          prev.map(c =>
+                            c.id === conv.id ? { ...c, hasUnread: false } : c,
+                          ),
+                        );
+                      }}
+                      className={
+                        "w-full text-left px-4 py-3 flex space-x-3 hover:bg-gray-100 " +
+                        (isActive ? "bg-muted" : "")
+                      }
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
+                        {(conv.contactName || conv.phone)[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {conv.contactName || formatPhoneNumber(conv.phone)}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {last.text}
+                        </p>
+                      </div>
+                      <div className="ml-2 shrink-0 text-xs text-gray-400">
+                        {timeAgo(last.timestamp)}
+                      </div>
+                      {conv.hasUnread && !isActive && (
+                        <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full" />
+                      )}
+                    </button>
+                  );
+                })
                 )}
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {conversations.length === 0
-                  ? "No conversations yet"
-                  : "No conversations match your search"}
-              </h3>
-              <p className="text-gray-500">
-                {conversations.length === 0
-                  ? "Messages will appear here when customers reply"
-                  : "Try adjusting your search"}
-              </p>
-            </div>
-          ) : (
-            filteredConversations.map((conv) => {
-              const last = conv.messages[conv.messages.length - 1];
-              if (!last) return null;
-              const isActive = conv.id === selectedId;
-            return (
-              <button
-                key={conv.id}
-                onClick={() => {
-                  setSelectedId(conv.id);
-                  setConversations(prev =>
-                    prev.map(c =>
-                      c.id === conv.id ? { ...c, hasUnread: false } : c,
-                    ),
-                  );
-                }}
-                className={
-                  "w-full text-left px-4 py-3 flex space-x-3 hover:bg-gray-100 " +
-                  (isActive ? "bg-muted" : "")
-                }
-              >
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
-                  {(conv.contactName || conv.phone)[0]}
+            </aside>
+            {/* Chat Panel */}
+            {conversations.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
+                <MessageSquareText className="w-16 h-16 text-gray-300 mb-4" />
+                <h2 className="text-2xl font-bold mb-2">Start your first conversation</h2>
+                <p className="text-gray-600 mb-4">
+                  Add a contact or wait for someone to message you. Your chats will show up here.
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-yellow-700">
+                  You'll need to finish setting up your account before you can send messages. Head to onboarding to get started!
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {conv.contactName || formatPhoneNumber(conv.phone)}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {last.text}
-                  </p>
+              </div>
+            ) : selected && (
+              <section className="flex flex-1 flex-col">
+                <div className="p-4 border-b flex items-center space-x-2">
+                  <h2 className="font-semibold">
+                    {selected.contactName || formatPhoneNumber(selected.phone)}
+                  </h2>
+                  {!selected.active && (
+                    <span className="rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs">Inactive</span>
+                  )}
                 </div>
-                <div className="ml-2 shrink-0 text-xs text-gray-400">
-                  {timeAgo(last.timestamp)}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {selected.messages.map((msg) => (
+                    <ChatBubble
+                      key={msg.id}
+                      message={msg.text}
+                      incoming={msg.incoming}
+                      timestamp={timeAgo(msg.timestamp)}
+                      status={msg.status}
+                    />
+                  ))}
                 </div>
-                {conv.hasUnread && !isActive && (
-                  <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full" />
-                )}
-              </button>
-            );
-          })
-          )}
-        </div>
-      </aside>
-
-      {/* Chat Panel */}
-      {selected && (
-        <section className="flex flex-1 flex-col">
-          <div className="p-4 border-b flex items-center space-x-2">
-            <h2 className="font-semibold">
-              {selected.contactName || formatPhoneNumber(selected.phone)}
-            </h2>
-            {!selected.active && (
-              <span className="rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs">Inactive</span>
+                <div className="p-4 border-t">
+                  <div className="flex items-end space-x-2">
+                    <Textarea
+                      placeholder="Type a message"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="flex-1 resize-none"
+                      disabled={!selected.active}
+                    />
+                    <Button onClick={handleSend} disabled={!reply.trim() || !selected.active}>
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </section>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {selected.messages.map((msg) => (
-              <ChatBubble
-                key={msg.id}
-                message={msg.text}
-                incoming={msg.incoming}
-                timestamp={timeAgo(msg.timestamp)}
-                status={msg.status}
-              />
-            ))}
-          </div>
-          <div className="p-4 border-t">
-            <div className="flex items-end space-x-2">
-              <Textarea
-                placeholder="Type a message"
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="flex-1 resize-none"
-                disabled={!selected.active}
-              />
-              <Button onClick={handleSend} disabled={!reply.trim() || !selected.active}>
-                Send
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
-        </div>
-      </Card>
-    </div>
+        </Card>
+      </div>
     </div>
   );
 }
