@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -19,6 +20,29 @@ export const states = [
 
 export const countries = ["United States", "Canada", "United Kingdom"];
 
+// Phone number formatting function
+function formatPhoneNumber(value: string): string {
+  // Remove all non-digits
+  const phoneNumber = value.replace(/\D/g, '');
+  
+  // If it starts with 1, remove it for formatting
+  const cleaned = phoneNumber.startsWith('1') ? phoneNumber.slice(1) : phoneNumber;
+  
+  if (cleaned.length === 0) return '';
+  if (cleaned.length <= 3) return `(${cleaned}`;
+  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+}
+
+// Function to convert formatted phone to +1 format for API
+function normalizePhoneNumber(value: string): string {
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.startsWith('1')) {
+    return `+${cleaned}`;
+  }
+  return `+1${cleaned}`;
+}
+
 export const businessInfoSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   websiteUrl: z
@@ -29,7 +53,7 @@ export const businessInfoSchema = z.object({
       message: "Enter a valid URL",
     }),
   address1: z.string().min(1, "Address Line 1 is required"),
-  address2: z.string().optional(),
+  address2: z.string().optional().nullable().or(z.literal("")),
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
   postalCode: z.string().min(1, "Postal code is required"),
@@ -39,7 +63,8 @@ export const businessInfoSchema = z.object({
   email: z.string().email({ message: "Invalid email" }),
   phoneNumber: z
     .string()
-    .regex(/^\+1\d{10}$/, "Format: +1XXXXXXXXXX"),
+    .min(10, "Phone number must be at least 10 digits")
+    .regex(/^\+?1?\s*\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/, "Please enter a valid phone number"),
 });
 
 export type BusinessInfoFormValues = z.infer<typeof businessInfoSchema>;
@@ -48,18 +73,19 @@ interface BusinessInfoFormProps {
   initialValues?: BusinessInfoFormValues;
   onSubmit: (data: BusinessInfoFormValues) => void;
   onBack?: () => void;
-  onCancel?: () => void;
+  isSaving?: boolean;
 }
 
 export default function BusinessInfoForm({
   initialValues,
   onSubmit,
   onBack,
-  onCancel,
+  isSaving = false,
 }: BusinessInfoFormProps) {
+  
   const form = useForm<BusinessInfoFormValues>({
     resolver: zodResolver(businessInfoSchema),
-    mode: "onChange",
+    mode: "onSubmit",
     defaultValues: {
       businessName: "",
       websiteUrl: "",
@@ -79,12 +105,51 @@ export default function BusinessInfoForm({
 
   useEffect(() => {
     if (initialValues) {
-      form.reset(initialValues);
+      // Convert +1 format back to display format for the form
+      const displayValues = {
+        ...initialValues,
+        phoneNumber: initialValues.phoneNumber 
+          ? initialValues.phoneNumber.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
+          : ''
+      };
+      form.reset(displayValues);
     }
   }, [initialValues, form]);
 
+  const handleSubmit = (data: BusinessInfoFormValues) => {
+    // Normalize phone number to +1 format before submitting
+    const normalizedData = {
+      ...data,
+      phoneNumber: normalizePhoneNumber(data.phoneNumber)
+    };
+    onSubmit(normalizedData);
+  };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const formatted = formatPhoneNumber(value);
+    form.setValue("phoneNumber", formatted);
+  };
+
+  // Check if required fields are filled
+  const isFormValid = () => {
+    const values = form.getValues();
+    return !!(
+      values.businessName &&
+      values.address1 &&
+      values.city &&
+      values.state &&
+      values.postalCode &&
+      values.country &&
+      values.firstName &&
+      values.lastName &&
+      values.email &&
+      values.phoneNumber
+    );
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-xl mx-auto">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 max-w-xl mx-auto">
       <div>
         <Label htmlFor="businessName">Business Name</Label>
         <Input id="businessName" {...form.register("businessName")} />
@@ -210,7 +275,12 @@ export default function BusinessInfoForm({
         </div>
         <div>
           <Label htmlFor="phoneNumber">Phone Number</Label>
-          <Input id="phoneNumber" {...form.register("phoneNumber")} placeholder="+15551234567" />
+          <Input 
+            id="phoneNumber" 
+            value={form.watch("phoneNumber")}
+            onChange={handlePhoneNumberChange}
+            placeholder="(555) 123-4567" 
+          />
           {form.formState.errors.phoneNumber && (
             <p className="text-sm text-red-600 mt-1">
               {form.formState.errors.phoneNumber.message}
@@ -224,14 +294,10 @@ export default function BusinessInfoForm({
             Back
           </Button>
         )}
-        <div className="ml-auto space-x-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Save &amp; Close
-            </Button>
-          )}
-          <Button type="submit" disabled={!form.formState.isValid}>
-            Next
+        <div className="ml-auto">
+          <Button type="submit" disabled={!isFormValid() || isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save & Continue
           </Button>
         </div>
       </div>

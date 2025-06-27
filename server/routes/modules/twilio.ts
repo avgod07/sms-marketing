@@ -632,6 +632,121 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
+  // Onboarding Progress Endpoints
+  app.get("/api/onboarding/progress", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const progress = await biz.getOnboardingProgress();
+
+      if (!progress) {
+        return res.json({
+          step: 1,
+          businessInfo: null,
+          monthlyVolume: null,
+          useCases: null,
+        });
+      }
+
+      // Convert individual fields back to businessInfo object for frontend compatibility
+      const businessInfo = progress.businessName
+        ? {
+            businessName: progress.businessName,
+            websiteUrl: progress.websiteUrl,
+            address1: progress.address1,
+            address2: progress.address2,
+            city: progress.city,
+            state: progress.state,
+            postalCode: progress.postalCode,
+            country: progress.country,
+            firstName: progress.firstName,
+            lastName: progress.lastName,
+            email: progress.email,
+            phoneNumber: progress.phoneNumber,
+          }
+        : null;
+
+      res.json({
+        step: progress.step,
+        businessInfo,
+        monthlyVolume: progress.monthlyVolume,
+        useCases: progress.useCases,
+      });
+    } catch (error) {
+      logError("Error fetching onboarding progress:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding progress" });
+    }
+  });
+
+  const saveProgressSchema = z.object({
+    step: z.number().min(1).max(4),
+    businessInfo: z.any().optional(),
+    monthlyVolume: z.string().optional(),
+    useCases: z.array(z.string()).optional(),
+  });
+
+  app.post("/api/onboarding/save-progress", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const data = saveProgressSchema.parse(req.body);
+
+      // Extract business info fields if provided
+      const businessInfo = data.businessInfo;
+
+      const progress = await biz.upsertOnboardingProgress({
+        step: data.step,
+        // Business info fields
+        businessName: businessInfo?.businessName || null,
+        websiteUrl: businessInfo?.websiteUrl || null,
+        address1: businessInfo?.address1 || null,
+        address2: businessInfo?.address2 || null,
+        city: businessInfo?.city || null,
+        state: businessInfo?.state || null,
+        postalCode: businessInfo?.postalCode || null,
+        country: businessInfo?.country || null,
+        firstName: businessInfo?.firstName || null,
+        lastName: businessInfo?.lastName || null,
+        email: businessInfo?.email || null,
+        phoneNumber: businessInfo?.phoneNumber || null,
+        // A2P fields
+        monthlyVolume: data.monthlyVolume || null,
+        useCases: data.useCases || null,
+      });
+
+      // Convert back to frontend format
+      const responseBusinessInfo = progress.businessName
+        ? {
+            businessName: progress.businessName,
+            websiteUrl: progress.websiteUrl,
+            address1: progress.address1,
+            address2: progress.address2,
+            city: progress.city,
+            state: progress.state,
+            postalCode: progress.postalCode,
+            country: progress.country,
+            firstName: progress.firstName,
+            lastName: progress.lastName,
+            email: progress.email,
+            phoneNumber: progress.phoneNumber,
+          }
+        : null;
+
+      res.json({
+        step: progress.step,
+        businessInfo: responseBusinessInfo,
+        monthlyVolume: progress.monthlyVolume,
+        useCases: progress.useCases,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error saving onboarding progress:", error);
+      res.status(500).json({ message: "Failed to save onboarding progress" });
+    }
+  });
+
   app.post("/api/onboarding/complete", requireAuth(), async (req, res) => {
     try {
       const { biz, user } = await getBizForRequest(req);

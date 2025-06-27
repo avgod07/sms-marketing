@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 export const useCaseOptions = [
   "Account Notifications",
@@ -34,14 +35,14 @@ interface UseCaseFormProps {
   initialValues?: UseCaseFormValues;
   onSubmit: (data: UseCaseFormValues) => void;
   onBack?: () => void;
-  onCancel?: () => void;
+  isSaving?: boolean;
 }
 
 export default function UseCaseForm({
   initialValues,
   onSubmit,
   onBack,
-  onCancel,
+  isSaving = false,
 }: UseCaseFormProps) {
   const form = useForm<UseCaseFormValues>({
     resolver: zodResolver(schema),
@@ -93,13 +94,11 @@ export default function UseCaseForm({
             Back
           </Button>
         )}
-        <div className="ml-auto space-x-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Save &amp; Close
-            </Button>
-          )}
-          <Button type="submit" disabled={!form.formState.isValid}>Next</Button>
+        <div className="ml-auto">
+          <Button type="submit" disabled={!form.formState.isValid || isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save & Continue
+          </Button>
         </div>
       </div>
     </form>
