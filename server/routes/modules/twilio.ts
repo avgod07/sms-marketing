@@ -632,39 +632,6 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.get("/api/onboarding/progress", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const progress = await biz.getOnboardingProgress();
-      res.json(progress || null);
-    } catch (error) {
-      logError("Error fetching onboarding progress:", error);
-      res.status(500).json({ message: "Failed to fetch progress" });
-    }
-  });
-
-  const saveProgressSchema = z.object({
-    step: z.number(),
-    businessInfo: z.any().optional(),
-    monthlyVolume: z.string().optional(),
-    useCases: z.array(z.string()).optional(),
-  });
-
-  app.post("/api/onboarding/save-progress", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const data = saveProgressSchema.parse(req.body);
-      const saved = await biz.upsertOnboardingProgress(data);
-      res.json(saved);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error saving onboarding progress:", error);
-      res.status(500).json({ message: "Failed to save progress" });
-    }
-  });
-
   app.post("/api/onboarding/complete", requireAuth(), async (req, res) => {
     try {
       const { biz, user } = await getBizForRequest(req);

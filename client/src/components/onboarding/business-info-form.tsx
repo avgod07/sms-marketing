@@ -48,7 +48,7 @@ interface BusinessInfoFormProps {
   initialValues?: BusinessInfoFormValues;
   onSubmit: (data: BusinessInfoFormValues) => void;
   onBack?: () => void;
-  onCancel?: (data: BusinessInfoFormValues) => void;
+  onCancel?: () => void;
 }
 
 export default function BusinessInfoForm({
@@ -226,11 +226,7 @@ export default function BusinessInfoForm({
         )}
         <div className="ml-auto space-x-2">
           {onCancel && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onCancel(form.getValues())}
-            >
+            <Button type="button" variant="outline" onClick={onCancel}>
               Save &amp; Close
             </Button>
           )}
