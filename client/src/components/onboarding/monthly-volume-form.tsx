@@ -27,7 +27,7 @@ interface MonthlyVolumeFormProps {
   initialValues?: MonthlyVolumeFormValues;
   onSubmit: (data: MonthlyVolumeFormValues) => void;
   onBack?: () => void;
-  onCancel?: () => void;
+  onCancel?: (data: MonthlyVolumeFormValues) => void;
 }
 
 export default function MonthlyVolumeForm({
@@ -81,7 +81,11 @@ export default function MonthlyVolumeForm({
         )}
         <div className="ml-auto space-x-2">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onCancel(form.getValues())}
+            >
               Save &amp; Close
             </Button>
           )}

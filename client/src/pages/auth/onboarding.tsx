@@ -25,6 +25,7 @@ function Content() {
     setMonthlyVolume,
     useCases,
     setUseCases,
+    saveProgress,
   } = useOnboarding();
   const [, navigate] = useLocation();
 
@@ -50,40 +51,55 @@ function Content() {
             {step === 1 && (
               <BusinessInfoForm
                 initialValues={businessInfo}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   setBusinessInfo(data);
+                  await saveProgress({ step: 2, businessInfo: data, monthlyVolume, useCases });
                   setStep(2);
                 }}
-                onCancel={handleClose}
+                onCancel={async (vals) => {
+                  await saveProgress({ step: 1, businessInfo: vals, monthlyVolume, useCases });
+                  handleClose();
+                }}
               />
             )}
             {step === 2 && (
               <MonthlyVolumeForm
                 initialValues={{ volume: monthlyVolume }}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   setMonthlyVolume(data.volume);
+                  await saveProgress({ step: 3, businessInfo, monthlyVolume: data.volume, useCases });
                   setStep(3);
                 }}
                 onBack={() => setStep(1)}
-                onCancel={handleClose}
+                onCancel={async (vals) => {
+                  await saveProgress({ step: 2, businessInfo, monthlyVolume: vals.volume, useCases });
+                  handleClose();
+                }}
               />
             )}
             {step === 3 && (
               <UseCaseForm
                 initialValues={{ useCases }}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   setUseCases(data.useCases);
+                  await saveProgress({ step: 4, businessInfo, monthlyVolume, useCases: data.useCases });
                   setStep(4);
                 }}
                 onBack={() => setStep(2)}
-                onCancel={handleClose}
+                onCancel={async (vals) => {
+                  await saveProgress({ step: 3, businessInfo, monthlyVolume, useCases: vals.useCases });
+                  handleClose();
+                }}
               />
             )}
             {step === 4 && (
               <TollFreeNumberForm
                 onSuccess={() => navigate("/")}
                 onBack={() => setStep(3)}
-                onCancel={handleClose}
+                onCancel={async () => {
+                  await saveProgress({ step: 4, businessInfo, monthlyVolume, useCases });
+                  handleClose();
+                }}
               />
             )}
           </CardContent>
