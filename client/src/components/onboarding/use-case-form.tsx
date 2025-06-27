@@ -34,7 +34,7 @@ interface UseCaseFormProps {
   initialValues?: UseCaseFormValues;
   onSubmit: (data: UseCaseFormValues) => void;
   onBack?: () => void;
-  onCancel?: () => void;
+  onCancel?: (data: UseCaseFormValues) => void;
 }
 
 export default function UseCaseForm({
@@ -95,7 +95,11 @@ export default function UseCaseForm({
         )}
         <div className="ml-auto space-x-2">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onCancel(form.getValues())}
+            >
               Save &amp; Close
             </Button>
           )}
