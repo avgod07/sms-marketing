@@ -17,6 +17,10 @@ import { z } from "zod";
 export const businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  plan: text("plan").notNull().default("trial"), // 'trial', 'starter'
+  trialEndsAt: timestamp("trial_ends_at"),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -293,6 +297,30 @@ export const onboardingProgress = pgTable("onboarding_progress", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // 'starter'
+  displayName: text("display_name").notNull(), // 'Starter Plan'
+  priceId: varchar("price_id", { length: 64 }).notNull(), // Stripe Price ID
+  priceMonthly: integer("price_monthly").notNull(), // Price in cents
+  priceYearly: integer("price_yearly").notNull(), // Price in cents for annual billing
+  features: text("features").array(), // Array of feature descriptions
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const subscriptionEvents = pgTable("subscription_events", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull(),
+  eventType: text("event_type").notNull(), // 'subscription_created', 'subscription_updated', 'subscription_cancelled', etc.
+  stripeEventId: varchar("stripe_event_id", { length: 64 }),
+  metadata: text("metadata"), // JSON string for additional data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -329,6 +357,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   businessCredits: many(businessCredits),
   creditTransactions: many(creditTransactions),
   onboardingProgress: many(onboardingProgress),
+  subscriptionEvents: many(subscriptionEvents),
 }));
 
 // Insert schemas
@@ -459,6 +488,22 @@ export const insertOnboardingProgressSchema = createInsertSchema(
   updatedAt: true,
 });
 
+export const insertSubscriptionPlanSchema = createInsertSchema(
+  subscriptionPlans
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSubscriptionEventSchema = createInsertSchema(
+  subscriptionEvents
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+});
+
 // Types
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
@@ -487,7 +532,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Analytics = typeof analytics.$inferSelect;
 
 export type Business = typeof businesses.$inferSelect;
-export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
+export type InsertBusiness = typeof businesses.$inferInsert;
 
 export type BusinessProfile = typeof businessProfiles.$inferSelect;
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;
@@ -517,3 +562,9 @@ export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
 export type InsertOnboardingProgress = z.infer<
   typeof insertOnboardingProgressSchema
 >;
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+
+export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
+export type InsertSubscriptionEvent = typeof subscriptionEvents.$inferInsert;

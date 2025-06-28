@@ -19,8 +19,9 @@ import {
   HelpCircle,
   LogOut,
   MessageSquare,
-  MessageSquareText
-  , ListChecks
+  MessageSquareText,
+  ListChecks,
+  CreditCard,
 } from "lucide-react";
 
 const navigation = [

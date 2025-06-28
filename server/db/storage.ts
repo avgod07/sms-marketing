@@ -46,6 +46,12 @@ import {
   onboardingProgress,
   type OnboardingProgress,
   type InsertOnboardingProgress,
+  subscriptionPlans,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  subscriptionEvents,
+  type SubscriptionEvent,
+  type InsertSubscriptionEvent,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -192,6 +198,21 @@ export interface IStorage {
   upsertOnboardingProgress(
     progress: InsertOnboardingProgress
   ): Promise<OnboardingProgress>;
+
+  // Subscription Management
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlan(name: string): Promise<SubscriptionPlan | undefined>;
+  updateBusinessPlan(
+    plan: string,
+    stripeCustomerId?: string,
+    stripeSubscriptionId?: string
+  ): Promise<Business>;
+  recordSubscriptionEvent(
+    eventType: string,
+    stripeEventId?: string,
+    metadata?: Record<string, any>
+  ): Promise<SubscriptionEvent>;
+  getSubscriptionEvents(): Promise<SubscriptionEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1330,6 +1351,70 @@ export class DatabaseStorage implements IStorage {
       .values({ ...progress, businessId })
       .returning();
     return row;
+  }
+
+  // Subscription Management
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, true))
+      .orderBy(asc(subscriptionPlans.priceMonthly));
+  }
+
+  async getSubscriptionPlan(
+    name: string
+  ): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.name, name));
+    return plan || undefined;
+  }
+
+  async updateBusinessPlan(
+    plan: string,
+    stripeCustomerId?: string,
+    stripeSubscriptionId?: string
+  ): Promise<Business> {
+    const businessId = this.requireBusinessId();
+    const [row] = await db
+      .update(businesses)
+      .set({
+        plan,
+        stripeCustomerId,
+        stripeSubscriptionId,
+      })
+      .where(eq(businesses.id, businessId))
+      .returning();
+    return row as Business;
+  }
+
+  async recordSubscriptionEvent(
+    eventType: string,
+    stripeEventId?: string,
+    metadata?: Record<string, any>
+  ): Promise<SubscriptionEvent> {
+    const businessId = this.requireBusinessId();
+    const [row] = await db
+      .insert(subscriptionEvents)
+      .values({
+        businessId,
+        eventType,
+        stripeEventId,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      })
+      .returning();
+    return row as SubscriptionEvent;
+  }
+
+  async getSubscriptionEvents(): Promise<SubscriptionEvent[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(subscriptionEvents)
+      .where(eq(subscriptionEvents.businessId, businessId))
+      .orderBy(desc(subscriptionEvents.createdAt));
   }
 }
 
