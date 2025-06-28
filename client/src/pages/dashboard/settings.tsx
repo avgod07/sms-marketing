@@ -29,6 +29,7 @@ import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 import { useToast } from "@/hooks/use-toast";
+import { useSetupStatus } from "@/hooks/use-setup-status";
 import type { TwilioSettings } from "@shared/api-types";
 
 export default function Settings() {
@@ -45,10 +46,56 @@ export default function Settings() {
     }
   }, [location]);
 
-  // Query to get current phone number (read-only)
-  const { data: phoneData } = useQuery<TwilioSettings | null>({
-    queryKey: ["/api/twilio/credentials"],
+  // Query to get current account info (company name and email)
+  const { data: accountInfo, isLoading, error } = useQuery({
+    queryKey: ["/api/business/account-info"],
+    queryFn: async () => {
+      const res = await apiRequest({ method: "GET", url: "/api/business/account-info" });
+      return res.json();
+    },
   });
+
+  // Query onboarding status
+  const { data: setupStatus, isLoading: setupLoading } = useSetupStatus();
+  const onboardingComplete = setupStatus?.onboardingComplete;
+
+  const [companyName, setCompanyName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    if (accountInfo) {
+      setCompanyName(accountInfo.companyName || "");
+      setContactEmail(accountInfo.contactEmail || "");
+      setIsDirty(false);
+    }
+  }, [accountInfo]);
+
+  const saveMutation = useMutation({
+    mutationFn: (data: { companyName: string }) =>
+      apiRequest({
+        method: "POST",
+        url: "/api/business/account-info",
+        data,
+      }),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Company name updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/business/account-info"] });
+      setIsDirty(false);
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: handleApiError(err),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCompanyNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCompanyName(e.target.value);
+    setIsDirty(e.target.value !== (accountInfo?.companyName || ""));
+  };
 
   return (
     <div className="fade-in">
@@ -80,20 +127,55 @@ export default function Settings() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="company-name">Company Name</Label>
-                      <Input id="company-name" placeholder="Enter company name" />
-                    </div>
-                    <div>
-                      <Label htmlFor="contact-email">Contact Email</Label>
-                      <Input id="contact-email" type="email" placeholder="Enter contact email" />
-                    </div>
-                  </div>
-                  <Button>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </Button>
+                  {isLoading || setupLoading ? (
+                    <div className="text-gray-500">Loading...</div>
+                  ) : error ? (
+                    <div className="text-red-600">Error loading account info</div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="company-name">Company Name</Label>
+                          <Input
+                            id="company-name"
+                            value={onboardingComplete ? companyName : ""}
+                            onChange={handleCompanyNameChange}
+                            disabled={!onboardingComplete || saveMutation.isPending}
+                          />
+                          {!onboardingComplete && (
+                            <p className="text-sm text-gray-500 mt-1">
+                              Complete onboarding to set your company name.
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="contact-email">Contact Email</Label>
+                          <Input
+                            id="contact-email"
+                            value={contactEmail}
+                            readOnly
+                            className="bg-gray-50"
+                            placeholder="Email from your account"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">
+                            Contact email is managed through your account settings.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => saveMutation.mutate({ companyName })}
+                        disabled={
+                          !onboardingComplete ||
+                          !isDirty ||
+                          saveMutation.isPending ||
+                          !companyName.trim()
+                        }
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {saveMutation.isPending ? "Saving..." : "Save Changes"}
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -110,7 +192,7 @@ export default function Settings() {
                     <Label htmlFor="current-phone">Current Phone Number</Label>
                     <Input 
                       id="current-phone" 
-                      value={phoneData?.phoneNumber || "No phone number assigned"} 
+                      value={accountInfo?.phoneNumber || "No phone number assigned"} 
                       readOnly 
                       className="bg-gray-50"
                     />

@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { requireAuth } from "@clerk/express";
+import { clerkClient } from "@clerk/clerk-sdk-node";
+import { z } from "zod";
 import { InsertBusinessProfile } from "@shared/schema";
 import { logError } from "../../utils/logger.util";
 import {
@@ -57,6 +59,66 @@ export function registerBusinessRoutes(app: Express) {
     } catch (error) {
       logDetailedError("Error fetching setup status", error);
       res.status(500).json({ message: "Failed to fetch setup status" });
+    }
+  });
+
+  // New endpoint: Get account info (company name and email)
+  app.get("/api/business/account-info", requireAuth(), async (req, res) => {
+    try {
+      const { biz, user } = await getBizForRequest(req);
+      const business = await biz.getBusiness();
+      const progress = await biz.getOnboardingProgress();
+
+      // Get Clerk user email
+      let clerkEmail = "";
+      if (user.clerkId) {
+        try {
+          const clerkUser = await clerkClient.users.getUser(user.clerkId);
+          clerkEmail = clerkUser.emailAddresses[0]?.emailAddress || "";
+        } catch (clerkError) {
+          logError("Error fetching Clerk user email:", clerkError);
+          // Fallback to onboarding email if Clerk fails
+          clerkEmail = progress?.email || "";
+        }
+      } else {
+        // No Clerk ID, use onboarding email
+        clerkEmail = progress?.email || "";
+      }
+
+      res.json({
+        companyName: business.name || progress?.businessName || "",
+        contactEmail: clerkEmail || progress?.email || "",
+      });
+    } catch (error) {
+      logError("Error fetching account info:", error);
+      res.status(500).json({ message: "Failed to fetch account info" });
+    }
+  });
+
+  // New endpoint: Update account info (company name only)
+  const accountInfoSchema = z.object({
+    companyName: z
+      .string()
+      .min(1, "Company name is required")
+      .max(100, "Company name too long"),
+  });
+
+  app.post("/api/business/account-info", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const { companyName } = accountInfoSchema.parse(req.body);
+
+      await biz.updateBusiness({ name: companyName.trim() });
+
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error updating account info:", error);
+      res.status(500).json({ message: "Failed to update account info" });
     }
   });
 
