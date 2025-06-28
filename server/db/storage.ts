@@ -1078,6 +1078,25 @@ export class DatabaseStorage implements IStorage {
 
   async createBusiness(business: InsertBusiness): Promise<Business> {
     const [row] = await db.insert(businesses).values(business).returning();
+
+    // Grant 50 free trial credits if the business is created with "trial" plan
+    if (row.plan === "trial") {
+      try {
+        const biz = this.forBusiness(row.id);
+        await biz.adjustCredits(
+          50,
+          "trial_bonus",
+          "Free trial credits for new business"
+        );
+      } catch (error) {
+        // Log error but don't fail business creation
+        logError("Failed to grant trial credits", {
+          businessId: row.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     return row;
   }
 

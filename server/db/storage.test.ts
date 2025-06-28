@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { DatabaseStorage } from "./storage";
 import { campaigns, couponRecipients, messages, coupons } from "@shared/schema";
 
+// Mock the logger utility
+vi.mock("../utils/logger.util", () => ({
+  logError: vi.fn(),
+  logInfo: vi.fn(),
+}));
+
 let insertMock: any;
 let updateMock: any;
 let selectMock: any;
@@ -104,5 +110,111 @@ describe("Coupons unique index", () => {
     expect(insertMock).toHaveBeenCalledTimes(2);
     expect(valuesMock.mock.calls[0][0].businessId).toBe(1);
     expect(valuesMock.mock.calls[1][0].businessId).toBe(2);
+  });
+});
+
+describe("createBusiness", () => {
+  it("grants 50 trial credits when business is created with trial plan", async () => {
+    const storage = new DatabaseStorage();
+    const mockAdjustCredits = vi.fn().mockResolvedValue({ balance: 50 });
+    const mockForBusiness = vi.fn().mockReturnValue({
+      adjustCredits: mockAdjustCredits,
+    });
+
+    // Mock the forBusiness method
+    vi.spyOn(storage, "forBusiness").mockImplementation(mockForBusiness);
+
+    // Mock the database response to return the expected business object
+    returningMock = vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        name: "Test Business",
+        plan: "trial",
+      },
+    ]);
+
+    const business = await storage.createBusiness({
+      name: "Test Business",
+      plan: "trial",
+    });
+
+    expect(business.name).toBe("Test Business");
+    expect(business.plan).toBe("trial");
+    expect(storage.forBusiness).toHaveBeenCalledWith(business.id);
+    expect(mockAdjustCredits).toHaveBeenCalledWith(
+      50,
+      "trial_bonus",
+      "Free trial credits for new business"
+    );
+  });
+
+  it("does not grant trial credits when business is created with non-trial plan", async () => {
+    const storage = new DatabaseStorage();
+    const mockAdjustCredits = vi.fn();
+    const mockForBusiness = vi.fn().mockReturnValue({
+      adjustCredits: mockAdjustCredits,
+    });
+
+    // Mock the forBusiness method
+    vi.spyOn(storage, "forBusiness").mockImplementation(mockForBusiness);
+
+    // Mock the database response to return the expected business object
+    returningMock = vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        name: "Test Business",
+        plan: "starter",
+      },
+    ]);
+
+    const business = await storage.createBusiness({
+      name: "Test Business",
+      plan: "starter",
+    });
+
+    expect(business.name).toBe("Test Business");
+    expect(business.plan).toBe("starter");
+    expect(mockAdjustCredits).not.toHaveBeenCalled();
+  });
+
+  it("handles errors gracefully when granting trial credits fails", async () => {
+    const storage = new DatabaseStorage();
+    const mockAdjustCredits = vi
+      .fn()
+      .mockRejectedValue(new Error("Database error"));
+    const mockForBusiness = vi.fn().mockReturnValue({
+      adjustCredits: mockAdjustCredits,
+    });
+
+    // Mock the forBusiness method
+    vi.spyOn(storage, "forBusiness").mockImplementation(mockForBusiness);
+
+    // Import the mocked logError
+    const { logError } = await import("../utils/logger.util");
+
+    // Mock the database response to return the expected business object
+    returningMock = vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        name: "Test Business",
+        plan: "trial",
+      },
+    ]);
+
+    const business = await storage.createBusiness({
+      name: "Test Business",
+      plan: "trial",
+    });
+
+    expect(business.name).toBe("Test Business");
+    expect(business.plan).toBe("trial");
+    expect(mockAdjustCredits).toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith(
+      "Failed to grant trial credits",
+      expect.objectContaining({
+        businessId: business.id,
+        error: "Database error",
+      })
+    );
   });
 });
