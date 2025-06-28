@@ -19,8 +19,8 @@ import {
 import {
   Settings as SettingsIcon,
   Save,
-  MessageSquare,
   CreditCard,
+  Phone,
 } from "lucide-react";
 import { useCredits } from "@/hooks/use-credits";
 import { differenceInCalendarDays, format } from "date-fns";
@@ -40,62 +40,15 @@ export default function Settings() {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.split('?')[1]);
     const tab = urlParams.get('tab');
-    if (tab && ['account', 'sms', 'billing'].includes(tab)) {
+    if (tab && ['account', 'billing'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [location]);
 
-  const { data: creds } = useQuery<TwilioSettings | null>({
+  // Query to get current phone number (read-only)
+  const { data: phoneData } = useQuery<TwilioSettings | null>({
     queryKey: ["/api/twilio/credentials"],
   });
-
-  const [sid, setSid] = useState("");
-  const [token, setToken] = useState("");
-  const [serviceSid, setServiceSid] = useState("");
-  const [phone, setPhone] = useState("");
-
-  useEffect(() => {
-    if (creds) {
-      setSid(creds.accountSid || "");
-      setToken(creds.authToken || "");
-      setServiceSid(creds.messagingServiceSid || "");
-      setPhone(creds.phoneNumber || "");
-    }
-  }, [creds]);
-
-  const updateMutation = useMutation({
-    mutationFn: () =>
-      apiRequest({
-        method: "POST",
-        url: "/api/twilio/connect",
-        data: {
-          accountSid: sid,
-          authToken: token,
-          messagingServiceSid: serviceSid || undefined,
-          phoneNumber: phone || undefined,
-        },
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/twilio/credentials"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
-      toast({ title: "Success", description: "SMS settings updated" });
-    },
-    onError: (err: any) => {
-      toast({
-        title: "Error",
-        description: handleApiError(err),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const changed =
-    sid !== (creds?.accountSid || "") ||
-    token !== (creds?.authToken || "") ||
-    serviceSid !== (creds?.messagingServiceSid || "") ||
-    phone !== (creds?.phoneNumber || "");
-
-  const canSubmit = sid !== "" && token !== "" && changed && !updateMutation.isPending;
 
   return (
     <div className="fade-in">
@@ -114,7 +67,6 @@ export default function Settings() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
           <TabsList className="mb-4">
             <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="sms">SMS Configuration</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
 
@@ -145,67 +97,33 @@ export default function Settings() {
                 </CardContent>
               </Card>
 
-            </div>
-          </TabsContent>
-
-          <TabsContent value="sms">
-            <div className="space-y-6">
+              {/* SMS Configuration Display (Read-only) */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <MessageSquare className="w-5 h-5" />
+                    <Phone className="w-5 h-5" />
                     <span>SMS Configuration</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="twilio-sid">Twilio Account SID</Label>
-                      <Input
-                        id="twilio-sid"
-                        type="password"
-                        placeholder="Enter Twilio Account SID"
-                        value={sid}
-                        onChange={(e) => setSid(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="twilio-token">Twilio Auth Token</Label>
-                      <Input
-                        id="twilio-token"
-                        type="password"
-                        placeholder="Enter Twilio Auth Token"
-                        value={token}
-                        onChange={(e) => setToken(e.target.value)}
-                      />
-                    </div>
-                  </div>
                   <div>
-                    <Label htmlFor="messaging-sid">Messaging Service SID</Label>
-                    <Input
-                      id="messaging-sid"
-                      placeholder="Enter Messaging Service SID"
-                      value={serviceSid}
-                      onChange={(e) => setServiceSid(e.target.value)}
+                    <Label htmlFor="current-phone">Current Phone Number</Label>
+                    <Input 
+                      id="current-phone" 
+                      value={phoneData?.phoneNumber || "No phone number assigned"} 
+                      readOnly 
+                      className="bg-gray-50"
                     />
+                    <p className="text-sm text-gray-500 mt-1">
+                      This is the phone number assigned during onboarding. Contact support if you need to change your SMS configuration.
+                    </p>
                   </div>
-                  <div>
-                    <Label htmlFor="twilio-phone">Twilio Phone Number</Label>
-                    <Input
-                      id="twilio-phone"
-                      placeholder="Enter Twilio phone number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div>
-                  <Button onClick={() => updateMutation.mutate()} disabled={!canSubmit}>
-                    <Save className="w-4 h-4 mr-2" />
-                    {updateMutation.isPending ? "Saving..." : "Update SMS Settings"}
-                  </Button>
                 </CardContent>
               </Card>
+
             </div>
           </TabsContent>
+
           <TabsContent value="billing">
             <BillingTab />
           </TabsContent>
@@ -215,7 +133,6 @@ export default function Settings() {
     </div>
   );
 }
-
 
 function BillingTab() {
   const { data: credits, isLoading, error } = useCredits();

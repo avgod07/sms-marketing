@@ -36,9 +36,9 @@ export default function Help() {
 
   const faqs = [
     {
-      question: "How do I set up Twilio integration?",
+      question: "How do I set up SMS functionality?",
       answer:
-        "Go to Settings > SMS Configuration and enter your Twilio Account SID, Auth Token, and phone number.",
+        "SMS functionality is automatically configured during the onboarding process. You'll be guided through setting up your Twilio account and selecting a phone number. If you need to change your SMS configuration after onboarding, please contact support.",
     },
     {
       question: "How can I import my existing contacts?",
