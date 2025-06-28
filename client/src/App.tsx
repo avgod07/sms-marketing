@@ -19,9 +19,11 @@ import JoinPage from "@/pages/auth/join";
 import Login from "@/pages/auth/login";
 import Signup from "@/pages/auth/signup";
 import CheckoutSuccess from "@/pages/checkout-success";
+import SubscriptionSuccess from "@/pages/subscription-success";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useSetupStatus } from "@/hooks/use-setup-status";
+import PricingPage from "@/pages/pricing";
 
 function Router() {
   const [location, navigate] = useLocation();
@@ -60,6 +62,8 @@ function Router() {
           <Route path="/signup" component={Signup} />
           <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/checkout-success" component={CheckoutSuccess} />
+          <Route path="/subscription-success" component={SubscriptionSuccess} />
+          <Route path="/pricing" component={PricingPage} />
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/onboarding" component={OnboardingPage} />

@@ -583,6 +583,9 @@ describe("Credit Routes", () => {
 
   describe("POST /api/credits/checkout", () => {
     it("returns a Stripe session URL on success", async () => {
+      mockForBusiness.getBusiness = vi
+        .fn()
+        .mockResolvedValue({ plan: "starter" });
       const app = await setupApp({ id: 1, businessId: 1 });
       const res = await request(app).post("/api/credits/checkout").send({
         amount: 50,

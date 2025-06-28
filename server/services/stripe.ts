@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { logError } from "../utils/logger.util";
 
-function getStripe() {
+export function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: "2025-05-28.basil",
   });

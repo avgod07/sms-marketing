@@ -37,9 +37,21 @@ export function registerCreditsRoutes(app: Express) {
       try {
         const { biz, user } = await getBizForRequest(req);
         const { amount, successUrl, cancelUrl } = req.body;
+
         if (!amount || !successUrl || !cancelUrl) {
           return res.status(400).json({ message: "Missing required fields" });
         }
+
+        // Check if user is on a paid plan
+        const business = await biz.getBusiness();
+        if (business.plan === "trial") {
+          return res.status(403).json({
+            message:
+              "Credit purchases require a paid plan. Please upgrade to continue.",
+            code: "UPGRADE_REQUIRED",
+          });
+        }
+
         const session = await createCheckoutSession({
           businessId: user.businessId,
           amount,

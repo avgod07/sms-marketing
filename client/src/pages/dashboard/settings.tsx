@@ -21,8 +21,12 @@ import {
   Save,
   CreditCard,
   Phone,
+  Crown,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import { useCredits } from "@/hooks/use-credits";
+import { useSubscription } from "@/hooks/use-subscription";
 import { differenceInCalendarDays, format } from "date-fns";
 import { useLocation } from "wouter";
 import { formatPhoneNumber } from "@/components/ui/phone-input";
@@ -219,15 +223,17 @@ export default function Settings() {
 
 function BillingTab() {
   const { data: credits, isLoading, error } = useCredits();
+  const { data: subscription } = useSubscription();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(10);
   const [customAmount, setCustomAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
-  const trialEnd = new Date();
-  trialEnd.setDate(trialEnd.getDate() + 5);
-  const daysLeft = differenceInCalendarDays(trialEnd, new Date());
+  const isTrialUser = subscription?.plan === "trial";
+  const trialEnd = subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
+  const daysLeft = trialEnd ? differenceInCalendarDays(trialEnd, new Date()) : 0;
 
   const handlePurchaseCredits = async () => {
     const finalAmount = customAmount ? parseInt(customAmount) : amount;
@@ -268,13 +274,51 @@ function BillingTab() {
       // Redirect to Stripe checkout
       window.location.href = url;
     } catch (err: any) {
+      if (err.status === 403 && err.data?.code === "UPGRADE_REQUIRED") {
+        toast({
+          title: "Upgrade Required",
+          description: "Please upgrade to a paid plan to purchase credits.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: handleApiError(err),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpgradePlan = async (billingCycle: "monthly" | "yearly") => {
+    setIsUpgrading(true);
+    try {
+      const response = await apiRequest({
+        method: "POST",
+        url: "/api/subscriptions/checkout",
+        data: {
+          planName: "starter",
+          billingCycle,
+          successUrl: `${window.location.origin}/subscription-success`,
+          cancelUrl: `${window.location.origin}/settings?tab=billing`,
+        },
+      });
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+    } catch (err: any) {
+      console.error("Upgrade error:", err);
       toast({
-        title: "Error",
-        description: handleApiError(err),
+        title: "Upgrade Failed",
+        description: "Unable to start the upgrade process. Please try again or contact support.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsUpgrading(false);
     }
   };
 
@@ -328,11 +372,23 @@ function BillingTab() {
             <span>Current Plan</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1">
-          <p className="text-gray-700">14-Day Trial</p>
-          <p className="text-sm text-gray-500">
-            {`Your trial ends in ${daysLeft} days (${format(trialEnd, "MMMM d, yyyy")})`}
-          </p>
+        <CardContent className="space-y-3">
+          {isTrialUser ? (
+            <>
+              <p className="text-gray-700 font-semibold">Free Trial</p>
+              <p className="text-sm text-gray-500">
+                {trialEnd ? `Your trial ends in ${daysLeft} days (${format(trialEnd, "MMMM d, yyyy")})` : "Your trial is active"}
+              </p>
+              <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-700 font-semibold">Starter Plan</p>
+              <p className="text-lg font-bold">$20/month <span className="text-gray-400 font-normal">or</span> $180/year <span className="text-xs text-gray-500">(billed annually)</span></p>
+              <p className="text-xs text-gray-500">Just $15/mo, billed annually</p>
+              <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -341,7 +397,13 @@ function BillingTab() {
         <p className="text-gray-600 mt-1">Credits Remaining</p>
       </div>
 
-      <Button onClick={() => setOpen(true)}>Buy Credits</Button>
+      <Button 
+        onClick={() => setOpen(true)} 
+        disabled={isTrialUser}
+        className={isTrialUser ? "opacity-50 cursor-not-allowed" : ""}
+      >
+        {isTrialUser ? "Get More Credits (Upgrade Required)" : "Buy Credits"}
+      </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
