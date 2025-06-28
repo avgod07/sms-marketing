@@ -55,6 +55,62 @@ export function registerMessageRoutes(app: Express) {
     }
   });
 
+  app.get("/api/messages/recent", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      const messages = await biz.getRecentMessages(limit);
+
+      // Get contact names for the messages
+      const messagesWithContactNames = await Promise.all(
+        messages.map(async (message) => {
+          const contact = await biz.getContact(message.contactId);
+          return {
+            ...message,
+            contactName: contact
+              ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() ||
+                contact.phoneNumber
+              : message.phoneNumber,
+          };
+        })
+      );
+
+      res.json(messagesWithContactNames);
+    } catch (error) {
+      logError("Error fetching recent messages", { error });
+      res.status(500).json({ message: "Failed to fetch recent messages" });
+    }
+  });
+
+  app.get("/api/messages/inbox/recent", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      const messages = await biz.getRecentInboxMessages(limit);
+
+      // Get contact names for the messages
+      const messagesWithContactNames = await Promise.all(
+        messages.map(async (message) => {
+          const contact = await biz.getContact(message.contactId);
+          return {
+            ...message,
+            contactName: contact
+              ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() ||
+                contact.phoneNumber
+              : message.phoneNumber,
+          };
+        })
+      );
+
+      res.json(messagesWithContactNames);
+    } catch (error) {
+      logError("Error fetching recent inbox messages", { error });
+      res
+        .status(500)
+        .json({ message: "Failed to fetch recent inbox messages" });
+    }
+  });
+
   app.post("/api/messages", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);

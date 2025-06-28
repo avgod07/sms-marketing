@@ -15,16 +15,16 @@ export function formatPercentage(num: number): string {
 }
 
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   }).format(new Date(date));
 }
 
 export function formatCouponExpiry(
   expirationDate?: string | Date | null,
-  validDays?: number | null,
+  validDays?: number | null
 ): string {
   if (expirationDate) {
     return formatDate(expirationDate);
@@ -32,68 +32,71 @@ export function formatCouponExpiry(
   if (validDays) {
     return `${validDays} days`;
   }
-  return 'No expiration';
+  return "No expiration";
 }
 
 export function formatPhoneNumber(phone: string): string {
   // Remove all non-digits
-  const cleaned = phone.replace(/\D/g, '');
-  
+  const cleaned = phone.replace(/\D/g, "");
+
   // Format as (XXX) XXX-XXXX
   if (cleaned.length === 10) {
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(
+      6
+    )}`;
   }
-  
+
   // Format as +1 (XXX) XXX-XXXX
-  if (cleaned.length === 11 && cleaned[0] === '1') {
-    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  if (cleaned.length === 11 && cleaned[0] === "1") {
+    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(
+      7
+    )}`;
   }
-  
+
   return phone;
 }
 
 export function formatTollFree(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '').replace(/^1/, '');
+  const cleaned = phone.replace(/\D/g, "").replace(/^1/, "");
   if (cleaned.length === 10) {
     return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
   }
   return phone;
 }
 
-
 export function getStatusColor(status: string): string {
   switch (status) {
-    case 'active':
-      return 'bg-green-100 text-green-700';
-    case 'in_progress':
-      return 'bg-green-100 text-green-700';
-    case 'completed':
-      return 'bg-blue-100 text-blue-700';
-    case 'failed':
-      return 'bg-red-100 text-red-700';
-    case 'inactive':
-      return 'bg-gray-100 text-gray-700';
-    case 'lead':
-      return 'bg-blue-100 text-blue-700';
+    case "active":
+      return "bg-green-100 text-green-700";
+    case "in_progress":
+      return "bg-green-100 text-green-700";
+    case "completed":
+      return "bg-blue-100 text-blue-700";
+    case "failed":
+      return "bg-red-100 text-red-700";
+    case "inactive":
+      return "bg-gray-100 text-gray-700";
+    case "lead":
+      return "bg-blue-100 text-blue-700";
     default:
-      return 'bg-gray-100 text-gray-700';
+      return "bg-gray-100 text-gray-700";
   }
 }
 
 export function formatCampaignStatus(status: string): string {
   switch (status) {
-    case 'in_progress':
-      return 'In Progress';
-    case 'completed':
-      return 'Completed';
-    case 'failed':
-      return 'Failed';
-    case 'active':
-    case 'paused':
-      return 'In Progress';
-    case 'sent':
-    case 'finished':
-      return 'Completed';
+    case "in_progress":
+      return "In Progress";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+    case "active":
+    case "paused":
+      return "In Progress";
+    case "sent":
+    case "finished":
+      return "Completed";
     default:
       return status;
   }
@@ -101,15 +104,53 @@ export function formatCampaignStatus(status: string): string {
 
 export function getCouponStatusColor(status: string): string {
   switch (status) {
-    case 'active':
-      return 'bg-green-100 text-green-700';
-    case 'inactive':
-      return 'bg-gray-100 text-gray-700';
+    case "active":
+      return "bg-green-100 text-green-700";
+    case "inactive":
+      return "bg-gray-100 text-gray-700";
     default:
-      return 'bg-gray-100 text-gray-700';
+      return "bg-gray-100 text-gray-700";
   }
 }
 
 export function timeAgo(date: string | Date): string {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
+
+export function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) {
+    return "Just now";
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) {
+    return `${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
+  }
+
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) {
+    return `${diffInWeeks} week${diffInWeeks === 1 ? "" : "s"} ago`;
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) {
+    return `${diffInMonths} month${diffInMonths === 1 ? "" : "s"} ago`;
+  }
+
+  const diffInYears = Math.floor(diffInDays / 365);
+  return `${diffInYears} year${diffInYears === 1 ? "" : "s"} ago`;
 }

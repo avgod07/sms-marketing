@@ -36,6 +36,18 @@ export function registerContactRoutes(app: Express) {
     }
   });
 
+  app.get("/api/contacts/recent", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      const contacts = await biz.getRecentContacts(limit);
+      res.json(contacts);
+    } catch (error) {
+      logDetailedError("Error fetching recent contacts", error);
+      res.status(500).json({ message: "Failed to fetch recent contacts" });
+    }
+  });
+
   app.get("/api/contacts/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);

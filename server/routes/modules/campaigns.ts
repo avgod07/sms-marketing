@@ -35,6 +35,18 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
+  app.get("/api/campaigns/recent", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      const campaigns = await biz.getRecentCampaigns(limit);
+      res.json(campaigns);
+    } catch (error) {
+      logDetailedError("Error fetching recent campaigns", error);
+      res.status(500).json({ message: "Failed to fetch recent campaigns" });
+    }
+  });
+
   app.get("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);

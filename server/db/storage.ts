@@ -55,7 +55,7 @@ import {
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
-import { eq, desc, asc, count, sql } from "drizzle-orm";
+import { eq, desc, asc, count, sql, and } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
 import { logError } from "../utils/logger.util";
 
@@ -173,6 +173,12 @@ export interface IStorage {
     activeCampaigns: number;
     messagesThisMonth: number;
   }>;
+
+  // Recent Activity
+  getRecentContacts(limit?: number): Promise<Contact[]>;
+  getRecentCampaigns(limit?: number): Promise<Campaign[]>;
+  getRecentMessages(limit?: number): Promise<Message[]>;
+  getRecentInboxMessages(limit?: number): Promise<Message[]>;
 
   // Users
   // The following fetchers are intentionally accessible without
@@ -1434,6 +1440,56 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptionEvents)
       .where(eq(subscriptionEvents.businessId, businessId))
       .orderBy(desc(subscriptionEvents.createdAt));
+  }
+
+  // Recent Activity
+  async getRecentContacts(limit?: number): Promise<Contact[]> {
+    const businessId = this.requireBusinessId();
+    const recentContacts = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.businessId, businessId))
+      .orderBy(desc(contacts.createdAt));
+
+    return limit ? recentContacts.slice(0, limit) : recentContacts;
+  }
+
+  async getRecentCampaigns(limit?: number): Promise<Campaign[]> {
+    const businessId = this.requireBusinessId();
+    const recentCampaigns = await db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.businessId, businessId))
+      .orderBy(desc(campaigns.createdAt));
+
+    return limit ? recentCampaigns.slice(0, limit) : recentCampaigns;
+  }
+
+  async getRecentMessages(limit?: number): Promise<Message[]> {
+    const businessId = this.requireBusinessId();
+    const recentMessages = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.businessId, businessId))
+      .orderBy(desc(messages.createdAt));
+
+    return limit ? recentMessages.slice(0, limit) : recentMessages;
+  }
+
+  async getRecentInboxMessages(limit?: number): Promise<Message[]> {
+    const businessId = this.requireBusinessId();
+    const recentInboxMessages = await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.businessId, businessId),
+          eq(messages.status, "received")
+        )
+      )
+      .orderBy(desc(messages.createdAt));
+
+    return limit ? recentInboxMessages.slice(0, limit) : recentInboxMessages;
   }
 }
 

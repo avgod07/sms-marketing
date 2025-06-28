@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { DatabaseStorage } from "./storage";
-import { campaigns, couponRecipients, messages, coupons } from "@shared/schema";
+import {
+  campaigns,
+  couponRecipients,
+  messages,
+  coupons,
+  contacts,
+} from "@shared/schema";
 
 // Mock the logger utility
 vi.mock("../utils/logger.util", () => ({
