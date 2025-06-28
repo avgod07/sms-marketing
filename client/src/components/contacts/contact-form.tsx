@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 
 
 export const contactSchema = z.object({
@@ -12,7 +13,7 @@ export const contactSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   phoneNumber: z
     .string()
-    .regex(/^\+?1?\d{10}$/, "Enter a valid 10-digit US phone number"),
+    .min(10, "Enter a valid 10-digit US phone number"),
   email: z.string().email().optional().or(z.literal("")),
 });
 
@@ -51,8 +52,12 @@ export default function ContactForm({
     }
   }, [initialValues, form]);
 
+  const handleSubmit = (data: ContactFormValues) => {
+    onSubmit({ ...data, phoneNumber: normalizePhoneNumber(data.phoneNumber) });
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
       <div>
         <Label htmlFor="firstName">First Name</Label>
         <Input id="firstName" {...form.register("firstName")} placeholder="First name" />
@@ -69,7 +74,12 @@ export default function ContactForm({
       </div>
       <div>
         <Label htmlFor="phoneNumber">Phone Number</Label>
-        <Input id="phoneNumber" {...form.register("phoneNumber")} placeholder="+15551234567" />
+        <PhoneInput
+          id="phoneNumber"
+          value={form.watch("phoneNumber")}
+          onChange={val => form.setValue("phoneNumber", val)}
+          required
+        />
         {form.formState.errors.phoneNumber && (
           <p className="text-sm text-red-600 mt-1">{form.formState.errors.phoneNumber.message}</p>
         )}

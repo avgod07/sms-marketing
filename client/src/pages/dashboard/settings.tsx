@@ -25,6 +25,7 @@ import {
 import { useCredits } from "@/hooks/use-credits";
 import { differenceInCalendarDays, format } from "date-fns";
 import { useLocation } from "wouter";
+import { formatPhoneNumber } from "@/components/ui/phone-input";
 
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
@@ -192,7 +193,7 @@ export default function Settings() {
                     <Label htmlFor="current-phone">Current Phone Number</Label>
                     <Input 
                       id="current-phone" 
-                      value={accountInfo?.phoneNumber || "No phone number assigned"} 
+                      value={accountInfo?.phoneNumber ? formatPhoneNumber(accountInfo.phoneNumber) : "No phone number assigned"} 
                       readOnly 
                       className="bg-gray-50"
                     />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { handleApiError } from "@/lib/handleApiError";
+import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 
 interface JoinPageProps {
   params: {
@@ -23,7 +24,7 @@ export default function JoinPage({ params }: JoinPageProps) {
   const [submitted, setSubmitted] = useState(false);
 
   const joinMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (normalizedPhone: string) =>
       apiRequest({
         method: "POST",
         url: "/public/contacts",
@@ -31,7 +32,7 @@ export default function JoinPage({ params }: JoinPageProps) {
           businessId: Number(businessId),
           firstName,
           lastName,
-          phoneNumber,
+          phoneNumber: normalizedPhone,
           email: email || undefined,
         },
       }),
@@ -64,7 +65,8 @@ export default function JoinPage({ params }: JoinPageProps) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          joinMutation.mutate();
+          const normalizedPhone = normalizePhoneNumber(phoneNumber);
+          joinMutation.mutate(normalizedPhone);
         }}
         className="bg-white p-8 rounded-lg shadow-md w-full max-w-md space-y-4"
       >
@@ -89,11 +91,10 @@ export default function JoinPage({ params }: JoinPageProps) {
         </div>
         <div>
           <Label htmlFor="phoneNumber">Phone Number</Label>
-          <Input
+          <PhoneInput
             id="phoneNumber"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="+15551234567"
+            onChange={setPhoneNumber}
             required
           />
         </div>

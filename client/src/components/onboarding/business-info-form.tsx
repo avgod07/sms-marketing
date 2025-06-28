@@ -13,35 +13,13 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { PhoneInput, normalizePhoneNumber, formatPhoneNumber } from "@/components/ui/phone-input";
 
 export const states = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
 ];
 
 export const countries = ["United States", "Canada", "United Kingdom"];
-
-// Phone number formatting function
-function formatPhoneNumber(value: string): string {
-  // Remove all non-digits
-  const phoneNumber = value.replace(/\D/g, '');
-  
-  // If it starts with 1, remove it for formatting
-  const cleaned = phoneNumber.startsWith('1') ? phoneNumber.slice(1) : phoneNumber;
-  
-  if (cleaned.length === 0) return '';
-  if (cleaned.length <= 3) return `(${cleaned}`;
-  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-}
-
-// Function to convert formatted phone to +1 format for API
-function normalizePhoneNumber(value: string): string {
-  const cleaned = value.replace(/\D/g, '');
-  if (cleaned.startsWith('1')) {
-    return `+${cleaned}`;
-  }
-  return `+1${cleaned}`;
-}
 
 export const businessInfoSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
@@ -109,7 +87,7 @@ export default function BusinessInfoForm({
       const displayValues = {
         ...initialValues,
         phoneNumber: initialValues.phoneNumber 
-          ? initialValues.phoneNumber.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
+          ? formatPhoneNumber(initialValues.phoneNumber)
           : ''
       };
       form.reset(displayValues);
@@ -117,18 +95,11 @@ export default function BusinessInfoForm({
   }, [initialValues, form]);
 
   const handleSubmit = (data: BusinessInfoFormValues) => {
-    // Normalize phone number to +1 format before submitting
     const normalizedData = {
       ...data,
       phoneNumber: normalizePhoneNumber(data.phoneNumber)
     };
     onSubmit(normalizedData);
-  };
-
-  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const formatted = formatPhoneNumber(value);
-    form.setValue("phoneNumber", formatted);
   };
 
   // Check if required fields are filled
@@ -275,11 +246,10 @@ export default function BusinessInfoForm({
         </div>
         <div>
           <Label htmlFor="phoneNumber">Phone Number</Label>
-          <Input 
-            id="phoneNumber" 
+          <PhoneInput
+            id="phoneNumber"
             value={form.watch("phoneNumber")}
-            onChange={handlePhoneNumberChange}
-            placeholder="(555) 123-4567" 
+            onChange={val => form.setValue("phoneNumber", val)}
           />
           {form.formState.errors.phoneNumber && (
             <p className="text-sm text-red-600 mt-1">
