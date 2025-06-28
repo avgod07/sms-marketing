@@ -45,3 +45,47 @@ export interface CampaignSendSummary {
   failedCount: number;
   totalContacts: number;
 }
+
+// Recent Activity Types
+export interface RecentContact {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  phoneNumber: string;
+  email: string | null;
+  createdAt: string;
+}
+
+export interface RecentCampaign {
+  id: number;
+  name: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface RecentMessage {
+  id: number;
+  content: string;
+  status: string;
+  phoneNumber: string;
+  contactId: number;
+  contactName?: string;
+  createdAt: string;
+}
+
+export interface RecentInboxMessage {
+  id: number;
+  content: string;
+  status: string;
+  phoneNumber: string;
+  contactId: number;
+  contactName?: string;
+  createdAt: string;
+}
+
+export interface RecentActivity {
+  contacts: RecentContact[];
+  campaigns: RecentCampaign[];
+  messages: RecentMessage[];
+  inboxMessages: RecentInboxMessage[];
+}

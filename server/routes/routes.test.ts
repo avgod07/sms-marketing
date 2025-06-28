@@ -392,6 +392,148 @@ describe("routes", () => {
     });
     expect(mockBroadcast).toHaveBeenCalledWith("message:send", saved);
   });
+
+  it("fetches recent contacts", async () => {
+    const recentContacts = [
+      {
+        id: 1,
+        firstName: "John",
+        lastName: "Doe",
+        phoneNumber: "+1234567890",
+        createdAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        firstName: "Jane",
+        lastName: "Smith",
+        phoneNumber: "+0987654321",
+        createdAt: "2024-01-02T00:00:00Z",
+      },
+    ];
+    mockForBusiness.getRecentContacts = vi
+      .fn()
+      .mockResolvedValue(recentContacts);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app).get("/api/contacts/recent?limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(recentContacts);
+    expect(mockForBusiness.getRecentContacts).toHaveBeenCalledWith(2);
+  });
+
+  it("fetches recent campaigns", async () => {
+    const recentCampaigns = [
+      {
+        id: 1,
+        name: "Summer Sale",
+        status: "completed",
+        createdAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        name: "Holiday Special",
+        status: "in_progress",
+        createdAt: "2024-01-02T00:00:00Z",
+      },
+    ];
+    mockForBusiness.getRecentCampaigns = vi
+      .fn()
+      .mockResolvedValue(recentCampaigns);
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app).get("/api/campaigns/recent?limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(recentCampaigns);
+    expect(mockForBusiness.getRecentCampaigns).toHaveBeenCalledWith(2);
+  });
+
+  it("fetches recent messages with contact names", async () => {
+    const recentMessages = [
+      {
+        id: 1,
+        content: "Hello!",
+        status: "delivered",
+        phoneNumber: "+1234567890",
+        contactId: 1,
+        createdAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        content: "How are you?",
+        status: "sent",
+        phoneNumber: "+0987654321",
+        contactId: 2,
+        createdAt: "2024-01-02T00:00:00Z",
+      },
+    ];
+    const contact1 = { id: 1, firstName: "John", lastName: "Doe" };
+    const contact2 = { id: 2, firstName: "Jane", lastName: "Smith" };
+
+    mockForBusiness.getRecentMessages = vi
+      .fn()
+      .mockResolvedValue(recentMessages);
+    mockForBusiness.getContact = vi
+      .fn()
+      .mockResolvedValueOnce(contact1)
+      .mockResolvedValueOnce(contact2);
+
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app).get("/api/messages/recent?limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      { ...recentMessages[0], contactName: "John Doe" },
+      { ...recentMessages[1], contactName: "Jane Smith" },
+    ]);
+    expect(mockForBusiness.getRecentMessages).toHaveBeenCalledWith(2);
+    expect(mockForBusiness.getContact).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetches recent inbox messages with contact names", async () => {
+    const recentInboxMessages = [
+      {
+        id: 1,
+        content: "Hello!",
+        status: "received",
+        phoneNumber: "+1234567890",
+        contactId: 1,
+        createdAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        content: "How are you?",
+        status: "received",
+        phoneNumber: "+0987654321",
+        contactId: 2,
+        createdAt: "2024-01-02T00:00:00Z",
+      },
+    ];
+    const contact1 = { id: 1, firstName: "John", lastName: "Doe" };
+    const contact2 = { id: 2, firstName: "Jane", lastName: "Smith" };
+
+    mockForBusiness.getRecentInboxMessages = vi
+      .fn()
+      .mockResolvedValue(recentInboxMessages);
+    mockForBusiness.getContact = vi
+      .fn()
+      .mockResolvedValueOnce(contact1)
+      .mockResolvedValueOnce(contact2);
+
+    const app = await setupApp({ businessId: 1 });
+
+    const res = await request(app).get("/api/messages/inbox/recent?limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      { ...recentInboxMessages[0], contactName: "John Doe" },
+      { ...recentInboxMessages[1], contactName: "Jane Smith" },
+    ]);
+    expect(mockForBusiness.getRecentInboxMessages).toHaveBeenCalledWith(2);
+    expect(mockForBusiness.getContact).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("Multi-tenant isolation", () => {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import StatsCard from "@/components/dashboard/stats-card";
+import { RecentActivityGrid } from "@/components/dashboard/recent-activity-grid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -127,23 +128,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-center py-8 text-gray-500">
-                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No recent activity to display</p>
-                <p className="text-sm">
-                  Start by creating a campaign or adding contacts
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Recent Activity Grid */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Recent Activity</h2>
+          <RecentActivityGrid />
+        </div>
       </div>
     </div>
   );
