@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { requireAuth } from "@clerk/express";
-import { clerkClient } from "@clerk/clerk-sdk-node";
+import { createClerkClient } from "@clerk/backend";
 import { z } from "zod";
 import { InsertBusinessProfile } from "@shared/schema";
 import { logError } from "../../utils/logger.util";
@@ -11,6 +11,11 @@ import {
 } from "./utils";
 
 export function registerBusinessRoutes(app: Express) {
+  // Initialize Clerk client
+  const clerkClient = createClerkClient({
+    secretKey: process.env.CLERK_SECRET_KEY,
+  });
+
   app.get("/api/dashboard/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
