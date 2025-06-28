@@ -31,7 +31,6 @@ export default function PricingPage() {
 
   const price = billing === "monthly" ? 20 : 180;
   const priceLabel = billing === "monthly" ? "$20/mo" : "$180/year ($15/mo)";
-  const savingsLabel = billing === "yearly" ? "Save 25%" : undefined;
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
@@ -56,75 +55,68 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4 md:px-0">
-      <button
-        className="flex items-center text-gray-500 hover:text-primary mb-6"
-        onClick={() => navigate("/settings?tab=billing")}
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" /> Back to billing
-      </button>
-
-      <h1 className="text-3xl font-bold mb-2 text-gray-900">Simple, affordable pricing</h1>
-      <p className="text-gray-600 mb-6">
-        Pick your plan and unlock the world's best messaging rates ($0.01 per SMS) with zero hidden fees.
-      </p>
-
-      <div className="flex items-center space-x-2 mb-8">
-        <Button
-          variant={billing === "monthly" ? "default" : "outline"}
-          onClick={() => setBilling("monthly")}
+    <div className="flex flex-col items-center w-full mt-12">
+      <div className="w-full max-w-2xl mx-auto bg-white rounded-xl shadow p-8">
+        <button
+          className="flex items-center text-gray-500 hover:text-primary mb-6"
+          onClick={() => navigate("/settings?tab=billing")}
         >
-          Monthly
-        </Button>
-        <Button
-          variant={billing === "yearly" ? "default" : "outline"}
-          onClick={() => setBilling("yearly")}
-        >
-          Yearly {savingsLabel && <span className="ml-1 text-green-600 font-semibold">- {savingsLabel}</span>}
-        </Button>
-      </div>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to billing
+        </button>
 
-      <div className="flex flex-col items-center">
-        <Card className="w-full max-w-md mb-8">
-          <CardHeader className="flex flex-col items-center">
-            <CardTitle className="text-2xl font-bold flex items-center">
-              <CreditCard className="w-5 h-5 mr-2 text-primary" /> Starter
-            </CardTitle>
-            <div className="mt-2 text-3xl font-extrabold text-gray-900">
-              {billing === "monthly" ? "$20" : "$180"}
-              <span className="text-lg font-medium text-gray-500 ml-1">
-                {billing === "monthly" ? "/mo" : "/year"}
-              </span>
-            </div>
-            {billing === "yearly" && (
-              <div className="text-green-600 text-sm font-semibold mt-1">$15/mo billed annually</div>
-            )}
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3 my-6">
-              {STARTER_FEATURES.map((feature) => (
-                <li key={feature} className="flex items-center text-gray-700">
-                  <CheckCircle className="w-5 h-5 text-green-500 mr-2" /> {feature}
-                </li>
-              ))}
-            </ul>
-            <Button
-              className="w-full mt-2"
-              onClick={handleUpgrade}
-              disabled={isCurrentPlan || isUpgrading}
-            >
-              {isCurrentPlan ? "Current Plan" : isUpgrading ? "Processing..." : `Upgrade for ${priceLabel}`}
-            </Button>
-          </CardContent>
-        </Card>
+        <h1 className="text-3xl font-bold mb-2 text-gray-900 text-center">Simple, affordable pricing</h1>
+        <p className="text-gray-600 mb-6 text-center">
+          Pick your plan and unlock the world's best messaging rates ($0.01 per SMS) with zero hidden fees.
+        </p>
 
-        {/* Credits Banner - keep as is, or import your component here */}
-        <div className="w-full max-w-md">
-          {/* Replace this with your actual CreditsBanner if you have one */}
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-700 mb-1">Credits</div>
-            <div className="text-gray-700">SMS credits: <span className="font-semibold">$0.01 per message</span>. Buy more anytime from your dashboard.</div>
-          </div>
+        <div className="flex items-center justify-center space-x-2 mb-8">
+          <Button
+            variant={billing === "monthly" ? "default" : "outline"}
+            onClick={() => setBilling("monthly")}
+          >
+            Monthly
+          </Button>
+          <Button
+            variant={billing === "yearly" ? "default" : "outline"}
+            onClick={() => setBilling("yearly")}
+          >
+            Yearly
+          </Button>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <Card className="w-full max-w-md mb-8">
+            <CardHeader className="flex flex-col items-center">
+              <CardTitle className="text-2xl font-bold flex items-center">
+                <CreditCard className="w-5 h-5 mr-2 text-primary" /> Starter
+              </CardTitle>
+              <div className="mt-2 text-3xl font-extrabold text-gray-900">
+                {billing === "monthly" ? "$20" : "$180"}
+                <span className="text-lg font-medium text-gray-500 ml-1">
+                  {billing === "monthly" ? "/mo" : "/year"}
+                </span>
+              </div>
+              {billing === "yearly" && (
+                <div className="text-green-600 text-sm font-semibold mt-1">$15/mo billed annually</div>
+              )}
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 my-6">
+                {STARTER_FEATURES.map((feature) => (
+                  <li key={feature} className="flex items-center text-gray-700">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" /> {feature}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                className="w-full mt-2"
+                onClick={handleUpgrade}
+                disabled={isCurrentPlan || isUpgrading}
+              >
+                {isCurrentPlan ? "Current Plan" : isUpgrading ? "Processing..." : `Upgrade for ${priceLabel}`}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
