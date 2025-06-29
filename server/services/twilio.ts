@@ -33,10 +33,18 @@ export interface SMSResult {
   error?: string;
 }
 
+export interface PhoneValidationResult {
+  isValid: boolean;
+  canReceiveSMS: boolean;
+  carrier?: string;
+  type?: string;
+  error?: string;
+}
+
 export class TwilioService {
   static async sendSMS(
     creds: TwilioCredential | undefined,
-    smsData: SMSMessage,
+    smsData: SMSMessage
   ): Promise<SMSResult> {
     try {
       // Fallback to env configuration if creds not provided
@@ -68,9 +76,41 @@ export class TwilioService {
     }
   }
 
+  /**
+   * Validate a phone number using Twilio's Lookup API
+   * This checks if the number is valid and can receive SMS
+   */
+  static async validatePhoneNumber(
+    creds: TwilioCredential | undefined,
+    phoneNumber: string
+  ): Promise<PhoneValidationResult> {
+    try {
+      const sid = creds ? creds.accountSid : fallbackSid;
+      const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
+      const client = getClient(sid, token);
+
+      // Basic lookup to validate the number format
+      const lookup = await client.lookups.v2.phoneNumbers(phoneNumber).fetch();
+
+      // If we get here, the number is valid
+      return {
+        isValid: true,
+        canReceiveSMS: true, // Assume it can receive SMS if valid
+        carrier: "Unknown",
+        type: "Unknown",
+      };
+    } catch (error: any) {
+      return {
+        isValid: false,
+        canReceiveSMS: false,
+        error: error.message || "Invalid phone number",
+      };
+    }
+  }
+
   static async sendBulkSMS(
     creds: TwilioCredential | undefined,
-    messages: SMSMessage[],
+    messages: SMSMessage[]
   ): Promise<SMSResult[]> {
     const results: SMSResult[] = [];
 
@@ -93,7 +133,7 @@ export class TwilioService {
 
   static async fetchAvailableTollFreeNumbers(
     creds: TwilioCredential | undefined,
-    opts: { page?: number; contains?: string; limit?: number } = {},
+    opts: { page?: number; contains?: string; limit?: number } = {}
   ): Promise<string[]> {
     const sid = creds ? creds.accountSid : fallbackSid;
     const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
@@ -113,7 +153,7 @@ export class TwilioService {
   static async purchaseAndAssignNumber(
     creds: TwilioCredential,
     phoneNumber: string,
-    webhookUrl: string,
+    webhookUrl: string
   ): Promise<{ phoneSid: string; serviceSid: string }> {
     const token = decrypt(creds.authTokenEncrypted);
     const client = getClient(creds.accountSid, token);

@@ -814,4 +814,33 @@ export function registerTwilioRoutes(app: Express) {
       res.status(500).json({ message: "Failed to register A2P" });
     }
   });
+
+  // Phone number validation endpoint
+  app.post("/api/twilio/validate-phone", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const { phoneNumber } = z
+        .object({ phoneNumber: z.string() })
+        .parse(req.body);
+
+      const creds = await biz.getTwilioCredentials();
+      if (!creds) {
+        return res.status(400).json({ message: "Twilio not connected" });
+      }
+
+      const validation = await TwilioService.validatePhoneNumber(
+        creds,
+        phoneNumber
+      );
+      res.json(validation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error validating phone number:", error);
+      res.status(500).json({ message: "Failed to validate phone number" });
+    }
+  });
 }

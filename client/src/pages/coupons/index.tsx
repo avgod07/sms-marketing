@@ -92,7 +92,6 @@ export default function Coupons() {
         expirationDate: data.expirationDate
           ? new Date(data.expirationDate)
           : undefined,
-        validDays: data.validDays ?? undefined,
       };
       const res = await apiRequest({
         method: "POST",

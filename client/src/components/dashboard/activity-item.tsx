@@ -1,5 +1,5 @@
 import { formatRelativeTime } from "@/lib/utils";
-import { ExternalLink } from "lucide-react";
+// import { ExternalLink } from "lucide-react";
 
 interface ActivityItemProps {
   title: string;
@@ -45,14 +45,7 @@ export function ActivityItem({
           {formatRelativeTime(timestamp)}
         </p>
       </div>
-      {href && (
-        <a
-          href={href}
-          className="ml-2 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <ExternalLink className="w-4 h-4" />
-        </a>
-      )}
+      {/* Removed external link icon and anchor */}
     </div>
   );
 } 
