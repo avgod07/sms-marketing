@@ -14,7 +14,7 @@ import {
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomBytes } from "crypto";
-import type { File as MulterFile } from "multer";
+import { TwilioService } from "../../services/twilio.js";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -94,6 +94,21 @@ export function registerCampaignRoutes(app: Express) {
   app.post("/api/campaigns", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
+
+      // Check if user is on a paid plan or has an active trial
+      const business = await biz.getBusiness();
+      const isTrialExpired = business.trialEndsAt
+        ? new Date(business.trialEndsAt) < new Date()
+        : false;
+
+      if (business.plan === "trial" || isTrialExpired) {
+        return res.status(403).json({
+          message:
+            "Campaign creation requires a paid plan. Please upgrade to continue.",
+          code: "UPGRADE_REQUIRED",
+        });
+      }
+
       const validatedData = simpleCampaignSchema.parse(req.body);
       const campaign = await biz.createCampaign({
         name: validatedData.name,
@@ -187,6 +202,21 @@ export function registerCampaignRoutes(app: Express) {
   app.post("/api/campaigns/:id/send", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
+
+      // Check if user is on a paid plan or has an active trial
+      const business = await biz.getBusiness();
+      const isTrialExpired = business.trialEndsAt
+        ? new Date(business.trialEndsAt) < new Date()
+        : false;
+
+      if (business.plan === "trial" || isTrialExpired) {
+        return res.status(403).json({
+          message:
+            "Campaign sending requires a paid plan. Please upgrade to continue.",
+          code: "UPGRADE_REQUIRED",
+        });
+      }
+
       const id = parseInt(req.params.id);
       const campaign = await biz.getCampaign(id);
 
@@ -213,13 +243,106 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
+  // Test campaign message endpoint - sends test message without creating campaign record
+  app.post("/api/campaigns/test", requireAuth(), async (req, res) => {
+    try {
+      const { biz, user } = await getBizForRequest(req);
+      const { message, mediaUrl, phoneNumber } = z
+        .object({
+          message: z
+            .string()
+            .min(1, "Message is required")
+            .max(160, "Message must be 160 characters or less"),
+          mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
+          phoneNumber: z.string().min(1, "Phone number is required"),
+        })
+        .parse(req.body);
+
+      // Check if user is on a paid plan or has an active trial
+      const business = await biz.getBusiness();
+      const isTrialExpired = business.trialEndsAt
+        ? new Date(business.trialEndsAt) < new Date()
+        : false;
+
+      if (business.plan === "trial" || isTrialExpired) {
+        return res.status(403).json({
+          message:
+            "Test messages require a paid plan. Please upgrade to continue.",
+          code: "UPGRADE_REQUIRED",
+        });
+      }
+
+      // Check if user has sufficient credits
+      const credits = await biz.getCredits();
+      const creditsNeeded = mediaUrl ? 3 : 1; // MMS costs 3 credits, SMS costs 1
+      const balance = credits?.balance || 0;
+
+      if (balance < creditsNeeded) {
+        return res.status(400).json({
+          message: `Insufficient credits. Need ${creditsNeeded} credit${
+            creditsNeeded > 1 ? "s" : ""
+          } for ${mediaUrl ? "MMS" : "SMS"} test message.`,
+        });
+      }
+
+      // Get Twilio credentials and phone numbers
+      const creds = await biz.getTwilioCredentials();
+      const numbers = await biz.getPhoneNumbers();
+      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+      if (!creds || !from) {
+        return res.status(400).json({
+          message: "Twilio not configured or no default phone number",
+        });
+      }
+
+      // Send the test message
+      const result = await TwilioService.sendSMS(creds, {
+        to: phoneNumber,
+        message: message,
+        from,
+        messagingServiceSid: creds?.messagingServiceSid || undefined,
+      });
+
+      if (result.success) {
+        // Deduct credits only on successful send
+        await biz.adjustCredits(
+          -creditsNeeded,
+          "test_message",
+          `Test ${mediaUrl ? "MMS" : "SMS"} message sent`,
+          { messageType: mediaUrl ? "MMS" : "SMS", phoneNumber }
+        );
+
+        res.json({
+          success: true,
+          messageSid: result.messageSid,
+          creditsDeducted: creditsNeeded,
+          messageType: mediaUrl ? "MMS" : "SMS",
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || "Failed to send test message",
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error sending test campaign message:", error);
+      res.status(500).json({ message: "Failed to send test message" });
+    }
+  });
+
   app.post(
     "/api/campaigns/upload-image",
     requireAuth(),
     upload.single("image"),
-    async (req: Request & { file?: MulterFile }, res) => {
+    async (req: Request & { file?: Express.Multer.File }, res) => {
       try {
-        const file = req.file as MulterFile | undefined;
+        const file = req.file as Express.Multer.File | undefined;
         if (!file) {
           return res.status(400).json({ message: "No file uploaded" });
         }

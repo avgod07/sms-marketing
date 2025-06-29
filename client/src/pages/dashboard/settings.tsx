@@ -234,6 +234,12 @@ function BillingTab() {
   const isTrialUser = subscription?.plan === "trial";
   const trialEnd = subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
   const daysLeft = trialEnd ? differenceInCalendarDays(trialEnd, new Date()) : 0;
+  
+  // Check if trial has actually expired (trialEndsAt is in the past)
+  const isTrialExpired = trialEnd ? trialEnd < new Date() : false;
+  
+  // A user is considered a trial user only if they're on trial plan AND trial hasn't expired
+  const isActiveTrialUser = isTrialUser && !isTrialExpired;
 
   const handlePurchaseCredits = async () => {
     const finalAmount = customAmount ? parseInt(customAmount) : amount;
@@ -376,9 +382,15 @@ function BillingTab() {
           {isTrialUser ? (
             <>
               <p className="text-gray-700 font-semibold">Free Trial</p>
-              <p className="text-sm text-gray-500">
-                {trialEnd ? `Your trial ends in ${daysLeft} days (${format(trialEnd, "MMMM d, yyyy")})` : "Your trial is active"}
-              </p>
+              {isTrialExpired ? (
+                <p className="text-sm text-red-600">
+                  Your trial has expired. Please upgrade to continue using the platform.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  {trialEnd ? `Your trial ends in ${daysLeft} days (${format(trialEnd, "MMMM d, yyyy")})` : "Your trial is active"}
+                </p>
+              )}
               <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
             </>
           ) : (
@@ -399,10 +411,10 @@ function BillingTab() {
 
       <Button 
         onClick={() => setOpen(true)} 
-        disabled={isTrialUser}
-        className={isTrialUser ? "opacity-50 cursor-not-allowed" : ""}
+        disabled={isActiveTrialUser}
+        className={isActiveTrialUser ? "opacity-50 cursor-not-allowed" : ""}
       >
-        {isTrialUser ? "Get More Credits (Upgrade Required)" : "Buy Credits"}
+        {isActiveTrialUser ? "Get More Credits (Upgrade Required)" : "Buy Credits"}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

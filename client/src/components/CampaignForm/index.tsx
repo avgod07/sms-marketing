@@ -27,6 +27,7 @@ interface CampaignFormProps {
   disabled?: boolean;
   onMessageChange?: (message: string) => void;
   onImageChange?: (url?: string) => void;
+  onSendTest?: () => void;
 }
 
 export default function CampaignForm({
@@ -38,6 +39,7 @@ export default function CampaignForm({
   disabled = false,
   onMessageChange,
   onImageChange,
+  onSendTest,
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
@@ -129,6 +131,10 @@ export default function CampaignForm({
     onSubmit({ ...values, mediaUrl: imageUrl || undefined });
   };
 
+  const handleSendTest = () => {
+    onSendTest?.();
+  };
+
   return (
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
         <div>
@@ -174,8 +180,14 @@ export default function CampaignForm({
           <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF only. Max 5MB. Sending an MMS costs 3 credits.</p>
         </div>
         <div className="flex space-x-2">
-          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
-            Cancel
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={handleSendTest} 
+            className="flex-1"
+            disabled={!form.formState.isValid || disabled}
+          >
+            Send Test
           </Button>
           <Button
             type="submit"

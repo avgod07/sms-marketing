@@ -42,9 +42,13 @@ export function registerCreditsRoutes(app: Express) {
           return res.status(400).json({ message: "Missing required fields" });
         }
 
-        // Check if user is on a paid plan
+        // Check if user is on a paid plan or has an active trial
         const business = await biz.getBusiness();
-        if (business.plan === "trial") {
+        const isTrialExpired = business.trialEndsAt
+          ? new Date(business.trialEndsAt) < new Date()
+          : false;
+
+        if (business.plan === "trial" || isTrialExpired) {
           return res.status(403).json({
             message:
               "Credit purchases require a paid plan. Please upgrade to continue.",
