@@ -7,14 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 
-
 export const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phoneNumber: z
     .string()
-    .min(10, "Enter a valid 10-digit US phone number"),
-  email: z.string().email().optional().or(z.literal("")),
+    .min(1, "Phone number is required")
+    .refine(
+      (val) => {
+        const digits = val.replace(/\D/g, "");
+        return digits.length >= 10 && digits.length <= 11;
+      },
+      {
+        message: "Please enter a valid 10-11 digit phone number",
+      }
+    ),
+  email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
 });
 
 export type ContactFormValues = z.infer<typeof contactSchema>;
@@ -36,7 +44,7 @@ export default function ContactForm({
 }: ContactFormProps) {
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(contactSchema),
-    mode: "onChange",
+    mode: "onSubmit",
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -55,6 +63,14 @@ export default function ContactForm({
   const handleSubmit = (data: ContactFormValues) => {
     onSubmit({ ...data, phoneNumber: normalizePhoneNumber(data.phoneNumber) });
   };
+
+  // Watch all required fields to make validation reactive
+  const firstName = form.watch("firstName");
+  const lastName = form.watch("lastName");
+  const phoneNumber = form.watch("phoneNumber");
+
+  // Check if required fields are filled
+  const isFormValid = firstName && lastName && phoneNumber;
 
   return (
     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -95,7 +111,7 @@ export default function ContactForm({
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
           Cancel
         </Button>
-        <Button type="submit" disabled={!form.formState.isValid || pending} className="flex-1">
+        <Button type="submit" disabled={!isFormValid || pending} className="flex-1">
           {pending ? "Saving..." : submitLabel}
         </Button>
       </div>

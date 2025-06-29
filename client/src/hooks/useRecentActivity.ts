@@ -13,7 +13,7 @@ export function useRecentActivity() {
     isError: contactsError,
   } = useQuery<RecentContact[]>({
     queryKey: ["/api/contacts/recent"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds
   });
 
   const {
@@ -22,7 +22,7 @@ export function useRecentActivity() {
     isError: campaignsError,
   } = useQuery<RecentCampaign[]>({
     queryKey: ["/api/campaigns/recent"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds
   });
 
   const {
@@ -31,7 +31,7 @@ export function useRecentActivity() {
     isError: messagesError,
   } = useQuery<RecentMessage[]>({
     queryKey: ["/api/messages/recent"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds
   });
 
   const {
@@ -40,7 +40,7 @@ export function useRecentActivity() {
     isError: inboxMessagesError,
   } = useQuery<RecentInboxMessage[]>({
     queryKey: ["/api/messages/inbox/recent"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds
   });
 
   return {
