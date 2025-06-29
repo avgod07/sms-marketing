@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +16,7 @@ export const campaignSchema = z
       .max(160, "Message must be 160 characters or less"),
   });
 
-export type CampaignFormValues = z.infer<typeof campaignSchema>;
+export type CampaignFormValues = z.infer<typeof campaignSchema> & { mediaUrl?: string };
 
 interface CampaignFormProps {
   initialValues?: CampaignFormValues;
@@ -26,6 +26,7 @@ interface CampaignFormProps {
   submitLabel?: string;
   disabled?: boolean;
   onMessageChange?: (message: string) => void;
+  onImageChange?: (url?: string) => void;
 }
 
 export default function CampaignForm({
@@ -36,6 +37,7 @@ export default function CampaignForm({
   submitLabel = "Save",
   disabled = false,
   onMessageChange,
+  onImageChange,
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
@@ -46,6 +48,11 @@ export default function CampaignForm({
       ...initialValues,
     },
   });
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialValues) {
@@ -62,9 +69,68 @@ export default function CampaignForm({
     return () => subscription.unsubscribe();
   }, [form, onMessageChange]);
 
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setImageFile(null);
+      setImagePreview(null);
+      setImageUrl(null);
+      onImageChange?.(undefined);
+      return;
+    }
+    if (!file.type.match(/^image\/(jpeg|png|gif)$/)) {
+      alert("Only JPG, PNG, and GIF images are allowed");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setImageFile(file);
+    setImagePreview(previewUrl);
+    setUploading(true);
+    onImageChange?.(previewUrl);
+    // Upload to backend
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const res = await fetch("/api/campaigns/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setImageUrl(data.url);
+      } else {
+        alert(data.message || "Failed to upload image");
+        setImageFile(null);
+        setImagePreview(null);
+        onImageChange?.(undefined);
+      }
+    } catch (err) {
+      alert("Failed to upload image");
+      setImageFile(null);
+      setImagePreview(null);
+      onImageChange?.(undefined);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setImageUrl(null);
+    onImageChange?.(undefined);
+  };
+
+  const handleFormSubmit = (values: CampaignFormValues) => {
+    onSubmit({ ...values, mediaUrl: imageUrl || undefined });
+  };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="name">Campaign Name</Label>
           <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
@@ -89,6 +155,23 @@ export default function CampaignForm({
               {form.watch("message")?.length || 0}/160
             </p>
           </div>
+        </div>
+        <div>
+          <Label htmlFor="image">Attach Image (Optional)</Label>
+          <Input
+            id="image"
+            type="file"
+            accept="image/jpeg,image/png,image/gif"
+            onChange={handleImageChange}
+            disabled={uploading}
+          />
+          {imagePreview && (
+            <div className="mt-2">
+              <img src={imagePreview} alt="Preview" className="max-h-32 rounded border" />
+              <Button type="button" variant="outline" size="sm" onClick={handleRemoveImage} className="ml-2">Remove</Button>
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF only. Max 5MB. Sending an MMS costs 3 credits.</p>
         </div>
         <div className="flex space-x-2">
           <Button type="button" variant="outline" onClick={onCancel} className="flex-1">

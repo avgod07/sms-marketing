@@ -30,10 +30,14 @@ export async function executeCampaign(
     return { sentCount: 0, failedCount: 0, totalContacts: 0 };
   }
 
+  // Determine credit cost per message
+  const isMMS = !!campaign.mediaUrl;
+  const creditCost = isMMS ? 3 : 1;
+
   // --- CREDIT CHECK ONLY (no deduction yet) ---
   const credits = await bizStorage.getCredits();
   const balance = credits?.balance || 0;
-  if (balance < contacts.length) {
+  if (balance < contacts.length * creditCost) {
     throw new InsufficientCreditsError();
   }
   // --- END CREDIT CHECK ---
@@ -64,6 +68,7 @@ export async function executeCampaign(
     contactId: contact.id,
     from: defaultNumber,
     messagingServiceSid: creds?.messagingServiceSid || undefined,
+    mediaUrl: campaign.mediaUrl || undefined,
   }));
 
   try {
@@ -85,9 +90,9 @@ export async function executeCampaign(
     // Only deduct credits for successfully sent messages
     if (sentCount > 0) {
       await bizStorage.adjustCredits(
-        -sentCount,
-        "send_sms",
-        `Sent ${sentCount} SMS for campaign ${campaignId}`,
+        -sentCount * creditCost,
+        isMMS ? "send_mms" : "send_sms",
+        `Sent ${sentCount} ${isMMS ? "MMS" : "SMS"} for campaign ${campaignId}`,
         { campaignId, totalContacts: contacts.length, failedCount }
       );
     }
@@ -101,7 +106,7 @@ export async function executeCampaign(
 
     return { sentCount, failedCount, totalContacts: contacts.length };
   } catch (error) {
-    // If SMS sending fails completely, don't deduct any credits
+    // If sending fails completely, don't deduct any credits
     logError("Campaign execution failed, no credits deducted", {
       campaignId,
       error: error instanceof Error ? error.message : String(error),

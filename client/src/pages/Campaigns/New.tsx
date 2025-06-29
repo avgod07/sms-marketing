@@ -16,6 +16,7 @@ export default function NewCampaignPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [previewMessage, setPreviewMessage] = useState("");
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
 
   const { data: setup } = useQuery<SetupStatus>({
     queryKey: ["/api/setup/status"],
@@ -28,7 +29,7 @@ export default function NewCampaignPage() {
       const res = await apiRequest({
         method: "POST",
         url: "/api/campaigns",
-        data: { name: data.name, message: data.message },
+        data: { name: data.name, message: data.message, mediaUrl: data.mediaUrl },
       });
       return await res.json();
     },
@@ -110,9 +111,10 @@ export default function NewCampaignPage() {
               submitLabel="Create Campaign"
               disabled={disabled}
               onMessageChange={setPreviewMessage}
+              onImageChange={setPreviewImageUrl}
             />
           </div>
-          <SmsPreview message={previewMessage} />
+          <SmsPreview message={previewMessage} imageUrl={previewImageUrl} />
         </Card>
       </div>
     </div>

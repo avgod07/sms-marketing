@@ -13,6 +13,7 @@ export const simpleCampaignSchema = z.object({
     .string()
     .min(1, { message: "Message is required" })
     .max(160, { message: "Message must be 160 characters or less" }),
+  mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
 });
 
 export const volumeOptions = [
