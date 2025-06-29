@@ -211,7 +211,8 @@ export interface IStorage {
   updateBusinessPlan(
     plan: string,
     stripeCustomerId?: string,
-    stripeSubscriptionId?: string
+    stripeSubscriptionId?: string,
+    endTrial?: boolean
   ): Promise<Business>;
   recordSubscriptionEvent(
     eventType: string,
@@ -1400,16 +1401,25 @@ export class DatabaseStorage implements IStorage {
   async updateBusinessPlan(
     plan: string,
     stripeCustomerId?: string,
-    stripeSubscriptionId?: string
+    stripeSubscriptionId?: string,
+    endTrial?: boolean
   ): Promise<Business> {
     const businessId = this.requireBusinessId();
+
+    const updateData: any = {
+      plan,
+      stripeCustomerId,
+      stripeSubscriptionId,
+    };
+
+    // End trial immediately if upgrading from trial to paid
+    if (endTrial) {
+      updateData.trialEndsAt = new Date();
+    }
+
     const [row] = await db
       .update(businesses)
-      .set({
-        plan,
-        stripeCustomerId,
-        stripeSubscriptionId,
-      })
+      .set(updateData)
       .where(eq(businesses.id, businessId))
       .returning();
     return row as Business;

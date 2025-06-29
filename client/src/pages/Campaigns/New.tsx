@@ -2,11 +2,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import CampaignForm, { type CampaignFormValues } from "@/components/CampaignForm";
+import TestMessageModal from "@/components/CampaignForm/TestMessageModal";
 import SmsPreview from "@/components/CampaignForm/SmsPreview";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
@@ -17,6 +17,7 @@ export default function NewCampaignPage() {
   const { toast } = useToast();
   const [previewMessage, setPreviewMessage] = useState("");
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   const { data: setup } = useQuery<SetupStatus>({
     queryKey: ["/api/setup/status"],
@@ -58,6 +59,24 @@ export default function NewCampaignPage() {
     createCampaignMutation.mutate(data);
   };
 
+  const handleSendTest = () => {
+    if (!previewMessage.trim()) {
+      toast({
+        title: "Message Required",
+        description: "Please enter a message before sending a test.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsTestModalOpen(true);
+  };
+
+  const handleTestSuccess = () => {
+    // Refresh user data to update credits display
+    queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+  };
+
   const disabled =
     !setup?.phoneConfigured || !setup?.hasContacts;
 
@@ -69,10 +88,6 @@ export default function NewCampaignPage() {
             <h1 className="text-2xl font-bold text-gray-900">Create New Campaign</h1>
             <p className="text-gray-600 mt-1">Craft your SMS campaign.</p>
           </div>
-          <Button variant="outline" onClick={() => navigate("/campaigns")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
         </div>
       </header>
       <div className="p-8 max-w-4xl mx-auto">
@@ -112,11 +127,20 @@ export default function NewCampaignPage() {
               disabled={disabled}
               onMessageChange={setPreviewMessage}
               onImageChange={setPreviewImageUrl}
+              onSendTest={handleSendTest}
             />
           </div>
           <SmsPreview message={previewMessage} imageUrl={previewImageUrl} />
         </Card>
       </div>
+
+      <TestMessageModal
+        open={isTestModalOpen}
+        onOpenChange={setIsTestModalOpen}
+        message={previewMessage}
+        mediaUrl={previewImageUrl}
+        onSuccess={handleTestSuccess}
+      />
     </div>
   );
 }

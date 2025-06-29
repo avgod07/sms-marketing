@@ -142,18 +142,26 @@ async function handleSubscriptionChange(
   }
 
   const biz = storage.forBusiness(businessId);
+  const currentBusiness = await biz.getBusiness();
 
   try {
-    // Update business plan based on subscription status
-    const plan = subscription.status === "active" ? "starter" : "trial";
+    // Determine new plan based on subscription status
+    const newPlan = subscription.status === "active" ? "starter" : "trial";
+
+    // Check if this is a trial-to-paid upgrade
+    const isTrialToPaidUpgrade =
+      currentBusiness.plan === "trial" &&
+      newPlan === "starter" &&
+      subscription.status === "active";
 
     await biz.updateBusinessPlan(
-      plan,
+      newPlan,
       subscription.customer as string,
-      subscription.id
+      subscription.id,
+      isTrialToPaidUpgrade // End trial if upgrading from trial
     );
 
-    // Record the subscription event
+    // Record the subscription event with trial ending info
     await biz.recordSubscriptionEvent(
       `subscription_${subscription.status}`,
       subscription.id,
@@ -161,6 +169,7 @@ async function handleSubscriptionChange(
         status: subscription.status,
         planName: subscription.metadata?.planName,
         billingCycle: subscription.metadata?.billingCycle,
+        trialEnded: isTrialToPaidUpgrade,
       }
     );
 
@@ -168,7 +177,8 @@ async function handleSubscriptionChange(
       businessId,
       subscriptionId: subscription.id,
       status: subscription.status,
-      plan,
+      plan: newPlan,
+      trialEnded: isTrialToPaidUpgrade,
     });
   } catch (err) {
     logError("Failed to update business subscription", err);
