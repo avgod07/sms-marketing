@@ -2,9 +2,10 @@ import ChatBubble from "@/components/shared/ChatBubble";
 
 interface SmsPreviewProps {
   message: string;
+  imageUrl?: string;
 }
 
-export default function SmsPreview({ message }: SmsPreviewProps) {
+export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
   const truncated = message.length > 160 ? message.slice(0, 160) + "..." : message;
   const showWarning = message.length > 160;
   return (
@@ -12,7 +13,15 @@ export default function SmsPreview({ message }: SmsPreviewProps) {
       <div className="bg-gray-200 p-4 rounded-3xl">
         <div className="relative h-[500px] bg-white rounded-2xl flex flex-col justify-between">
           <span className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gray-300 rounded-full" />
-          <div className="flex-1 pt-6 pb-2 pl-2 pr-4 flex items-start">
+          <div className="flex-1 pt-6 pb-2 pl-2 pr-4 flex flex-col items-start">
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="MMS Preview"
+                className="mb-2 max-h-40 rounded border object-contain bg-gray-50"
+                style={{ maxWidth: '100%' }}
+              />
+            )}
             <ChatBubble
               incoming
               message={truncated || "This is how your message will appear to customers."}

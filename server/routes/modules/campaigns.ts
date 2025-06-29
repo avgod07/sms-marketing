@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { z } from "zod";
 import { requireAuth } from "@clerk/express";
 import {
@@ -11,6 +11,35 @@ import {
   executeCampaign,
   InsufficientCreditsError,
 } from "../../services/campaign.js";
+import multer from "multer";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { randomBytes } from "crypto";
+import type { File as MulterFile } from "multer";
+
+const upload = multer({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (
+    req: Request,
+    file: Express.Multer.File,
+    cb: multer.FileFilterCallback
+  ) => {
+    if (!file.mimetype.match(/^image\/(jpeg|png|gif)$/)) {
+      return cb(new Error("Only JPG, PNG, and GIF images are allowed"));
+    }
+    cb(null, true);
+  },
+});
+
+const s3 = new S3Client({
+  region: process.env.AWS_S3_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+const S3_BUCKET = process.env.AWS_S3_BUCKET_NAME!;
+const S3_PUBLIC_URL_BASE =
+  process.env.AWS_S3_PUBLIC_URL_BASE || `https://${S3_BUCKET}.s3.amazonaws.com`;
 
 export function registerCampaignRoutes(app: Express) {
   app.get("/api/campaigns", requireAuth(), async (req, res) => {
@@ -66,7 +95,11 @@ export function registerCampaignRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
       const validatedData = simpleCampaignSchema.parse(req.body);
-      const campaign = await biz.createCampaign(validatedData);
+      const campaign = await biz.createCampaign({
+        name: validatedData.name,
+        message: validatedData.message,
+        mediaUrl: validatedData.mediaUrl,
+      });
 
       const results = await executeCampaign(biz, campaign.id);
 
@@ -179,4 +212,35 @@ export function registerCampaignRoutes(app: Express) {
       res.status(500).json({ message: "Failed to send campaign" });
     }
   });
+
+  app.post(
+    "/api/campaigns/upload-image",
+    requireAuth(),
+    upload.single("image"),
+    async (req: Request & { file?: MulterFile }, res) => {
+      try {
+        const file = req.file as MulterFile | undefined;
+        if (!file) {
+          return res.status(400).json({ message: "No file uploaded" });
+        }
+        const ext = file.originalname.split(".").pop();
+        const key = `campaign-images/${randomBytes(16).toString("hex")}.${ext}`;
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+            ACL: "public-read",
+          })
+        );
+        const url = `${S3_PUBLIC_URL_BASE}/${key}`;
+        res.json({ url });
+      } catch (error: any) {
+        res
+          .status(500)
+          .json({ message: error.message || "Failed to upload image" });
+      }
+    }
+  );
 }
