@@ -9,7 +9,14 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "seed": "tsx server/db/seed-data.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx server/db/seed-data.ts",
+    "db:audit": "node scripts/audit-multi-tenancy.js",
+    "db:fix-critical": "node scripts/apply-critical-fix.js",
+    "db:audit-users": "node scripts/audit-users-data.js",
+    "db:test-users-fix": "node scripts/test-users-fix.js",
+    "db:fix-users": "node scripts/apply-users-fix.js",
     "test": "vitest"
   },
   "dependencies": {
@@ -103,6 +110,7 @@
     "postcss": "^8.4.47",
     "supertest": "^6.3.3",
     "tailwindcss": "^3.4.17",
+    "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
     "vite": "^5.4.14",

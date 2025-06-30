@@ -24,19 +24,33 @@ export const businesses = pgTable("businesses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const contacts = pgTable("contacts", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
-  email: text("email"),
-  active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    email: text("email"),
+    active: boolean("active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Business-scoped unique constraint: same phone number can exist across businesses
+    // but not within the same business
+    businessPhoneUnique: uniqueIndex(
+      "contacts_business_id_phone_number_idx"
+    ).on(table.businessId, table.phoneNumber),
+    // Performance index for phone number lookups within a business
+    businessPhoneLookup: index(
+      "contacts_business_id_phone_number_lookup_idx"
+    ).on(table.businessId, table.phoneNumber),
+  })
+);
 
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
@@ -156,17 +170,33 @@ export const analytics = pgTable("analytics", {
   clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
 });
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
-  username: text("username").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  clerkId: varchar("clerk_id", { length: 64 }).unique(),
-  onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    clerkId: varchar("clerk_id", { length: 64 }).unique(),
+    onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Business-scoped unique constraint: same username can exist across businesses
+    // but not within the same business
+    businessUsernameUnique: uniqueIndex("users_business_id_username_idx").on(
+      table.businessId,
+      table.username
+    ),
+    // Performance index for username lookups within a business
+    businessUsernameLookup: index("users_business_id_username_lookup_idx").on(
+      table.businessId,
+      table.username
+    ),
+  })
+);
 
 export const businessProfiles = pgTable("business_profiles", {
   id: serial("id").primaryKey(),

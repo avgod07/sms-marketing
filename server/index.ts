@@ -10,6 +10,7 @@ import {
 } from "./middlewares/error.middleware";
 import { securityHeaders } from "./middlewares/security.middleware";
 import { requireAuth } from "@clerk/express";
+import { checkDatabaseHealth } from "./config/db.config";
 
 // IMPORTANT: express.json() must NOT be applied before the Stripe webhook route (/api/webhooks/stripe).
 // That route uses express.raw({ type: 'application/json' }) for signature verification.
@@ -24,8 +25,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Add health check route after security headers
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get("/api/health", async (req, res) => {
+  try {
+    const dbHealth = await checkDatabaseHealth();
+    res.json({
+      status: "ok",
+      database: dbHealth.healthy ? "healthy" : "unhealthy",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.json({
+      status: "ok",
+      database: "unknown",
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 setupAuth(app);

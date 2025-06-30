@@ -1,0 +1,90 @@
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1733000000000,
+      "tag": "0001_composite_unique_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1733000000001,
+      "tag": "0002_revert_contact_phone_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1733000000002,
+      "tag": "0003_message_sid_error_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1733000000003,
+      "tag": "0004_contact_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1733000000004,
+      "tag": "0005_twilio_a2p_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1733000000005,
+      "tag": "0006_onboarding_complete",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1733000000006,
+      "tag": "0007_clerk_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1733000000007,
+      "tag": "0008_business_credits",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1733000000008,
+      "tag": "0009_onboarding_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1733000000009,
+      "tag": "0010_subscription_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1733000000010,
+      "tag": "0011_fix_contact_phone_multi_tenancy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1733000000011,
+      "tag": "0012_fix_users_username_multi_tenancy",
+      "breakpoints": true
+    }
+  ]
+} 
