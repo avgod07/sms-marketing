@@ -8,20 +8,26 @@ import {
   errorHandler,
   setupGlobalErrorHandling,
 } from "./middlewares/error.middleware";
+import { securityHeaders } from "./middlewares/security.middleware";
 import { requireAuth } from "@clerk/express";
 
 // IMPORTANT: express.json() must NOT be applied before the Stripe webhook route (/api/webhooks/stripe).
 // That route uses express.raw({ type: 'application/json' }) for signature verification.
 const app = express();
 
-// Add health check route before anything else
+setupGlobalErrorHandling();
+
+// Apply security headers to all responses (before any routes)
+app.use(securityHeaders);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Add health check route after security headers
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-setupGlobalErrorHandling();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
 setupAuth(app);
 
 // Only apply requireAuth to /api routes
