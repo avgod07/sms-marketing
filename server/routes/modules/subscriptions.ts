@@ -120,4 +120,42 @@ export function registerSubscriptionRoutes(app: Express) {
       }
     }
   );
+
+  // POST /api/subscriptions/cancel - Cancel the current subscription
+  app.post(
+    "/api/subscriptions/cancel",
+    requireAuth(),
+    async (req: Request, res: Response) => {
+      try {
+        const { biz, user } = await getBizForRequest(req);
+        const business = await biz.getBusiness();
+        const stripeSubscriptionId = business.stripeSubscriptionId;
+        if (!stripeSubscriptionId) {
+          return res
+            .status(400)
+            .json({ message: "No active subscription to cancel." });
+        }
+        // Cancel the subscription in Stripe
+        const { getStripe } = await import("../../services/stripe");
+        const stripe = getStripe();
+        await stripe.subscriptions.update(stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+        // Update business plan to 'cancelled' and clear subscription ID
+        await biz.updateBusinessPlan("cancelled", undefined, undefined);
+        await biz.recordSubscriptionEvent(
+          "subscription_cancelled",
+          stripeSubscriptionId,
+          {
+            userId: user.id,
+            cancelledAt: new Date().toISOString(),
+          }
+        );
+        res.json({ success: true });
+      } catch (err) {
+        logError("Failed to cancel subscription", err);
+        res.status(500).json({ message: "Failed to cancel subscription" });
+      }
+    }
+  );
 }

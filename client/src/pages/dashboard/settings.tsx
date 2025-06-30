@@ -230,6 +230,8 @@ function BillingTab() {
   const [customAmount, setCustomAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const isTrialUser = subscription?.plan === "trial";
   const trialEnd = subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
@@ -343,6 +345,34 @@ function BillingTab() {
 
   const getFinalAmount = () => {
     return customAmount ? parseInt(customAmount) || 0 : amount;
+  };
+
+  const handleCancelSubscription = async () => {
+    setIsCancelling(true);
+    try {
+      const response = await apiRequest({
+        method: "POST",
+        url: "/api/subscriptions/cancel",
+      });
+      if (!response.ok) {
+        throw await response.json();
+      }
+      toast({
+        title: "Subscription Cancelled",
+        description: "Your subscription will remain active until the end of your billing period.",
+        variant: "destructive",
+      });
+      setShowCancelDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/current"] });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: handleApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   if (isLoading) {
@@ -499,6 +529,44 @@ function BillingTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Subscription Button (only for paid users) */}
+      {!isTrialUser && (
+        <>
+          <Button
+            variant="destructive"
+            className="w-full mt-2"
+            onClick={() => setShowCancelDialog(true)}
+          >
+            Cancel Subscription
+          </Button>
+          <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Cancel Subscription</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-red-600">
+                  Are you sure you want to cancel your subscription? This action cannot be undone and you will lose access to paid features at the end of your billing period.
+                </p>
+                <div className="flex space-x-2">
+                  <Button variant="outline" onClick={() => setShowCancelDialog(false)} className="flex-1">
+                    Keep Subscription
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleCancelSubscription}
+                    disabled={isCancelling}
+                    className="flex-1"
+                  >
+                    {isCancelling ? "Cancelling..." : "Confirm Cancel"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }

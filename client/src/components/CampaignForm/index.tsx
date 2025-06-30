@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import CreditUsageEstimate from "./CreditUsageEstimate";
 
 export const campaignSchema = z
   .object({
@@ -179,6 +180,9 @@ export default function CampaignForm({
           )}
           <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF only. Max 5MB. Sending an MMS costs 3 credits.</p>
         </div>
+
+        <CreditUsageEstimate hasImage={!!imageUrl || !!imagePreview} />
+
         <div className="flex space-x-2">
           <Button 
             type="button" 
