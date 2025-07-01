@@ -402,11 +402,22 @@ function BillingTab() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="relative flex items-start justify-between">
+          <div className="flex items-center space-x-2">
             <CreditCard className="w-5 h-5" />
             <span>Current Plan</span>
-          </CardTitle>
+          </div>
+          {/* Cancel Subscription Button (only for paid users) */}
+          {!isTrialUser && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="absolute top-4 right-4 z-10"
+              onClick={() => setShowCancelDialog(true)}
+            >
+              Cancel
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-3">
           {isTrialUser ? (
@@ -530,43 +541,31 @@ function BillingTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Subscription Button (only for paid users) */}
-      {!isTrialUser && (
-        <>
-          <Button
-            variant="destructive"
-            className="w-full mt-2"
-            onClick={() => setShowCancelDialog(true)}
-          >
-            Cancel Subscription
-          </Button>
-          <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Cancel Subscription</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-red-600">
-                  Are you sure you want to cancel your subscription? This action cannot be undone and you will lose access to paid features at the end of your billing period.
-                </p>
-                <div className="flex space-x-2">
-                  <Button variant="outline" onClick={() => setShowCancelDialog(false)} className="flex-1">
-                    Keep Subscription
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleCancelSubscription}
-                    disabled={isCancelling}
-                    className="flex-1"
-                  >
-                    {isCancelling ? "Cancelling..." : "Confirm Cancel"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </>
-      )}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Subscription</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-red-600">
+              Are you sure you want to cancel your subscription? This action cannot be undone and you will lose access to paid features at the end of your billing period.
+            </p>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={() => setShowCancelDialog(false)} className="flex-1">
+                Keep Subscription
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleCancelSubscription}
+                disabled={isCancelling}
+                className="flex-1"
+              >
+                {isCancelling ? "Cancelling..." : "Confirm Cancel"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
