@@ -527,9 +527,11 @@ export function registerTwilioRoutes(app: Express) {
       const creds = await biz.getTwilioCredentials();
       const page = parseInt((req.query.page as string) || "0", 10);
       const contains = req.query.contains as string | undefined;
+      const limit = parseInt((req.query.limit as string) || "12", 10);
       const numbers = await TwilioService.fetchAvailableTollFreeNumbers(creds, {
         page,
         contains,
+        limit,
       });
       res.json(numbers);
     } catch (error) {

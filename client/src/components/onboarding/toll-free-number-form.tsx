@@ -23,7 +23,7 @@ export default function TollFreeNumberForm({
   const [selected, setSelected] = useState<string | null>(null);
 
   const { data: numbers, isFetching } = useQuery<string[]>({
-    queryKey: ["/api/twilio/available-tollfree", { page }],
+    queryKey: ["/api/twilio/available-tollfree", { page, limit: 6 }],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
@@ -58,15 +58,30 @@ export default function TollFreeNumberForm({
       className="space-y-4 max-w-xl mx-auto"
     >
       <p className="text-gray-700">Select a toll-free number for your SMS identity.</p>
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-        {numbers?.map((num) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {numbers?.slice(0, 3).map((num) => (
           <button
             type="button"
             key={num}
             onClick={() => setSelected(num)}
             className={cn(
               "border rounded p-2 text-sm",
-              selected === num ? "bg-green-500 text-white" : "bg-white"
+              selected === num ? "bg-primary text-white" : "bg-white"
+            )}
+          >
+            {formatTollFree(num)}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+        {numbers?.slice(3, 6).map((num) => (
+          <button
+            type="button"
+            key={num}
+            onClick={() => setSelected(num)}
+            className={cn(
+              "border rounded p-2 text-sm",
+              selected === num ? "bg-primary text-white" : "bg-white"
             )}
           >
             {formatTollFree(num)}
