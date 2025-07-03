@@ -509,9 +509,6 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
       const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
       const page = parseInt((req.query.page as string) || "0", 10);
       const contains = req.query.contains as string | undefined;
       const numbers = await TwilioService.fetchAvailableTollFreeNumbers(creds, {
