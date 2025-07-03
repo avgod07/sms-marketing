@@ -6,18 +6,6 @@ services:
     command: sleep infinity
     env_file:
       - ../.env
-    environment:
-      # Use the Postgres service hostname inside the devcontainer
-      DATABASE_URL: postgres://sms:sms@db:5432/sms
-      # Clerk keys from your dashboard
-      CLERK_PUBLISHABLE_KEY: pk_test_ZGFyaW5nLXBvc3N1bS02NS5jbGVyay5hY2NvdW50cy5kZXYk
-      VITE_CLERK_PUBLISHABLE_KEY: pk_test_ZGFyaW5nLXBvc3N1bS02NS5jbGVyay5hY2NvdW50cy5kZXYk
-      CLERK_SECRET_KEY: sk_test_sAWls4XZuUSXaDFZMRuV77DXFzUINt1hAhsIeLCjym
-      ENCRYPTION_KEY: your_32_char_key
-      STRIPE_SECRET_KEY: sk_test_51ReGWuP0LYD5eak1u9qB39C1rByKdKFdCt2Sh4YVZyypFa9pd4q4DoUwHJVFIyS20F6tgoOblaIAi5RUtYi6z0jy00EH8RM7tE
-      STRIPE_WEBHOOK_SECRET: whsec_your_webhook_secret_here
-
-
     ports:
       # Expose container port 5000 on host port 5001
       - "5001:5000"
