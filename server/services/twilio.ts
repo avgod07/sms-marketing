@@ -1,21 +1,26 @@
 import twilio from "twilio";
 import type { TwilioCredential } from "@shared/schema";
-import { decrypt } from "../utils/encryption.util";
 
-// Global fallback configuration for development/testing
-const fallbackSid =
-  process.env.TWILIO_ACCOUNT_SID || "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-const fallbackToken = process.env.TWILIO_AUTH_TOKEN || "your_auth_token_here";
-const fallbackNumber = process.env.TWILIO_PHONE_NUMBER || "+1234567890";
+// Centralized Twilio configuration from environment variables
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
-// Cache clients per account for efficiency
-const clientCache = new Map<string, twilio.Twilio>();
-function getClient(accountSid: string, token: string) {
-  const existing = clientCache.get(accountSid);
-  if (existing) return existing;
-  const client = twilio(accountSid, token);
-  clientCache.set(accountSid, client);
-  return client;
+// Validate required environment variables
+if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+  throw new Error(
+    "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables must be set"
+  );
+}
+
+// Single Twilio client instance for the entire application
+let twilioClient: twilio.Twilio | null = null;
+
+function getClient(): twilio.Twilio {
+  if (!twilioClient) {
+    twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+  }
+  return twilioClient;
 }
 
 export interface SMSMessage {
@@ -47,10 +52,7 @@ export class TwilioService {
     smsData: SMSMessage
   ): Promise<SMSResult> {
     try {
-      // Fallback to env configuration if creds not provided
-      const sid = creds ? creds.accountSid : fallbackSid;
-      const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
-      const client = getClient(sid, token);
+      const client = getClient();
 
       const params: any = {
         body: smsData.message,
@@ -59,7 +61,7 @@ export class TwilioService {
 
       if (smsData.messagingServiceSid)
         params.messagingServiceSid = smsData.messagingServiceSid;
-      else params.from = smsData.from || fallbackNumber;
+      else params.from = smsData.from || TWILIO_PHONE_NUMBER;
 
       const message = await client.messages.create(params);
 
@@ -85,9 +87,7 @@ export class TwilioService {
     phoneNumber: string
   ): Promise<PhoneValidationResult> {
     try {
-      const sid = creds ? creds.accountSid : fallbackSid;
-      const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
-      const client = getClient(sid, token);
+      const client = getClient();
 
       // Basic lookup to validate the number format
       const lookup = await client.lookups.v2.phoneNumbers(phoneNumber).fetch();
@@ -135,9 +135,7 @@ export class TwilioService {
     creds: TwilioCredential | undefined,
     opts: { page?: number; contains?: string; limit?: number } = {}
   ): Promise<string[]> {
-    const sid = creds ? creds.accountSid : fallbackSid;
-    const token = creds ? decrypt(creds.authTokenEncrypted) : fallbackToken;
-    const client = getClient(sid, token);
+    const client = getClient();
 
     const params: any = {
       smsEnabled: true,
@@ -155,13 +153,12 @@ export class TwilioService {
     phoneNumber: string,
     webhookUrl: string
   ): Promise<{ phoneSid: string; serviceSid: string }> {
-    const token = decrypt(creds.authTokenEncrypted);
-    const client = getClient(creds.accountSid, token);
+    const client = getClient();
 
     let serviceSid = creds.messagingServiceSid;
     if (!serviceSid) {
       const service = await client.messaging.services.create({
-        friendlyName: `Messaging Service - ${creds.accountSid.slice(-4)}`,
+        friendlyName: `Messaging Service - ${TWILIO_ACCOUNT_SID!.slice(-4)}`,
       });
       serviceSid = service.sid;
     }
@@ -179,17 +176,13 @@ export class TwilioService {
   }
 
   static isConfigured(): boolean {
-    return !!(
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_PHONE_NUMBER
-    );
+    return !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER);
   }
 
   static getConfiguration() {
     return {
-      accountSid: process.env.TWILIO_ACCOUNT_SID || "Not configured",
-      phoneNumber: process.env.TWILIO_PHONE_NUMBER || "Not configured",
+      accountSid: TWILIO_ACCOUNT_SID || "Not configured",
+      phoneNumber: TWILIO_PHONE_NUMBER || "Not configured",
       isConfigured: this.isConfigured(),
     };
   }

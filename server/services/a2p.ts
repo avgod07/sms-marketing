@@ -21,15 +21,21 @@ export interface CampaignRegistrationResult {
 }
 
 async function createClient(creds: TwilioCredential) {
-  const token = decrypt(creds.authTokenEncrypted);
-  return twilio(creds.accountSid, token);
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!accountSid || !authToken) {
+    throw new Error("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set");
+  }
+
+  return twilio(accountSid, authToken);
 }
 
 export async function registerBusinessForA2P(
   creds: TwilioCredential,
   business: Business,
   profile: BusinessProfile,
-  config: TwilioA2pConfig,
+  config: TwilioA2pConfig
 ): Promise<A2PRegistrationResult> {
   const client = await createClient(creds);
 
@@ -42,7 +48,9 @@ export async function registerBusinessForA2P(
 
   // Register brand
   const highVolume = ["100K to 500K", "500K to 1M", "More than 1M+"];
-  const brandType = highVolume.includes(config.volume) ? "STANDARD" : "LOW_VOLUME";
+  const brandType = highVolume.includes(config.volume)
+    ? "STANDARD"
+    : "LOW_VOLUME";
   const brand = await client.messaging.v1.brandRegistrations.create({
     customerProfileBundleSid: customer.sid,
     a2PProfileBundleSid: customer.sid,
@@ -73,7 +81,7 @@ export async function registerBusinessForA2P(
 export async function registerCampaignForA2P(
   creds: TwilioCredential,
   profile: BusinessProfile,
-  config: TwilioA2pConfig,
+  config: TwilioA2pConfig
 ): Promise<CampaignRegistrationResult> {
   if (!profile.customerProfileSid) {
     throw new Error("Customer profile SID is missing");
@@ -82,7 +90,9 @@ export async function registerCampaignForA2P(
   const client = await createClient(creds);
 
   const highVolume = ["100K to 500K", "500K to 1M", "More than 1M+"];
-  const brandType = highVolume.includes(config.volume) ? "STANDARD" : "LOW_VOLUME";
+  const brandType = highVolume.includes(config.volume)
+    ? "STANDARD"
+    : "LOW_VOLUME";
 
   const brand = await client.messaging.v1.brandRegistrations.create({
     customerProfileBundleSid: profile.customerProfileSid,

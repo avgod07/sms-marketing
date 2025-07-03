@@ -1169,17 +1169,24 @@ export class DatabaseStorage implements IStorage {
   ): Promise<TwilioCredential> {
     const businessId = this.requireBusinessId();
     const existing = await this.getTwilioCredentials();
+
+    // Ensure we're using the centralized account SID from environment
+    const centralizedCreds = {
+      ...creds,
+      accountSid: process.env.TWILIO_ACCOUNT_SID || creds.accountSid,
+    };
+
     if (existing) {
       const [row] = await db
         .update(twilioCredentials)
-        .set({ ...creds, updatedAt: new Date() })
+        .set({ ...centralizedCreds, updatedAt: new Date() })
         .where(eq(twilioCredentials.businessId, businessId))
         .returning();
       return row;
     }
     const [row] = await db
       .insert(twilioCredentials)
-      .values({ ...creds, businessId })
+      .values({ ...centralizedCreds, businessId })
       .returning();
     return row;
   }
@@ -1504,16 +1511,6 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
-
-export async function findTwilioCredentialByAccountSid(
-  accountSid: string
-): Promise<TwilioCredential | undefined> {
-  const [row] = await db
-    .select()
-    .from(twilioCredentials)
-    .where(eq(twilioCredentials.accountSid, accountSid));
-  return row || undefined;
-}
 
 export async function findBusinessIdByPhoneNumber(
   phoneNumber: string

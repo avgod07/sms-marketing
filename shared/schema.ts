@@ -241,7 +241,6 @@ export const twilioCredentials = pgTable("twilio_credentials", {
     .notNull()
     .unique(),
   accountSid: varchar("account_sid", { length: 64 }).notNull(),
-  authTokenEncrypted: text("auth_token_encrypted").notNull(),
   messagingServiceSid: varchar("messaging_service_sid", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
