@@ -23,7 +23,7 @@ export default function TollFreeNumberForm({
   const [selected, setSelected] = useState<string | null>(null);
 
   const { data: numbers, isFetching } = useQuery<string[]>({
-    queryKey: ["/api/onboarding/available-numbers", { page }],
+    queryKey: ["/api/twilio/available-tollfree", { page }],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
