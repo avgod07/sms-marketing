@@ -16,7 +16,7 @@ export default function StepIndicator({ current, steps }: StepIndicatorProps) {
             <div
               className={cn(
                 "w-4 h-4 rounded-full",
-                active ? "bg-green-500" : "bg-gray-300"
+                active ? "bg-primary" : "bg-gray-300"
               )}
             />
             <span className="text-xs mt-2 text-center text-gray-700 line-clamp-1">
