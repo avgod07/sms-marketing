@@ -57,7 +57,6 @@ vi.mock("../db/storage", () => {
   };
   return {
     storage: mockStorage,
-    findTwilioCredentialByAccountSid: (mockFindCred = vi.fn()),
     findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
   };
 });
@@ -353,10 +352,10 @@ describe("routes", () => {
   });
 
   it("handles inbound webhook and broadcasts message", async () => {
-    mockFindCred.mockResolvedValue({
-      businessId: 1,
-      authTokenEncrypted: "enc",
-    });
+    // Mock findBusinessIdByPhoneNumber to return business ID 1 for the test phone number
+    const { findBusinessIdByPhoneNumber } = await import("../db/storage");
+    vi.mocked(findBusinessIdByPhoneNumber).mockResolvedValue(1);
+
     mockForBusiness.getContactByPhoneNumber = vi
       .fn()
       .mockResolvedValue(undefined);

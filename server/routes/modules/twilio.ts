@@ -1,15 +1,10 @@
 import type { Express } from "express";
 import twilio from "twilio";
 import { requireAuth } from "@clerk/express";
-import { decrypt, encrypt } from "../../utils/encryption.util";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
 import { socketService } from "../../socket";
-import {
-  storage,
-  findTwilioCredentialByAccountSid,
-  findBusinessIdByPhoneNumber,
-} from "../../db/storage";
+import { storage, findBusinessIdByPhoneNumber } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
 import { z } from "zod";
 import {
@@ -27,23 +22,21 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { AccountSid, MessageStatus, To } = req.body as any;
 
-      let creds = await findTwilioCredentialByAccountSid(AccountSid);
-      let businessId = creds?.businessId;
-      if (!businessId && To) {
-        businessId = await findBusinessIdByPhoneNumber(To);
-        if (businessId) {
-          creds = await storage.forBusiness(businessId).getTwilioCredentials();
-        }
-      }
-
-      if (!businessId || !creds) {
+      // Find business by phone number since we're using a single Twilio account
+      let businessId = await findBusinessIdByPhoneNumber(To);
+      if (!businessId) {
         logError("Unknown status webhook", { AccountSid, To });
-        return res.status(400).send("Unknown account");
+        return res.status(400).send("Unknown phone number");
       }
 
+      // Validate Twilio signature using environment variable
       const signature = req.get("x-twilio-signature") || "";
       const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-      const token = decrypt(creds.authTokenEncrypted);
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      if (!token) {
+        logError("TWILIO_AUTH_TOKEN not configured");
+        return res.status(500).json({ message: "Server configuration error" });
+      }
       const isValid = twilio.validateRequest(token, signature, url, req.body);
       if (!isValid) {
         return res.status(403).json({ message: "Invalid Twilio signature" });
@@ -86,25 +79,23 @@ export function registerTwilioRoutes(app: Express) {
         const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
           req.body as any;
 
-        let creds = await findTwilioCredentialByAccountSid(AccountSid);
-        let businessId = creds?.businessId;
-        if (!businessId && To) {
-          businessId = await findBusinessIdByPhoneNumber(To);
-          if (businessId) {
-            creds = await storage
-              .forBusiness(businessId)
-              .getTwilioCredentials();
-          }
-        }
-
-        if (!businessId || !creds) {
+        // Find business by phone number since we're using a single Twilio account
+        let businessId = await findBusinessIdByPhoneNumber(To);
+        if (!businessId) {
           logError("Unknown status webhook", { AccountSid, To });
-          return res.status(400).send("Unknown account");
+          return res.status(400).send("Unknown phone number");
         }
 
+        // Validate Twilio signature using environment variable
         const signature = req.get("x-twilio-signature") || "";
         const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-        const token = decrypt(creds.authTokenEncrypted);
+        const token = process.env.TWILIO_AUTH_TOKEN;
+        if (!token) {
+          logError("TWILIO_AUTH_TOKEN not configured");
+          return res
+            .status(500)
+            .json({ message: "Server configuration error" });
+        }
         const isValid = twilio.validateRequest(token, signature, url, req.body);
         if (!isValid) {
           return res.status(403).json({ message: "Invalid Twilio signature" });
@@ -143,23 +134,21 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { AccountSid, From, To, Body } = req.body as any;
 
-      let creds = await findTwilioCredentialByAccountSid(AccountSid);
-      let businessId = creds?.businessId;
-      if (!businessId && To) {
-        businessId = await findBusinessIdByPhoneNumber(To);
-        if (businessId) {
-          creds = await storage.forBusiness(businessId).getTwilioCredentials();
-        }
-      }
-
-      if (!businessId || !creds) {
+      // Find business by phone number since we're using a single Twilio account
+      let businessId = await findBusinessIdByPhoneNumber(To);
+      if (!businessId) {
         logError("Unknown inbound message", { AccountSid, To });
-        return res.status(400).send("Unknown account");
+        return res.status(400).send("Unknown phone number");
       }
 
+      // Validate Twilio signature using environment variable
       const signature = req.get("x-twilio-signature") || "";
       const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-      const token = decrypt(creds.authTokenEncrypted);
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      if (!token) {
+        logError("TWILIO_AUTH_TOKEN not configured");
+        return res.status(500).send("Server configuration error");
+      }
       const valid = twilio.validateRequest(token, signature, url, req.body);
       if (!valid) {
         return res.status(403).send("Invalid Twilio signature");
@@ -191,6 +180,7 @@ export function registerTwilioRoutes(app: Express) {
         }
         const numbers = await bizStore.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+        const creds = await bizStore.getTwilioCredentials();
         await TwilioService.sendSMS(creds, {
           to: normalizedFrom,
           message:
@@ -236,10 +226,17 @@ export function registerTwilioRoutes(app: Express) {
           return res.status(400).json({ message: "Twilio not connected" });
         }
 
-        const client = twilio(
-          creds.accountSid,
-          decrypt(creds.authTokenEncrypted)
-        );
+        // Use environment variables for Twilio client
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+        if (!accountSid || !authToken) {
+          return res
+            .status(500)
+            .json({ message: "Twilio not configured on server" });
+        }
+
+        const client = twilio(accountSid, authToken);
 
         const customer = await client.trusthub.v1.customerProfiles.create({
           friendlyName: data.name,
@@ -317,16 +314,15 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
       const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.json(null);
-      }
       const numbers = await biz.getPhoneNumbers();
       const phoneNumber = numbers.find((n) => n.isDefault)?.phoneNumber || null;
+
+      // Return configuration from environment variables (no sensitive data)
       res.json({
-        accountSid: creds.accountSid,
-        authToken: decrypt(creds.authTokenEncrypted),
-        messagingServiceSid: creds.messagingServiceSid,
+        accountSid: process.env.TWILIO_ACCOUNT_SID || "Not configured",
+        messagingServiceSid: creds?.messagingServiceSid || null,
         phoneNumber,
+        isConfigured: TwilioService.isConfigured(),
       });
     } catch (error) {
       logError("Error fetching Twilio credentials:", error);
@@ -362,47 +358,51 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  const twilioCredsSchema = z.object({
-    accountSid: z.string(),
-    authToken: z.string(),
-    messagingServiceSid: z.string().optional(),
+  const twilioConnectSchema = z.object({
     phoneNumber: z.string().optional(),
   });
 
   app.post("/api/twilio/connect", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const { accountSid, authToken, messagingServiceSid, phoneNumber } =
-        twilioCredsSchema.parse(req.body);
+      const { phoneNumber } = twilioConnectSchema.parse(req.body);
+
+      // Use environment variables for Twilio credentials
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+      if (!accountSid || !authToken) {
+        return res.status(500).json({
+          message: "Twilio not configured on server",
+        });
+      }
 
       const client = twilio(accountSid, authToken);
       try {
         await client.api.accounts(accountSid).fetch();
       } catch (err: any) {
         return res.status(400).json({
-          message: "Invalid SID or Auth Token, please check and try again",
+          message: "Invalid Twilio configuration, please contact support",
         });
       }
 
-      let serviceSid = messagingServiceSid;
-      if (!serviceSid) {
-        try {
-          const service = await client.messaging.services.create({
-            friendlyName: `Messaging Service - ${accountSid.slice(-4)}`,
-          });
-          serviceSid = service.sid;
-        } catch (err: any) {
-          logError("Error creating messaging service:", err);
-          return res
-            .status(500)
-            .json({ message: "Failed to create messaging service" });
-        }
+      // Create messaging service if needed
+      let serviceSid = null;
+      try {
+        const service = await client.messaging.services.create({
+          friendlyName: `Messaging Service - ${accountSid.slice(-4)}`,
+        });
+        serviceSid = service.sid;
+      } catch (err: any) {
+        logError("Error creating messaging service:", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to create messaging service" });
       }
 
-      const encrypted = encrypt(authToken);
+      // Store only the account SID and messaging service SID (no auth token)
       await biz.upsertTwilioCredentials({
         accountSid,
-        authTokenEncrypted: encrypted,
         messagingServiceSid: serviceSid,
       });
 
@@ -429,10 +429,18 @@ export function registerTwilioRoutes(app: Express) {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(
-        creds.accountSid,
-        decrypt(creds.authTokenEncrypted)
-      );
+
+      // Use environment variables for Twilio client
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+      if (!accountSid || !authToken) {
+        return res
+          .status(500)
+          .json({ message: "Twilio not configured on server" });
+      }
+
+      const client = twilio(accountSid, authToken);
       const numbers = await client.incomingPhoneNumbers.list();
       res.json(
         numbers.map((n: any) => ({
@@ -460,10 +468,18 @@ export function registerTwilioRoutes(app: Express) {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(
-        creds.accountSid,
-        decrypt(creds.authTokenEncrypted)
-      );
+
+      // Use environment variables for Twilio client
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+      if (!accountSid || !authToken) {
+        return res
+          .status(500)
+          .json({ message: "Twilio not configured on server" });
+      }
+
+      const client = twilio(accountSid, authToken);
       const webhookUrl = `${req.protocol}://${req.get(
         "host"
       )}/api/twilio/webhook`;
@@ -549,8 +565,7 @@ export function registerTwilioRoutes(app: Express) {
 
           if (!creds.messagingServiceSid) {
             await biz.upsertTwilioCredentials({
-              accountSid: creds.accountSid,
-              authTokenEncrypted: creds.authTokenEncrypted,
+              accountSid: process.env.TWILIO_ACCOUNT_SID!,
               messagingServiceSid: serviceSid,
             });
           }
@@ -604,10 +619,18 @@ export function registerTwilioRoutes(app: Express) {
       if (!creds) {
         return res.status(400).json({ message: "Twilio not connected" });
       }
-      const client = twilio(
-        creds.accountSid,
-        decrypt(creds.authTokenEncrypted)
-      );
+
+      // Use environment variables for Twilio client
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+      if (!accountSid || !authToken) {
+        return res
+          .status(500)
+          .json({ message: "Twilio not configured on server" });
+      }
+
+      const client = twilio(accountSid, authToken);
       const webhookUrl = `${req.protocol}://${req.get(
         "host"
       )}/api/twilio/webhook`;
