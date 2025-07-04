@@ -6,7 +6,7 @@ export default function Help() {
   const helpItems = [
     {
       title: "Getting Started",
-      description: "Learn the basics of TextFlow and set up your first campaign",
+      description: "Learn the basics of NotiFlow and set up your first campaign",
       icon: Book,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
@@ -55,7 +55,7 @@ export default function Help() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Help & Support</h1>
             <p className="text-gray-600 mt-1">
-              Find answers and get support for TextFlow.
+              Find answers and get support for NotiFlow.
             </p>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function Help() {
               Still need help?
             </h3>
             <p className="text-gray-600 mb-6">
-              Our support team is here to help you succeed with TextFlow
+              Our support team is here to help you succeed with NotiFlow
             </p>
             <div className="flex justify-center space-x-4">
               <Button>
