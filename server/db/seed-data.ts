@@ -99,7 +99,7 @@ export async function seedData() {
       {
         name: "Welcome Series",
         message:
-          "Welcome to TextFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
+          "Welcome to NotiFlow! 👋 Thanks for joining us. Get 20% off your first order with code WELCOME20",
         status: "in_progress",
       },
       {
