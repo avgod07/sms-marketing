@@ -129,3 +129,4 @@ vite.config.ts.*
 # Backup files
 *.bak
 *.backup
+.env
