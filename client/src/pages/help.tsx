@@ -6,7 +6,7 @@ export default function Help() {
   const helpItems = [
     {
       title: "Getting Started",
-      description: "Learn the basics of TextFlow and set up your first campaign",
+      description: "Learn the basics of NotiFlow and set up your first campaign",
       icon: Book,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
@@ -36,20 +36,14 @@ export default function Help() {
 
   const faqs = [
     {
-      question: "How do I set up Twilio integration?",
-      answer: "Go to Settings > SMS Configuration and enter your Twilio Account SID, Auth Token, and phone number.",
-    },
-    {
-      question: "What's the difference between contact segments?",
-      answer: "Active Contacts have engaged recently, while Inactive contacts haven't interacted in a while.",
+      question: "How do I set up SMS functionality?",
+      answer:
+        "SMS functionality is automatically configured during the onboarding process. You'll be guided through setting up your Twilio account and selecting a phone number. If you need to change your SMS configuration after onboarding, please contact support.",
     },
     {
       question: "How can I import my existing contacts?",
-      answer: "Use the Import button in the Contacts page to upload a CSV file with your contact information.",
-    },
-    {
-      question: "Can I schedule campaigns for later?",
-      answer: "Yes, when creating a campaign you can set a scheduled date and time for automatic sending.",
+      answer:
+        "Use the Import button in the Contacts page to upload a CSV file with your contact information.",
     },
   ];
 
@@ -61,7 +55,7 @@ export default function Help() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Help & Support</h1>
             <p className="text-gray-600 mt-1">
-              Find answers and get support for TextFlow.
+              Find answers and get support for NotiFlow.
             </p>
           </div>
         </div>
@@ -114,7 +108,7 @@ export default function Help() {
               Still need help?
             </h3>
             <p className="text-gray-600 mb-6">
-              Our support team is here to help you succeed with TextFlow
+              Our support team is here to help you succeed with NotiFlow
             </p>
             <div className="flex justify-center space-x-4">
               <Button>

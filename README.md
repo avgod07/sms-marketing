@@ -1,81 +1,139 @@
-# SMS Marketing Development Environment
+# SMS Marketing App
 
-This project relies on Node.js and Docker for local development. Follow these steps to get a local instance running.
+A comprehensive SMS marketing platform built with Node.js, React, and PostgreSQL.
 
-## Prerequisites
-- [Node.js](https://nodejs.org/) 20+
-- [Docker](https://www.docker.com/) with Compose support
+## Features
 
-## Setup
-1. **Install dependencies**
+- 📱 SMS Campaign Management
+- 👥 Contact Management
+- 📊 Analytics & Reporting
+- 💳 Subscription Management
+- 🔐 Secure Authentication
+- 🎨 Modern UI/UX
 
-   ```bash
-   npm install
-   ```
+## Quick Start
 
-2. **Configure environment variables**
+### Prerequisites
 
-   Copy `.env.example` to `.env` and fill in the values for your local setup. The file defines `DATABASE_URL` along with the Twilio credentials used for sending SMS.
+- Node.js 20+
+- PostgreSQL 14+
+- Docker (optional)
 
-   You can create a free account at [Twilio](https://www.twilio.com/). After verifying your phone number, retrieve the **Account SID**, **Auth Token**, and a phone number from the Twilio Console. Add these values to your `.env` file.
-
-   Once configured, campaigns will automatically send SMS messages to their audience when created.
-
-3. **Database migration**
-
-   The project uses Drizzle ORM. To apply the schema to the local Postgres container, run:
-
-   ```bash
-   npm run db:push
-   ```
-
-4. **Development server**
-
-   Start the dev server with:
-
-   ```bash
-   npm run dev
-   ```
-
-   The Vite dev server runs inside the container and forwards port `5001` on your host to port `5000` in the container.
-   Open `http://localhost:5001` in your browser to view the app.
-
-5. **Production build**
-
-   To create a production build and start it locally:
-
-   ```bash
-  npm run build
-  npm start
-  ```
-
-## Authentication
-
-The API uses session-based authentication with Passport's `passport-local` strategy.
-You can create an account and log in directly from the web interface. The application now includes `/login` and `/signup` pages that integrate with the `/api/signup` and `/api/login` endpoints.
-Once logged in, all other `/api` routes require an authenticated session. You can sign out via the UI or by calling `POST /api/logout`.
-
-## Twilio Webhook Configuration
-
-To receive delivery status updates from Twilio you need to configure a Status Callback URL.
-
-1. Open the Twilio Console and edit your phone number or Messaging Service.
-2. Set the **Status Callback URL** to `http://localhost:5001/api/twilio/webhook` when running locally (replace the host when deploying).
-3. Choose **HTTP POST** as the request method.
-
-Twilio signs webhook requests using your `TWILIO_AUTH_TOKEN`. Ensure this environment variable is set so the server can verify incoming callbacks.
-
-## Devcontainer
-
-If you use VS Code with the Dev Containers extension, the provided `.devcontainer` setup will automatically start the app and database services. The compose file maps port `5000` inside the container to `5001` on your host so it doesn't conflict with other services.
-
-
-## Troubleshooting
-
-If the devcontainer fails to start and Docker reports that port 5000 is already in use, you may have an old container still running with the previous port mapping. Remove it and try again:
+### Development
 
 ```bash
-docker compose -f .devcontainer/docker-compose.yml down
+# Install dependencies
+npm install
+
+# Set up environment
+cp env.production.example .env.local
+
+# Start development server
+npm run dev
 ```
 
-Then reopen the dev container so it can recreate the services with the updated mapping of host port 5001 to container port 5000.
+### Production
+
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
+```
+
+## Database Connection Pooling
+
+The application uses a production-optimized database connection pool to ensure stability and scalability.
+
+### Configuration
+
+Connection pool settings can be configured via environment variables:
+
+```bash
+# Database Connection Pool Settings (Optional - uses safe defaults if not set)
+DB_POOL_MAX=20          # Maximum number of connections (default: 20)
+DB_POOL_MIN=2           # Minimum number of connections (default: 2)
+DB_POOL_IDLE=10000      # Idle timeout in milliseconds (default: 10000)
+DB_POOL_ACQUIRE=60000   # Connection acquisition timeout (default: 60000)
+DB_CONNECTION_TIMEOUT=10000   # Connection timeout (default: 10000)
+DB_IDLE_TIMEOUT=30000   # Idle connection timeout (default: 30000)
+DB_STATEMENT_TIMEOUT=30000    # Query timeout (default: 30000)
+```
+
+### Default Settings
+
+The pool is configured with production-safe defaults:
+
+- **Max Connections**: 20 (prevents overwhelming the database)
+- **Min Connections**: 2 (maintains warm connections)
+- **Idle Timeout**: 10 seconds (releases unused connections)
+- **Connection Timeout**: 10 seconds (fails fast on connection issues)
+- **Statement Timeout**: 30 seconds (prevents long-running queries)
+- **SSL**: Enabled in production (secure connections)
+
+### Monitoring
+
+The application includes comprehensive connection pool monitoring:
+
+- **Connection Events**: Logged when connections are established, acquired, or removed
+- **Error Handling**: All pool errors are logged with detailed information
+- **Health Checks**: Database health is included in the `/api/health` endpoint
+- **Graceful Shutdown**: Properly closes connections on application termination
+
+### Health Endpoint
+
+The enhanced health endpoint (`/api/health`) now includes database status:
+
+```json
+{
+  "status": "ok",
+  "database": "healthy",
+  "timestamp": "2024-01-01T12:00:00.000Z"
+}
+```
+
+### Performance Tuning
+
+For high-traffic applications, consider adjusting these settings:
+
+```bash
+# For high concurrency (100+ concurrent users)
+DB_POOL_MAX=50
+DB_POOL_MIN=5
+
+# For low-latency requirements
+DB_CONNECTION_TIMEOUT=5000
+DB_STATEMENT_TIMEOUT=15000
+
+# For long-running queries
+DB_STATEMENT_TIMEOUT=60000
+```
+
+### Troubleshooting
+
+**Connection Exhaustion**: If you see "connection pool exhausted" errors:
+
+- Increase `DB_POOL_MAX`
+- Check for connection leaks in your code
+- Monitor connection usage in logs
+
+**Slow Queries**: If queries are timing out:
+
+- Increase `DB_STATEMENT_TIMEOUT`
+- Optimize slow queries
+- Add database indexes
+
+**Connection Timeouts**: If connections are failing:
+
+- Check database availability
+- Verify network connectivity
+- Increase `DB_CONNECTION_TIMEOUT`
+
+## Deployment
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for complete deployment instructions.
+
+## License
+
+MIT License - see [LICENSE](./LICENSE) for details.

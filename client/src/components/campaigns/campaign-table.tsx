@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,26 +6,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatNumber, formatDate, getStatusColor } from "@/lib/utils";
+import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
-import { MoreHorizontal, Edit, Play, Pause, Copy, Trash2 } from "lucide-react";
+import { MoreHorizontal, Copy, Trash2, Play } from "lucide-react";
 
 interface CampaignTableProps {
   campaigns: Campaign[];
   isLoading: boolean;
-  onEdit: (campaign: Campaign) => void;
   onDuplicate: (campaign: Campaign) => void;
   onDelete: (campaign: Campaign) => void;
-  onToggleStatus: (campaign: Campaign) => void;
 }
 
 export default function CampaignTable({
   campaigns,
   isLoading,
-  onEdit,
   onDuplicate,
   onDelete,
-  onToggleStatus,
 }: CampaignTableProps) {
   if (isLoading) {
     return (
@@ -63,11 +59,9 @@ export default function CampaignTable({
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-medium text-gray-500">Campaign</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Audience</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Date</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Sent</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Delivered</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Clicks</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
             <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
           </tr>
@@ -85,21 +79,12 @@ export default function CampaignTable({
                   <div>
                     <p className="font-medium text-gray-900">{campaign.name}</p>
                     <p className="text-sm text-gray-500">
-                      {campaign.message.length > 50 
-                        ? `${campaign.message.substring(0, 50)}...` 
+                      {campaign.message.length > 50
+                        ? `${campaign.message.substring(0, 50)}...`
                         : campaign.message}
                     </p>
                   </div>
                 </div>
-              </td>
-              <td className="py-4 px-4">
-                <span className="text-gray-900 capitalize">
-                  {campaign.audience === 'all'
-                    ? 'All Contacts'
-                    : campaign.audience === 'inactive'
-                    ? 'Inactive Users'
-                    : campaign.audience}
-                </span>
               </td>
               <td className="py-4 px-4">
                 <span className="text-gray-900">{formatDate(campaign.createdAt)}</span>
@@ -110,30 +95,16 @@ export default function CampaignTable({
               <td className="py-4 px-4">
                 <span className="text-gray-900">{formatNumber(campaign.deliveredCount || 0)}</span>
               </td>
-              <td className="py-4 px-4">
-                <span className="text-gray-900">{formatNumber(campaign.clickCount || 0)}</span>
-              </td>
-              <td className="py-4 px-4">
-                <Badge className={getStatusColor(campaign.status)}>
-                  {campaign.status}
-                </Badge>
+              <td className="py-4 px-4 align-middle">
+                <StatusBadge
+                  status={campaign.status}
+                  className="whitespace-nowrap"
+                >
+                  {formatCampaignStatus(campaign.status)}
+                </StatusBadge>
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" onClick={() => onEdit(campaign)}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onToggleStatus(campaign)}
-                  >
-                    {campaign.status === 'active' ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">

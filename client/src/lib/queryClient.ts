@@ -34,6 +34,15 @@ export async function apiRequest({
   return res;
 }
 
+export async function apiMutation<T = any>({
+  method,
+  url,
+  data,
+}: ApiRequestOptions): Promise<T> {
+  const res = await apiRequest({ method, url, data });
+  return res.json();
+}
+
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;

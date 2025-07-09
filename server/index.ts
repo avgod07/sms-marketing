@@ -1,14 +1,51 @@
 import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
-import { logInfo } from "./logger";
-import { setupAuth } from "./auth";
-import { errorHandler } from "./error-middleware";
+import { logInfo } from "./utils/logger.util";
+import { setupSocket } from "./socket";
+import { setupAuth } from "./middlewares/auth.middleware";
+import {
+  errorHandler,
+  setupGlobalErrorHandling,
+} from "./middlewares/error.middleware";
+import { securityHeaders } from "./middlewares/security.middleware";
+import { requireAuth } from "@clerk/express";
+import { checkDatabaseHealth } from "./config/db.config";
 
+// IMPORTANT: express.json() must NOT be applied before the Stripe webhook route (/api/webhooks/stripe).
+// That route uses express.raw({ type: 'application/json' }) for signature verification.
 const app = express();
+
+setupGlobalErrorHandling();
+
+// Apply security headers to all responses (before any routes)
+app.use(securityHeaders);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Add health check route after security headers
+app.get("/api/health", async (req, res) => {
+  try {
+    const dbHealth = await checkDatabaseHealth();
+    res.json({
+      status: "ok",
+      database: dbHealth.healthy ? "healthy" : "unhealthy",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.json({
+      status: "ok",
+      database: "unknown",
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 setupAuth(app);
+
+// Only apply requireAuth to /api routes
+app.use("/api", requireAuth());
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -40,6 +77,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  setupSocket(server);
 
   app.use(errorHandler);
 
@@ -56,11 +94,14 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    logInfo(`Server listening on port ${port}`);
-  });
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      logInfo(`Server listening on port ${port}`);
+    }
+  );
 })();

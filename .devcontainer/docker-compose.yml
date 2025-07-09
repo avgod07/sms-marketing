@@ -4,6 +4,8 @@ services:
     volumes:
       - ..:/workspace:cached
     command: sleep infinity
+    env_file:
+      - ../.env
     ports:
       # Expose container port 5000 on host port 5001
       - "5001:5000"
