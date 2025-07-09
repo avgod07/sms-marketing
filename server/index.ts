@@ -1,6 +1,6 @@
 import express from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic } from "./vite";
+import { serveStatic } from "./static";
 import { logInfo } from "./utils/logger.util";
 import { setupSocket } from "./socket";
 import { setupAuth } from "./middlewares/auth.middleware";
@@ -12,8 +12,7 @@ import { securityHeaders } from "./middlewares/security.middleware";
 import { requireAuth } from "@clerk/express";
 import { checkDatabaseHealth } from "./config/db.config";
 
-// IMPORTANT: express.json() must NOT be applied before the Stripe webhook route (/api/webhooks/stripe).
-// That route uses express.raw({ type: 'application/json' }) for signature verification.
+// Production server - no Vite dependencies
 const app = express();
 
 setupGlobalErrorHandling();
@@ -81,14 +80,8 @@ app.use((req, res, next) => {
 
   app.use(errorHandler);
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  // Serve static files from the built client in production
+  serveStatic(app);
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
@@ -101,7 +94,7 @@ app.use((req, res, next) => {
       reusePort: true,
     },
     () => {
-      logInfo(`Server listening on port ${port}`);
+      logInfo(`Production server listening on port ${port}`);
     }
   );
 })();
