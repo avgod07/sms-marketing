@@ -265,7 +265,7 @@ docker build -t sms-app:latest .
 
 ```bash
 # Run the container locally
-docker run -p 5000:5000 --env-file .env.production sms-app:latest
+docker run -p 5002:5000 --env-file .env.production sms-app:latest
 
 # Wait for the application to start (you'll see logs)
 ```
