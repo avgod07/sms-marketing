@@ -60,9 +60,10 @@ chmod 400 "$EC2_KEY_NAME.pem"
 
 print_status "Getting default VPC and subnets..."
 VPC_ID=$(aws ec2 describe-vpcs --region $REGION --filters "Name=is-default,Values=true" --query 'Vpcs[0].VpcId' --output text)
-SUBNET_IDS=$(aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[0:2].SubnetId' --output text)
-SUBNET1=$(echo "$SUBNET_IDS" | cut -d' ' -f1)
-SUBNET2=$(echo "$SUBNET_IDS" | cut -d' ' -f2)
+SUBNETS=$(aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[*].SubnetId' --output text)
+SUBNET_ARRAY=($SUBNETS)
+SUBNET1=${SUBNET_ARRAY[0]}
+SUBNET2=${SUBNET_ARRAY[1]}
 
 print_status "Creating security group..."
 SECURITY_GROUP_ID=$(aws ec2 create-security-group \
@@ -83,7 +84,7 @@ for port in 22 80 5000; do
 done
 
 print_status "Generating secure RDS password..."
-DB_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9@#%^+=_' < /dev/urandom | head -c 32)
+DB_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9!#$%^&*()-_=+[]{}|:;<>?.' < /dev/urandom | head -c 32 | tr -d '/@" ')
 
 print_status "Storing RDS password in Secrets Manager..."
 aws secretsmanager create-secret \
@@ -91,7 +92,7 @@ aws secretsmanager create-secret \
   --name "$SECRET_NAME" \
   --description "RDS password for sms-app" \
   --secret-string "$DB_PASSWORD" \
-  || print_warning "Secret may already exist"
+  || print_warning "Secret may already exist or insufficient IAM permissions"
 
 print_status "Creating RDS instance..."
 aws rds create-db-instance \
@@ -129,7 +130,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --count 1 \
   --instance-type "$EC2_INSTANCE_TYPE" \
   --key-name "$EC2_KEY_NAME" \
-  --vpc-security-group-ids "$SECURITY_GROUP_ID" \
+  --security-group-ids "$SECURITY_GROUP_ID" \
   --subnet-id "$SUBNET1" \
   --user-data file://user-data.sh \
   --query 'Instances[0].InstanceId' \
@@ -186,3 +187,4 @@ echo "📦 S3 Bucket: $S3_BUCKET_NAME"
 echo "🧠 RDS Endpoint: $RDS_ENDPOINT"
 echo "🔐 SecretsManager: $SECRET_NAME"
 echo "💸 Estimated Cost: ~$74/month"
+
