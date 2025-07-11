@@ -90,7 +90,12 @@ export const checkDatabaseHealth = async (): Promise<{
     client.release();
     return { healthy: true };
   } catch (error) {
-    logError("Database health check failed:", { error });
+    logError("Database health check failed:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      code: (error as any)?.code,
+      detail: (error as any)?.detail,
+    });
     return {
       healthy: false,
       details:
