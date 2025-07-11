@@ -381,7 +381,14 @@ AWS_S3_PUBLIC_URL_BASE=https://your-sms-app-images-1234567890.s3.amazonaws.com
 
 ```bash
 # Copy your code to the EC2 server
-scp -i sms-app-key.pem -r . ubuntu@YOUR_EC2_IP:/opt/sms-app/
+scp -i sms-app-production-key.pem -r . ec2-user@44.192.121.2:/opt/sms-app/
+
+ssh -i sms-app-production-key.pem ec2-user@44.192.121.2
+sudo mkdir -p /opt/sms-app
+sudo chown ec2-user:ec2-user /opt/sms-app
+exit
+
+
 
 # Replace YOUR_EC2_IP with the actual IP from the deployment output
 # Note: The server already has a basic .env.production file, so this will overwrite it
@@ -391,7 +398,10 @@ scp -i sms-app-key.pem -r . ubuntu@YOUR_EC2_IP:/opt/sms-app/
 
 ```bash
 # SSH into your EC2 instance
-ssh -i sms-app-key.pem ubuntu@YOUR_EC2_IP
+ssh -i sms-app-production-key.pem ec2-user@44.192.121.2
+
+chmod 400 sms-app-production-key.pem
+
 
 # Navigate to the application directory
 cd /opt/sms-app
