@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -11,10 +9,12 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
+      - NODE_EXTRA_CA_CERTS=/app/certs/us-east-1-bundle.pem
     env_file:
       - .env.production
     volumes:
       - /opt/sms-app/certs:/app/certs:ro
+      - /opt/sms-app/scripts:/app/scripts:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]

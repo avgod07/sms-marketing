@@ -4,6 +4,7 @@ const { Pool } = pg;
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 import { logInfo, logError, logWarn } from "../utils/logger.util";
+import { readFileSync } from "fs";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -30,7 +31,7 @@ const poolConfig = {
   // SSL configuration (important for production)
   ssl:
     process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
+      ? { rejectUnauthorized: true }
       : false,
 
   // Statement timeout (prevents long-running queries)
