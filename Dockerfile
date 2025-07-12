@@ -3,6 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Add build arguments for environment variables
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
@@ -35,6 +39,8 @@ RUN adduser -S nodejs -u 1001
 # Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nodejs:nodejs /app/drizzle.config.ts ./
+COPY --from=builder --chown=nodejs:nodejs /app/shared/schema.ts ./shared/schema.ts
 
 # Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
