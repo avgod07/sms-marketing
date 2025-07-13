@@ -156,20 +156,6 @@ export const couponRecipients = pgTable("coupon_recipients", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const analytics = pgTable("analytics", {
-  id: serial("id").primaryKey(),
-  businessId: integer("business_id")
-    .references(() => businesses.id)
-    .notNull(),
-  date: timestamp("date").defaultNow().notNull(),
-  totalContacts: integer("total_contacts").default(0),
-  messagesSent: integer("messages_sent").default(0),
-  deliveryRate: decimal("delivery_rate", { precision: 5, scale: 2 }).default(
-    "0.00"
-  ),
-  clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0.00"),
-});
-
 export const users = pgTable(
   "users",
   {
@@ -351,6 +337,56 @@ export const subscriptionEvents = pgTable("subscription_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const keywords = pgTable(
+  "keywords",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    keyword: text("keyword").notNull(),
+    welcomeMessage: text("welcome_message").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    optInCount: integer("opt_in_count").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Business-scoped unique constraint: same keyword can exist across businesses
+    // but not within the same business
+    businessKeywordUnique: uniqueIndex("keywords_business_id_keyword_idx").on(
+      table.businessId,
+      table.keyword
+    ),
+  })
+);
+
+export const keywordOptIns = pgTable(
+  "keyword_opt_ins",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    keywordId: integer("keyword_id")
+      .references(() => keywords.id)
+      .notNull(),
+    contactId: integer("contact_id")
+      .references(() => contacts.id)
+      .notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    optedInAt: timestamp("opted_in_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Prevent duplicate opt-ins for the same contact and keyword
+    uniqueOptIn: uniqueIndex("keyword_opt_ins_business_contact_keyword_idx").on(
+      table.businessId,
+      table.contactId,
+      table.keywordId
+    ),
+  })
+);
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -379,7 +415,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   coupons: many(coupons),
   couponRedemptions: many(couponRedemptions),
   couponRecipients: many(couponRecipients),
-  analytics: many(analytics),
+
   businessProfiles: many(businessProfiles),
   twilioCredentials: many(twilioCredentials),
   phoneNumbers: many(businessPhoneNumbers),
@@ -388,6 +424,8 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   creditTransactions: many(creditTransactions),
   onboardingProgress: many(onboardingProgress),
   subscriptionEvents: many(subscriptionEvents),
+  keywords: many(keywords),
+  keywordOptIns: many(keywordOptIns),
 }));
 
 // Insert schemas
@@ -534,6 +572,19 @@ export const insertSubscriptionEventSchema = createInsertSchema(
   createdAt: true,
 });
 
+export const insertKeywordSchema = createInsertSchema(keywords).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+  optInCount: true,
+});
+
+export const insertKeywordOptInSchema = createInsertSchema(keywordOptIns).omit({
+  id: true,
+  optedInAt: true,
+});
+
 // Types
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
@@ -558,8 +609,6 @@ export type InsertCouponRecipient = z.infer<typeof insertCouponRecipientSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-
-export type Analytics = typeof analytics.$inferSelect;
 
 export type Business = typeof businesses.$inferSelect;
 export type InsertBusiness = typeof businesses.$inferInsert;
@@ -598,3 +647,9 @@ export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
 
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type InsertSubscriptionEvent = typeof subscriptionEvents.$inferInsert;
+
+export type Keyword = typeof keywords.$inferSelect;
+export type InsertKeyword = z.infer<typeof insertKeywordSchema>;
+
+export type KeywordOptIn = typeof keywordOptIns.$inferSelect;
+export type InsertKeywordOptIn = z.infer<typeof insertKeywordOptInSchema>;

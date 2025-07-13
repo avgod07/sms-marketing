@@ -9,10 +9,11 @@ import Dashboard from "@/pages/dashboard/dashboard";
 import Contacts from "@/pages/contacts";
 import Campaigns from "@/pages/Campaigns";
 import NewCampaignPage from "@/pages/Campaigns/New";
-import Analytics from "@/pages/dashboard/analytics";
+
 import Settings from "@/pages/dashboard/settings";
 import Help from "@/pages/help";
 import Coupons from "@/pages/coupons";
+import Keywords from "@/pages/keywords";
 import OnboardingPage from "@/pages/auth/onboarding";
 import Inbox from "@/pages/inbox";
 import JoinPage from "@/pages/auth/join";
@@ -71,8 +72,9 @@ function Router() {
           <Route path="/campaigns/new" component={NewCampaignPage} />
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/coupons" component={Coupons} />
+          <Route path="/keywords" component={Keywords} />
           <Route path="/inbox" component={Inbox} />
-          <Route path="/analytics" component={Analytics} />
+
           <Route path="/settings" component={Settings} />
           <Route path="/help" component={Help} />
           <Route component={NotFound} />

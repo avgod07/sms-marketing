@@ -19,18 +19,27 @@ export function registerBusinessRoutes(app: Express) {
   app.get("/api/dashboard/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const stats = await biz.getDashboardStats();
-      const defaults = {
-        totalContacts: 0,
-        messagesSent: 0,
-        activeCampaigns: 0,
-        deliveryRate: 0,
+      const contacts = await biz.getContacts();
+      const campaigns = await biz.getCampaigns();
+      const messages = await biz.getMessages();
+
+      const stats = {
+        totalContacts: contacts.length,
+        messagesSent: messages.filter((m) => m.status === "delivered").length,
+        activeCampaigns: campaigns.filter((c) => c.status === "in_progress")
+          .length,
+        deliveryRate:
+          messages.length > 0
+            ? (messages.filter((m) => m.status === "delivered").length /
+                messages.length) *
+              100
+            : 0,
         contactsChange: null as number | null,
         messagesChange: null as number | null,
         campaignsChange: null as number | null,
         deliveryRateChange: null as number | null,
       };
-      res.json({ ...defaults, ...(stats || {}) });
+      res.json(stats);
     } catch (error) {
       logDetailedError("Error fetching dashboard stats", error);
       const defaults = {
@@ -52,13 +61,13 @@ export function registerBusinessRoutes(app: Express) {
   app.get("/api/setup/status", requireAuth(), async (req, res) => {
     try {
       const { biz, user } = await getBizForRequest(req);
-      const contactStats = await biz.getContactStats();
-      const couponStats = await biz.getCouponStats();
+      const contacts = await biz.getContacts();
+      const coupons = await biz.getCoupons();
       const creds = await biz.getTwilioCredentials();
       res.json({
         phoneConfigured: !!creds,
-        hasContacts: contactStats.allContacts > 0,
-        hasCoupons: couponStats.allCoupons > 0,
+        hasContacts: contacts.length > 0,
+        hasCoupons: coupons.length > 0,
         onboardingComplete: !!user.onboardingComplete,
       });
     } catch (error) {

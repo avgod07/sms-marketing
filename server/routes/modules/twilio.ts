@@ -3,6 +3,7 @@ import twilio from "twilio";
 import { requireAuth } from "@clerk/express";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
+import { KeywordService } from "../../services/keywords";
 import { socketService } from "../../socket";
 import { storage, findBusinessIdByPhoneNumber } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
@@ -154,6 +155,16 @@ export function registerTwilioRoutes(app: Express) {
         return res.status(403).send("Invalid Twilio signature");
       }
 
+      const bodyText = (Body || "").trim();
+
+      // Process the incoming message with KeywordService
+      const result = await KeywordService.processIncomingSMS(
+        businessId,
+        From,
+        bodyText
+      );
+
+      // Create message record
       const bizStore = storage.forBusiness(businessId);
       const normalizedFrom = normalizePhoneNumber(From);
       let contact = await bizStore.getContactByPhoneNumber(normalizedFrom);
@@ -165,8 +176,6 @@ export function registerTwilioRoutes(app: Express) {
         });
       }
 
-      const bodyText = (Body || "").trim();
-
       const message = await bizStore.createMessage({
         phoneNumber: normalizedFrom,
         contactId: contact.id,
@@ -174,22 +183,26 @@ export function registerTwilioRoutes(app: Express) {
         status: "received",
       });
 
-      if (bodyText.toLowerCase() === "stop") {
-        if (contact.active) {
-          await bizStore.updateContact(contact.id, { active: false });
-        }
+      // Send response if keyword was matched or STOP was processed
+      if (
+        result.success &&
+        (result.keywordMatched || bodyText.toLowerCase() === "stop")
+      ) {
         const numbers = await bizStore.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
         const creds = await bizStore.getTwilioCredentials();
-        await TwilioService.sendSMS(creds, {
-          to: normalizedFrom,
-          message:
-            "You've been removed from our list. You will no longer receive messages from us.",
-          from,
-          messagingServiceSid: creds?.messagingServiceSid || undefined,
-          contactId: contact.id,
-        });
+
+        if (from && creds) {
+          await TwilioService.sendSMS(creds, {
+            to: normalizedFrom,
+            message: result.responseMessage,
+            from,
+            messagingServiceSid: creds?.messagingServiceSid || undefined,
+            contactId: contact.id,
+          });
+        }
       } else {
+        // Broadcast message for real-time updates
         socketService?.broadcast("message:send", message);
       }
 

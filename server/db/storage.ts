@@ -5,7 +5,6 @@ import {
   coupons,
   couponRedemptions,
   couponRecipients,
-  analytics,
   users,
   businesses,
   type Contact,
@@ -20,7 +19,6 @@ import {
   type InsertCouponRedemption,
   type CouponRecipient,
   type InsertCouponRecipient,
-  type Analytics,
   type User,
   type InsertUser,
   type Business,
@@ -52,6 +50,12 @@ import {
   subscriptionEvents,
   type SubscriptionEvent,
   type InsertSubscriptionEvent,
+  keywords,
+  type Keyword,
+  type InsertKeyword,
+  keywordOptIns,
+  type KeywordOptIn,
+  type InsertKeywordOptIn,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -149,31 +153,6 @@ export interface IStorage {
     errorCode?: number
   ): Promise<Message | undefined>;
 
-  // Analytics
-  getDashboardStats(): Promise<{
-    totalContacts: number;
-    messagesSent: number;
-    activeCampaigns: number;
-    deliveryRate: number;
-    contactsChange: number | null;
-    messagesChange: number | null;
-    campaignsChange: number | null;
-    deliveryRateChange: number | null;
-  }>;
-  getAnalytics(
-    range: "thisMonth" | "lastMonth" | "thisWeek" | "lastWeek"
-  ): Promise<Analytics[]>;
-  getContactStats(): Promise<{
-    allContacts: number;
-  }>;
-  getCouponStats(): Promise<{
-    allCoupons: number;
-  }>;
-  getCampaignStats(): Promise<{
-    activeCampaigns: number;
-    messagesThisMonth: number;
-  }>;
-
   // Recent Activity
   getRecentContacts(limit?: number): Promise<Contact[]>;
   getRecentCampaigns(limit?: number): Promise<Campaign[]>;
@@ -220,6 +199,24 @@ export interface IStorage {
     metadata?: Record<string, any>
   ): Promise<SubscriptionEvent>;
   getSubscriptionEvents(): Promise<SubscriptionEvent[]>;
+
+  // Keywords
+  getKeywords(): Promise<Keyword[]>;
+  getKeyword(id: number): Promise<Keyword | undefined>;
+  getKeywordByText(keywordText: string): Promise<Keyword | undefined>;
+  createKeyword(keyword: InsertKeyword): Promise<Keyword>;
+  updateKeyword(id: number, keyword: Partial<Keyword>): Promise<Keyword>;
+  deleteKeyword(id: number): Promise<void>;
+  incrementKeywordOptInCount(keywordId: number): Promise<void>;
+
+  // Keyword Opt-ins
+  createKeywordOptIn(optIn: any): Promise<KeywordOptIn>;
+  hasContactOptedInToKeyword(
+    contactId: number,
+    keywordId: number
+  ): Promise<boolean>;
+  getKeywordOptIns(keywordId: number): Promise<KeywordOptIn[]>;
+  getContactKeywordOptIns(contactId: number): Promise<KeywordOptIn[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -842,7 +839,6 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  // Analytics
   async getDashboardStats(): Promise<{
     totalContacts: number;
     messagesSent: number;
@@ -1045,42 +1041,6 @@ export class DatabaseStorage implements IStorage {
       activeCampaigns: activeCampaigns.count,
       messagesThisMonth: messagesThisMonth.count,
     };
-  }
-
-  async getAnalytics(
-    range: "thisMonth" | "lastMonth" | "thisWeek" | "lastWeek"
-  ): Promise<Analytics[]> {
-    const businessId = this.requireBusinessId();
-    const now = new Date();
-    let start: Date;
-    let end = new Date();
-    switch (range) {
-      case "thisMonth":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "lastMonth":
-        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        end = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "thisWeek":
-        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "lastWeek":
-        start = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-        end = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        start = new Date(0);
-        break;
-    }
-
-    return await db
-      .select()
-      .from(analytics)
-      .where(
-        sql`${analytics.businessId} = ${businessId} AND ${analytics.date} >= ${start} AND ${analytics.date} < ${end}`
-      )
-      .orderBy(desc(analytics.date));
   }
 
   async createBusiness(business: InsertBusiness): Promise<Business> {
@@ -1507,6 +1467,153 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt));
 
     return limit ? recentInboxMessages.slice(0, limit) : recentInboxMessages;
+  }
+
+  // Keywords
+  async getKeywords(): Promise<Keyword[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(keywords)
+      .where(eq(keywords.businessId, businessId))
+      .orderBy(asc(keywords.keyword));
+  }
+
+  async getKeyword(id: number): Promise<Keyword | undefined> {
+    const businessId = this.requireBusinessId();
+    const [keyword] = await db
+      .select()
+      .from(keywords)
+      .where(and(eq(keywords.id, id), eq(keywords.businessId, businessId)));
+    return keyword || undefined;
+  }
+
+  async getKeywordByText(keywordText: string): Promise<Keyword | undefined> {
+    const businessId = this.requireBusinessId();
+    const [keyword] = await db
+      .select()
+      .from(keywords)
+      .where(
+        and(
+          eq(keywords.keyword, keywordText.toUpperCase()),
+          eq(keywords.businessId, businessId),
+          eq(keywords.isActive, true)
+        )
+      );
+    return keyword || undefined;
+  }
+
+  async createKeyword(keyword: InsertKeyword): Promise<Keyword> {
+    const businessId = this.requireBusinessId();
+    const [row] = await db
+      .insert(keywords)
+      .values({
+        ...keyword,
+        businessId,
+        keyword: keyword.keyword.toUpperCase(),
+      })
+      .returning();
+    return row;
+  }
+
+  async updateKeyword(id: number, keyword: Partial<Keyword>): Promise<Keyword> {
+    const businessId = this.requireBusinessId();
+    const updateData: any = { ...keyword };
+    if (keyword.keyword) {
+      updateData.keyword = keyword.keyword.toUpperCase();
+    }
+    updateData.updatedAt = new Date();
+
+    const [row] = await db
+      .update(keywords)
+      .set(updateData)
+      .where(and(eq(keywords.id, id), eq(keywords.businessId, businessId)))
+      .returning();
+    return row;
+  }
+
+  async deleteKeyword(id: number): Promise<void> {
+    const businessId = this.requireBusinessId();
+    await db
+      .delete(keywords)
+      .where(and(eq(keywords.id, id), eq(keywords.businessId, businessId)));
+  }
+
+  async incrementKeywordOptInCount(keywordId: number): Promise<void> {
+    const businessId = this.requireBusinessId();
+    await db
+      .update(keywords)
+      .set({
+        optInCount: sql`${keywords.optInCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(keywords.id, keywordId), eq(keywords.businessId, businessId))
+      );
+  }
+
+  // Keyword Opt-ins
+  async createKeywordOptIn(optIn: any): Promise<KeywordOptIn> {
+    const businessId = this.requireBusinessId();
+    if (!optIn.keywordId || !optIn.contactId || !optIn.phoneNumber) {
+      throw new Error("Missing required fields for keyword opt-in");
+    }
+    const [row] = await db
+      .insert(keywordOptIns)
+      .values({
+        keywordId: optIn.keywordId,
+        contactId: optIn.contactId,
+        phoneNumber: optIn.phoneNumber,
+        businessId,
+      })
+      .returning();
+    return row;
+  }
+
+  async hasContactOptedInToKeyword(
+    contactId: number,
+    keywordId: number
+  ): Promise<boolean> {
+    const businessId = this.requireBusinessId();
+    const [optIn] = await db
+      .select()
+      .from(keywordOptIns)
+      .where(
+        and(
+          eq(keywordOptIns.businessId, businessId),
+          eq(keywordOptIns.contactId, contactId),
+          eq(keywordOptIns.keywordId, keywordId)
+        )
+      );
+    return !!optIn;
+  }
+
+  async getKeywordOptIns(keywordId: number): Promise<KeywordOptIn[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(keywordOptIns)
+      .where(
+        and(
+          eq(keywordOptIns.businessId, businessId),
+          eq(keywordOptIns.keywordId, keywordId)
+        )
+      )
+      .orderBy(desc(keywordOptIns.optedInAt));
+  }
+
+  async getContactKeywordOptIns(contactId: number): Promise<KeywordOptIn[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(keywordOptIns)
+      .where(
+        and(
+          eq(keywordOptIns.businessId, businessId),
+          eq(keywordOptIns.contactId, contactId)
+        )
+      )
+      .orderBy(desc(keywordOptIns.optedInAt));
   }
 }
 

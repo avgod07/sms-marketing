@@ -28,7 +28,10 @@ export function registerContactRoutes(app: Express) {
   app.get("/api/contacts/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const stats = await biz.getContactStats();
+      const contacts = await biz.getContacts();
+      const stats = {
+        allContacts: contacts.length,
+      };
       res.json(stats);
     } catch (error) {
       logError("Error fetching contact stats:", error);

@@ -56,7 +56,18 @@ export function registerCampaignRoutes(app: Express) {
   app.get("/api/campaigns/stats", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const stats = await biz.getCampaignStats();
+      const campaigns = await biz.getCampaigns();
+      const messages = await biz.getMessages();
+      const thisMonth = new Date();
+      thisMonth.setDate(1);
+
+      const stats = {
+        activeCampaigns: campaigns.filter((c) => c.status === "in_progress")
+          .length,
+        messagesThisMonth: messages.filter(
+          (m) => new Date(m.createdAt) >= thisMonth
+        ).length,
+      };
       res.json(stats);
     } catch (error) {
       logError("Error fetching campaign stats:", error);

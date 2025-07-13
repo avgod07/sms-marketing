@@ -22,6 +22,7 @@ import {
   MessageSquareText,
   ListChecks,
   CreditCard,
+  Hash,
 } from "lucide-react";
 
 const navigation = [
@@ -30,9 +31,10 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Campaigns", href: "/campaigns", icon: Send },
   { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Keywords", href: "/keywords", icon: Hash },
   { name: "Coupons", href: "/coupons", icon: Tag },
   { name: "Inbox", href: "/inbox", icon: MessageSquareText },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+
 ];
 
 const account = [
