@@ -130,7 +130,7 @@ export default function TollFreeNumberForm({
                     className={cn(
                       "relative p-4 border-2 rounded-lg text-center transition-all duration-200 hover:border-blue-300",
                       selected === number 
-                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" 
+                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500" 
                         : "border-gray-200 bg-white hover:bg-gray-50"
                     )}
                   >

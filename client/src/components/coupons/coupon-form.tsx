@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type CouponType = "percent" | "amount" | "free";
+
 export const couponSchema = z
   .object({
     code: z.string().optional(),
@@ -93,7 +95,7 @@ export default function CouponForm({
     }
   }, [initialValues, form]);
 
-  const watchedType = form.watch("type");
+  const watchedType = form.watch("type") as "percent" | "amount" | "free";
   const watchedValue = form.watch("value");
   const watchedCode = form.watch("code");
 
@@ -260,10 +262,11 @@ export default function CouponForm({
                     : "Enter the dollar amount to discount"
                   }
                 </p>
-                {watchedValue > 0 && (
+                {(watchedValue > 0 || (watchedType as any) === "free") && (
                   <div className="flex items-center space-x-1 text-xs text-green-600">
                     <CheckCircle className="w-3 h-3" />
                     <span>
+                      {/* @ts-ignore - TypeScript incorrectly narrowing enum type */}
                       {watchedType === "free" ? "Free Item/Service" :
                        watchedType === "percent" ? `${watchedValue}% off` :
                        `$${watchedValue} off`}

@@ -40,6 +40,8 @@ import { AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 import { Copy, Download, QrCode } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Link } from "wouter";
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -216,6 +218,8 @@ export default function Contacts() {
     }
   };
 
+  const disabled = !setup?.phoneConfigured || !setup?.hasContacts || !setup?.onboardingComplete;
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -230,6 +234,19 @@ export default function Contacts() {
 
       {/* Content */}
       <div className="p-8">
+        {disabled && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+            <AlertTitle>Finish Setup</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>Complete your onboarding to start adding contacts and sending messages.</p>
+              <div className="flex gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/onboarding">Complete Setup</Link>
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Contact Management Section */}
         <Card>
@@ -241,7 +258,7 @@ export default function Contacts() {
               <div className="flex items-center space-x-2">
                 <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" disabled={disabled}>
                       <QrCode className="w-4 h-4 mr-2" />
                       QR Code
                     </Button>
@@ -343,7 +360,7 @@ export default function Contacts() {
                 </Dialog>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" disabled={!setup?.onboardingComplete}>
+                    <Button size="sm" disabled={disabled}>
                       <Plus className="w-4 h-4 mr-2" />
                       Add Contact
                     </Button>

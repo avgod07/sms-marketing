@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import ChatBubble from "@/components/shared/ChatBubble";
 import { formatPhoneNumber, timeAgo } from "@/lib/utils";
-import { Search, MessageSquareText, Plus } from "lucide-react";
+import { Search, MessageSquareText, Plus, AlertTriangle } from "lucide-react";
 import { emitMessageSend } from "@/lib/socket";
 import { useMessageSocket } from "@/hooks/use-message-socket";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -17,7 +17,7 @@ import type { Contact } from "@shared/schema";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import NewMessageModal from "@/components/inbox/new-message-modal";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 interface Message {
   id: number;
@@ -437,9 +437,20 @@ export default function Inbox() {
                 <p className="text-gray-600 mb-4">
                   Add a contact or wait for someone to message you. Your chats will show up here.
                 </p>
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-yellow-700">
-                  You'll need to finish setting up your account before you can send messages. Head to onboarding to get started!
-                </div>
+                {setup && !setup.onboardingComplete && (
+                  <Alert className="bg-yellow-50 border-yellow-400 text-yellow-700">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Finish Setup</AlertTitle>
+                    <AlertDescription className="space-y-2">
+                      <p>Complete your onboarding to start sending messages and receiving replies.</p>
+                      <div className="flex gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href="/onboarding">Complete Setup</Link>
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             ) : selected && (
               <section className="flex flex-1 flex-col">

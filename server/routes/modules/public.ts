@@ -2,6 +2,10 @@ import type { Express } from "express";
 import { z } from "zod";
 import { insertContactSchema } from "@shared/schema";
 import { storage } from "../../db/storage";
+import {
+  MessageCreditService,
+  InsufficientCreditsError,
+} from "../../services/message-credits.js";
 import { logError } from "../../utils/logger.util";
 import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
 
@@ -91,36 +95,60 @@ export function registerPublicRoutes(app: Express) {
 
       const newContact = await contactStore.createContact(contact);
 
-      // Send initial message to the new contact
+      // Send initial message to the new contact with credit deduction
       try {
         const creds = await contactStore.getTwilioCredentials();
         const numbers = await contactStore.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
         if (creds && from) {
-          const { TwilioService } = await import("../../services/twilio");
-          const result = await TwilioService.sendSMS(creds, {
-            to: newContact.phoneNumber,
-            message: business.initialMessage,
-            from,
-            messagingServiceSid: creds?.messagingServiceSid || undefined,
-            contactId: newContact.id,
-          });
+          // Use the new credit deduction service
+          const result = await MessageCreditService.sendWithCreditDeduction(
+            contactStore,
+            creds,
+            {
+              to: newContact.phoneNumber,
+              message: business.initialMessage,
+              from,
+              messagingServiceSid: creds?.messagingServiceSid || undefined,
+              contactId: newContact.id,
+              messageType: "initial",
+            }
+          );
 
           // Record the sent message in the database
+          await contactStore.createMessage({
+            phoneNumber: newContact.phoneNumber,
+            contactId: newContact.id,
+            content: business.initialMessage,
+            status: result.success ? "sent" : "failed",
+            messageSid: result.messageSid,
+          });
+
+          // Log credit usage for initial message
           if (result.success) {
-            await contactStore.createMessage({
-              phoneNumber: newContact.phoneNumber,
-              contactId: newContact.id,
-              content: business.initialMessage,
-              status: "sent",
-              messageSid: result.messageSid,
-            });
+            logError(
+              "Initial message sent with credit deduction (public signup)",
+              {
+                contactId: newContact.id,
+                phoneNumber: newContact.phoneNumber,
+                creditCost: result.creditCost,
+                remainingCredits: result.remainingCredits,
+              }
+            );
           }
         }
       } catch (smsError) {
         // Log the SMS error but don't fail the contact creation
-        logError("Error sending initial message:", smsError);
+        if (smsError instanceof InsufficientCreditsError) {
+          logError("Insufficient credits for initial message (public signup)", {
+            contactId: newContact.id,
+            phoneNumber: newContact.phoneNumber,
+            error: smsError.message,
+          });
+        } else {
+          logError("Error sending initial message:", smsError);
+        }
       }
 
       res.status(201).json(newContact);

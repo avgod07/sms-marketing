@@ -59,10 +59,23 @@ export default function NewMessageModal({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send message");
+        const errorData = await response.json();
+        
+        // Handle insufficient credits error specifically
+        if (response.status === 402 && errorData.code === "INSUFFICIENT_CREDITS") {
+          toast({
+            title: "Insufficient Credits",
+            description: "You don't have enough credits to send this message. Please purchase more credits in Settings.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw new Error(errorData.message || "Failed to send message");
       }
 
-      const savedMessage: ApiMessage = await response.json();
+      const result = await response.json();
+      const savedMessage: ApiMessage = result;
       
       // Emit the message via socket for real-time updates
       emitMessageSend(savedMessage);
@@ -74,7 +87,7 @@ export default function NewMessageModal({
 
       toast({
         title: "Message sent successfully",
-        description: `Your message was sent to ${selectedContact.firstName} ${selectedContact.lastName}`,
+        description: `Your message was sent to ${selectedContact.firstName} ${selectedContact.lastName}. Credits used: ${result.creditCost || 1}`,
       });
 
       // Close modal after successful send

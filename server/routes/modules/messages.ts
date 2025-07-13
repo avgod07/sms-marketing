@@ -3,6 +3,10 @@ import { z } from "zod";
 import { requireAuth } from "@clerk/express";
 import { insertMessageSchema } from "@shared/schema";
 import { TwilioService } from "../../services/twilio.js";
+import {
+  MessageCreditService,
+  InsufficientCreditsError,
+} from "../../services/message-credits.js";
 import { getBizForRequest } from "./utils";
 import { logError } from "../../utils/logger.util";
 
@@ -125,14 +129,20 @@ export function registerMessageRoutes(app: Express) {
       const numbers = await biz.getPhoneNumbers();
       const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-      const result = await TwilioService.sendSMS(creds, {
-        to: validatedData.phoneNumber,
-        message: validatedData.content,
-        from,
-        messagingServiceSid: creds?.messagingServiceSid || undefined,
-        campaignId: validatedData.campaignId ?? undefined,
-        contactId: validatedData.contactId,
-      });
+      // Use the new credit deduction service
+      const result = await MessageCreditService.sendWithCreditDeduction(
+        biz,
+        creds,
+        {
+          to: validatedData.phoneNumber,
+          message: validatedData.content,
+          from,
+          messagingServiceSid: creds?.messagingServiceSid || undefined,
+          campaignId: validatedData.campaignId ?? undefined,
+          contactId: validatedData.contactId,
+          messageType: "regular",
+        }
+      );
 
       const message = await biz.createMessage({
         ...validatedData,
@@ -140,8 +150,20 @@ export function registerMessageRoutes(app: Express) {
         messageSid: result.messageSid,
       });
 
-      res.status(201).json(message);
+      // Return credit information in response
+      res.status(201).json({
+        ...message,
+        creditCost: result.creditCost,
+        remainingCredits: result.remainingCredits,
+      });
     } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        return res.status(402).json({
+          message: "Insufficient credits",
+          error: error.message,
+          code: "INSUFFICIENT_CREDITS",
+        });
+      }
       if (error instanceof z.ZodError) {
         return res
           .status(400)
