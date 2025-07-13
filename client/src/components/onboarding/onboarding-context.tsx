@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { useOnboardingProgress, useSaveOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { useOnboardingProgress, useSaveOnboardingProgress, useCompleteOnboarding } from "@/hooks/useOnboardingProgress";
 import type { BusinessInfoFormValues } from "./business-info-form";
 import type { VolumeOption } from "./monthly-volume-form";
 import type { UseCaseOption } from "./use-case-form";
+import type { InitialMessageFormValues } from "./initial-message-form";
 
 interface OnboardingContextValue {
   step: number;
@@ -13,9 +14,13 @@ interface OnboardingContextValue {
   setMonthlyVolume: (v: VolumeOption) => void;
   useCases: UseCaseOption[];
   setUseCases: (u: UseCaseOption[]) => void;
+  initialMessage?: InitialMessageFormValues;
+  setInitialMessage: (data: InitialMessageFormValues) => void;
   saveProgress: () => Promise<void>;
+  completeOnboarding: (data: InitialMessageFormValues) => Promise<void>;
   isLoading: boolean;
   isSaving: boolean;
+  isCompleting: boolean;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(undefined);
@@ -25,6 +30,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [businessInfo, setBusinessInfo] = useState<BusinessInfoFormValues | undefined>();
   const [monthlyVolume, setMonthlyVolume] = useState<VolumeOption>("Less than 1K");
   const [useCases, setUseCases] = useState<UseCaseOption[]>([]);
+  const [initialMessage, setInitialMessage] = useState<InitialMessageFormValues | undefined>();
   
   // Track if we're in the middle of a user-initiated step change
   const isUserChangingStep = useRef(false);
@@ -33,6 +39,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   // Load saved progress
   const { data: savedProgress, isLoading } = useOnboardingProgress();
   const saveProgressMutation = useSaveOnboardingProgress();
+  const completeOnboardingMutation = useCompleteOnboarding();
 
   // Initialize state from saved progress (only on first load)
   useEffect(() => {
@@ -48,6 +55,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       if (savedProgress.useCases) {
         setUseCases(savedProgress.useCases);
       }
+      if (savedProgress.initialMessage) {
+        setInitialMessage(savedProgress.initialMessage);
+      }
     }
   }, [savedProgress, isLoading]);
 
@@ -57,8 +67,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       businessInfo,
       monthlyVolume,
       useCases,
+      initialMessage,
     });
-  }, [step, businessInfo, monthlyVolume, useCases, saveProgressMutation]);
+  }, [step, businessInfo, monthlyVolume, useCases, initialMessage, saveProgressMutation]);
+
+  const completeOnboarding = useCallback(async (data: InitialMessageFormValues) => {
+    await completeOnboardingMutation.mutateAsync(data);
+  }, [completeOnboardingMutation]);
 
   const handleSetStep = useCallback((newStep: number) => {
     isUserChangingStep.current = true;
@@ -80,9 +95,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         setMonthlyVolume,
         useCases,
         setUseCases,
+        initialMessage,
+        setInitialMessage,
         saveProgress,
+        completeOnboarding,
         isLoading,
         isSaving: saveProgressMutation.isPending,
+        isCompleting: completeOnboardingMutation.isPending,
       }}
     >
       {children}

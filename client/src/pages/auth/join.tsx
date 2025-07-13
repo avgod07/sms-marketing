@@ -41,9 +41,16 @@ export default function JoinPage({ params }: JoinPageProps) {
       setSubmitted(true);
     },
     onError: (err: any) => {
+      let errorMessage = handleApiError(err);
+      
+      // Check if error is due to incomplete onboarding
+      if (err?.data?.code === "ONBOARDING_INCOMPLETE") {
+        errorMessage = "This business is not currently accepting new contacts. Please try again later.";
+      }
+      
       toast({
         title: "Error",
-        description: handleApiError(err),
+        description: errorMessage,
         variant: "destructive",
       });
     },

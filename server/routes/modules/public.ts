@@ -20,24 +20,67 @@ export function registerPublicRoutes(app: Express) {
       const { businessId, ...contact } = publicContactSchema.parse(req.body);
 
       // Validate business exists and is active
+      const contactStore = storage.forBusiness(businessId);
+      let business;
       try {
-        await storage.forBusiness(businessId).getBusiness();
+        business = await contactStore.getBusiness();
       } catch (error) {
         return res.status(404).json({ message: "Business not found" });
       }
 
+      // Check if onboarding is complete
+      if (!business.onboardingComplete || !business.initialMessage) {
+        return res.status(400).json({
+          message:
+            "This business is not currently accepting new contacts. Please try again later.",
+          code: "ONBOARDING_INCOMPLETE",
+        });
+      }
+
       // Check if phone number already exists for this business
-      const existingContact = await storage
-        .forBusiness(businessId)
-        .getContactByPhoneNumber(contact.phoneNumber);
+      const existingContact = await contactStore.getContactByPhoneNumber(
+        contact.phoneNumber
+      );
       if (existingContact) {
         return res
           .status(409)
           .json({ message: "Contact with this phone number already exists" });
       }
 
-      const contactStore = storage.forBusiness(businessId);
       const newContact = await contactStore.createContact(contact);
+
+      // Send initial message to the new contact
+      try {
+        const creds = await contactStore.getTwilioCredentials();
+        const numbers = await contactStore.getPhoneNumbers();
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+        if (creds && from) {
+          const { TwilioService } = await import("../../services/twilio");
+          const result = await TwilioService.sendSMS(creds, {
+            to: newContact.phoneNumber,
+            message: business.initialMessage,
+            from,
+            messagingServiceSid: creds?.messagingServiceSid || undefined,
+            contactId: newContact.id,
+          });
+
+          // Record the sent message in the database
+          if (result.success) {
+            await contactStore.createMessage({
+              phoneNumber: newContact.phoneNumber,
+              contactId: newContact.id,
+              content: business.initialMessage,
+              status: "sent",
+              messageSid: result.messageSid,
+            });
+          }
+        }
+      } catch (smsError) {
+        // Log the SMS error but don't fail the contact creation
+        logError("Error sending initial message:", smsError);
+      }
+
       res.status(201).json(newContact);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -3,12 +3,14 @@ import { apiMutation } from "@/lib/queryClient";
 import type { BusinessInfoFormValues } from "@/components/onboarding/business-info-form";
 import type { VolumeOption } from "@/components/onboarding/monthly-volume-form";
 import type { UseCaseOption } from "@/components/onboarding/use-case-form";
+import type { InitialMessageFormValues } from "@/components/onboarding/initial-message-form";
 
 export interface OnboardingProgress {
   step: number;
   businessInfo: BusinessInfoFormValues | null;
   monthlyVolume: VolumeOption | null;
   useCases: UseCaseOption[] | null;
+  initialMessage?: InitialMessageFormValues | null;
 }
 
 export interface SaveProgressData {
@@ -16,6 +18,7 @@ export interface SaveProgressData {
   businessInfo?: BusinessInfoFormValues;
   monthlyVolume?: VolumeOption;
   useCases?: UseCaseOption[];
+  initialMessage?: InitialMessageFormValues;
 }
 
 export function useOnboardingProgress() {
@@ -51,6 +54,28 @@ export function useSaveOnboardingProgress() {
     onSuccess: (data) => {
       // Update the cache directly instead of invalidating to prevent refetch
       queryClient.setQueryData(["onboarding-progress"], data);
+    },
+  });
+}
+
+export function useCompleteOnboarding() {
+  const queryClient = useQueryClient();
+
+  return useMutation<any, Error, InitialMessageFormValues>({
+    mutationFn: async (data) => {
+      return apiMutation({
+        method: "POST",
+        url: "/api/onboarding/complete",
+        data,
+      });
+    },
+    onSuccess: () => {
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ["onboarding-progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/business/account-info"],
+      });
     },
   });
 }

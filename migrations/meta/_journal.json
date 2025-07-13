@@ -85,6 +85,13 @@
       "when": 1733000000011,
       "tag": "0012_fix_users_username_multi_tenancy",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1752417081846,
+      "tag": "0012_green_salo",
+      "breakpoints": true
     }
   ]
-} 
+}

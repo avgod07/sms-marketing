@@ -82,8 +82,52 @@ export function registerContactRoutes(app: Express) {
   app.post("/api/contacts", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
+
+      // Check if onboarding is complete
+      const business = await biz.getBusiness();
+      if (!business.onboardingComplete || !business.initialMessage) {
+        return res.status(400).json({
+          message:
+            "Please complete onboarding and set an initial message before adding contacts.",
+          code: "ONBOARDING_INCOMPLETE",
+        });
+      }
+
       const validatedData = insertContactSchema.parse(req.body);
       const contact = await biz.createContact(validatedData);
+
+      // Send initial message to the new contact
+      try {
+        const creds = await biz.getTwilioCredentials();
+        const numbers = await biz.getPhoneNumbers();
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+        if (creds && from) {
+          const { TwilioService } = await import("../../services/twilio");
+          const result = await TwilioService.sendSMS(creds, {
+            to: contact.phoneNumber,
+            message: business.initialMessage,
+            from,
+            messagingServiceSid: creds?.messagingServiceSid || undefined,
+            contactId: contact.id,
+          });
+
+          // Record the sent message in the database
+          if (result.success) {
+            await biz.createMessage({
+              phoneNumber: contact.phoneNumber,
+              contactId: contact.id,
+              content: business.initialMessage,
+              status: "sent",
+              messageSid: result.messageSid,
+            });
+          }
+        }
+      } catch (smsError) {
+        // Log the SMS error but don't fail the contact creation
+        logError("Error sending initial message:", smsError);
+      }
+
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
