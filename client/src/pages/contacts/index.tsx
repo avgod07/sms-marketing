@@ -162,6 +162,15 @@ export default function Contacts() {
     deleteContactMutation.mutate();
   };
 
+  const handleMessage = (contact: Contact) => {
+    // Navigate to inbox with the contact pre-selected
+    const params = new URLSearchParams();
+    params.set('contactId', contact.id.toString());
+    params.set('contactName', `${contact.firstName} ${contact.lastName}`);
+    params.set('phoneNumber', contact.phoneNumber);
+    navigate(`/inbox?${params.toString()}`);
+  };
+
   const loadHtml2Pdf = () => {
     if ((window as any).html2pdf) {
       return Promise.resolve();
@@ -454,6 +463,7 @@ export default function Contacts() {
                 setIsHistoryOpen(true);
               }}
               onDelete={handleDelete}
+              onMessage={handleMessage}
             />
           </CardContent>
         </Card>
