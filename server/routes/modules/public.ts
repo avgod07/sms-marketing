@@ -15,7 +15,49 @@ export function registerPublicRoutes(app: Express) {
     businessId: z.number().positive("Business ID must be a positive number"),
   });
 
-  app.post("/public/contacts", publicContactRateLimiter, async (req, res) => {
+  // New endpoint: Get business info for public join form
+  app.get("/business/:businessId", async (req, res) => {
+    try {
+      const businessId = parseInt(req.params.businessId);
+      if (isNaN(businessId)) {
+        return res.status(400).json({ message: "Invalid business ID" });
+      }
+
+      const contactStore = storage.forBusiness(businessId);
+      let business;
+      try {
+        business = await contactStore.getBusiness();
+      } catch (error) {
+        return res.status(404).json({ message: "Business not found" });
+      }
+
+      // Check if onboarding is complete
+      if (!business.onboardingComplete || !business.initialMessage) {
+        return res.status(400).json({
+          message: "This business is not currently accepting new contacts.",
+          code: "ONBOARDING_INCOMPLETE",
+        });
+      }
+
+      // Get onboarding progress for additional business info
+      const progress = await contactStore.getOnboardingProgress();
+
+      res.json({
+        businessName:
+          business.name || progress?.businessName || "This Business",
+        websiteUrl: progress?.websiteUrl || null,
+        city: progress?.city || null,
+        state: progress?.state || null,
+        country: progress?.country || null,
+        isAcceptingContacts: true,
+      });
+    } catch (error) {
+      logError("Error fetching public business info:", error);
+      res.status(500).json({ message: "Failed to fetch business information" });
+    }
+  });
+
+  app.post("/contacts", publicContactRateLimiter, async (req, res) => {
     try {
       const { businessId, ...contact } = publicContactSchema.parse(req.body);
 

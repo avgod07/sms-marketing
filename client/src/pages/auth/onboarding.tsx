@@ -129,7 +129,7 @@ function Content() {
           <CardHeader>
             <StepIndicator current={step} steps={steps} />
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
             {step === 1 && (
               <BusinessInfoForm
                 initialValues={businessInfo}
