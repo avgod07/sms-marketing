@@ -340,7 +340,25 @@ export default function Inbox() {
           <p className="text-gray-600 mt-1">View and reply to incoming messages</p>
         </div>
       </header>
+      
+      {/* Content */}
       <div className="flex-1 p-8">
+        {/* Setup Warning - Show at top if onboarding not complete */}
+        {setup && !setup.onboardingComplete && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Finish Setup</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>Complete your onboarding to start sending messages and receiving replies.</p>
+              <div className="flex gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/onboarding">Complete Setup</Link>
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
           <div className="flex h-full w-full">
             {/* Conversations Sidebar */}
@@ -437,20 +455,6 @@ export default function Inbox() {
                 <p className="text-gray-600 mb-4">
                   Add a contact or wait for someone to message you. Your chats will show up here.
                 </p>
-                {setup && !setup.onboardingComplete && (
-                  <Alert className="bg-yellow-50 border-yellow-400 text-yellow-700">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Finish Setup</AlertTitle>
-                    <AlertDescription className="space-y-2">
-                      <p>Complete your onboarding to start sending messages and receiving replies.</p>
-                      <div className="flex gap-2">
-                        <Button asChild size="sm" variant="outline">
-                          <Link href="/onboarding">Complete Setup</Link>
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
               </div>
             ) : selected && (
               <section className="flex flex-1 flex-col">
