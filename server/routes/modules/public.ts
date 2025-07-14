@@ -2,6 +2,10 @@ import type { Express } from "express";
 import { z } from "zod";
 import { insertContactSchema } from "@shared/schema";
 import { storage } from "../../db/storage";
+import {
+  MessageCreditService,
+  InsufficientCreditsError,
+} from "../../services/message-credits.js";
 import { logError } from "../../utils/logger.util";
 import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
 
@@ -15,29 +19,138 @@ export function registerPublicRoutes(app: Express) {
     businessId: z.number().positive("Business ID must be a positive number"),
   });
 
-  app.post("/public/contacts", publicContactRateLimiter, async (req, res) => {
+  // New endpoint: Get business info for public join form
+  app.get("/business/:businessId", async (req, res) => {
     try {
-      const { businessId, ...contact } = publicContactSchema.parse(req.body);
+      const businessId = parseInt(req.params.businessId);
+      if (isNaN(businessId)) {
+        return res.status(400).json({ message: "Invalid business ID" });
+      }
 
-      // Validate business exists and is active
+      const contactStore = storage.forBusiness(businessId);
+      let business;
       try {
-        await storage.forBusiness(businessId).getBusiness();
+        business = await contactStore.getBusiness();
       } catch (error) {
         return res.status(404).json({ message: "Business not found" });
       }
 
+      // Check if onboarding is complete
+      if (!business.onboardingComplete || !business.initialMessage) {
+        return res.status(400).json({
+          message: "This business is not currently accepting new contacts.",
+          code: "ONBOARDING_INCOMPLETE",
+        });
+      }
+
+      // Get onboarding progress for additional business info
+      const progress = await contactStore.getOnboardingProgress();
+
+      res.json({
+        businessName:
+          business.name || progress?.businessName || "This Business",
+        websiteUrl: progress?.websiteUrl || null,
+        city: progress?.city || null,
+        state: progress?.state || null,
+        country: progress?.country || null,
+        isAcceptingContacts: true,
+      });
+    } catch (error) {
+      logError("Error fetching public business info:", error);
+      res.status(500).json({ message: "Failed to fetch business information" });
+    }
+  });
+
+  app.post("/contacts", publicContactRateLimiter, async (req, res) => {
+    try {
+      const { businessId, ...contact } = publicContactSchema.parse(req.body);
+
+      // Validate business exists and is active
+      const contactStore = storage.forBusiness(businessId);
+      let business;
+      try {
+        business = await contactStore.getBusiness();
+      } catch (error) {
+        return res.status(404).json({ message: "Business not found" });
+      }
+
+      // Check if onboarding is complete
+      if (!business.onboardingComplete || !business.initialMessage) {
+        return res.status(400).json({
+          message:
+            "This business is not currently accepting new contacts. Please try again later.",
+          code: "ONBOARDING_INCOMPLETE",
+        });
+      }
+
       // Check if phone number already exists for this business
-      const existingContact = await storage
-        .forBusiness(businessId)
-        .getContactByPhoneNumber(contact.phoneNumber);
+      const existingContact = await contactStore.getContactByPhoneNumber(
+        contact.phoneNumber
+      );
       if (existingContact) {
         return res
           .status(409)
           .json({ message: "Contact with this phone number already exists" });
       }
 
-      const contactStore = storage.forBusiness(businessId);
       const newContact = await contactStore.createContact(contact);
+
+      // Send initial message to the new contact with credit deduction
+      try {
+        const creds = await contactStore.getTwilioCredentials();
+        const numbers = await contactStore.getPhoneNumbers();
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+        if (creds && from) {
+          // Use the new credit deduction service
+          const result = await MessageCreditService.sendWithCreditDeduction(
+            contactStore,
+            creds,
+            {
+              to: newContact.phoneNumber,
+              message: business.initialMessage,
+              from,
+              messagingServiceSid: creds?.messagingServiceSid || undefined,
+              contactId: newContact.id,
+              messageType: "initial",
+            }
+          );
+
+          // Record the sent message in the database
+          await contactStore.createMessage({
+            phoneNumber: newContact.phoneNumber,
+            contactId: newContact.id,
+            content: business.initialMessage,
+            status: result.success ? "sent" : "failed",
+            messageSid: result.messageSid,
+          });
+
+          // Log credit usage for initial message
+          if (result.success) {
+            logError(
+              "Initial message sent with credit deduction (public signup)",
+              {
+                contactId: newContact.id,
+                phoneNumber: newContact.phoneNumber,
+                creditCost: result.creditCost,
+                remainingCredits: result.remainingCredits,
+              }
+            );
+          }
+        }
+      } catch (smsError) {
+        // Log the SMS error but don't fail the contact creation
+        if (smsError instanceof InsufficientCreditsError) {
+          logError("Insufficient credits for initial message (public signup)", {
+            contactId: newContact.id,
+            phoneNumber: newContact.phoneNumber,
+            error: smsError.message,
+          });
+        } else {
+          logError("Error sending initial message:", smsError);
+        }
+      }
+
       res.status(201).json(newContact);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -6,7 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Tag, 
+  Ticket, 
+  Percent, 
+  DollarSign, 
+  Calendar, 
+  Sparkles,
+  Info,
+  CheckCircle,
+  Loader2
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type CouponType = "percent" | "amount" | "free";
 
 export const couponSchema = z
   .object({
@@ -31,6 +46,14 @@ export const couponSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Percent must be between 1 and 100",
+        path: ["value"],
+      });
+    }
+
+    if (data.type === "percent" && data.value % 1 !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Percent must be a whole number",
         path: ["value"],
       });
     }
@@ -72,91 +95,255 @@ export default function CouponForm({
     }
   }, [initialValues, form]);
 
+  const watchedType = form.watch("type") as "percent" | "amount" | "free";
+  const watchedValue = form.watch("value");
+  const watchedCode = form.watch("code");
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <Label htmlFor="code">Coupon Code</Label>
-        <Input id="code" {...form.register("code")} placeholder="Leave blank to auto-generate" />
-        {form.formState.errors.code && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.code.message}</p>
-        )}
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="text-center space-y-2">
+        <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mx-auto">
+          <Sparkles className="w-6 h-6 text-blue-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {initialValues ? "Edit Coupon" : "Create New Coupon"}
+        </h3>
+        <p className="text-sm text-gray-600">
+          {initialValues ? "Update your coupon details" : "Set up a new discount coupon for your customers"}
+        </p>
       </div>
-      <div>
-        <Label htmlFor="label">Label / Note</Label>
-        <Input id="label" {...form.register("label")} placeholder="Optional description" />
-        {form.formState.errors.label && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.label.message}</p>
-        )}
-      </div>
-      <div>
-        <Label>Discount Type</Label>
-        <RadioGroup
-          value={form.watch("type")}
-          onValueChange={(val) => form.setValue("type", val as "percent" | "amount" | "free")}
-          className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2"
-        >
+
+      <Separator />
+
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Coupon Code Section */}
+        <div className="space-y-4">
           <div className="flex items-center space-x-2">
-            <RadioGroupItem id="type-percent" value="percent" />
-            <Label htmlFor="type-percent">Percent Off</Label>
+            <Tag className="w-4 h-4 text-gray-500" />
+            <Label htmlFor="code" className="text-sm font-medium text-gray-700">
+              Coupon Code
+            </Label>
           </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem id="type-amount" value="amount" />
-            <Label htmlFor="type-amount">Flat Amount Off</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem id="type-free" value="free" />
-            <Label htmlFor="type-free">Free Item or Service</Label>
-          </div>
-        </RadioGroup>
-        {form.formState.errors.type && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.type.message}</p>
-        )}
-      </div>
-      {form.watch("type") !== "free" && (
-        <div>
-          <Label htmlFor="value">Value</Label>
-          <div className="relative">
-            {form.watch("type") === "amount" && (
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-            )}
-            <Input
-              id="value"
-              type="number"
-              step="0.01"
-              {...form.register("value")}
-              className={cn(
-                form.watch("type") === "amount" && "pl-7",
-                form.watch("type") === "percent" && "pr-7",
-              )}
+          <div className="space-y-2">
+            <Input 
+              id="code" 
+              {...form.register("code")} 
+              placeholder="Leave blank to auto-generate" 
+              className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            {form.watch("type") === "percent" && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
+              <Info className="w-3 h-3" />
+              <span>
+                {watchedCode ? "Custom code will be used" : "A unique code will be generated automatically"}
+              </span>
+            </div>
+            {form.formState.errors.code && (
+              <p className="text-sm text-red-600 flex items-center space-x-1">
+                <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+                <span>{form.formState.errors.code.message}</span>
+              </p>
             )}
           </div>
-          {form.formState.errors.value && (
-            <p className="text-sm text-red-600 mt-1">{form.formState.errors.value.message}</p>
+        </div>
+
+        {/* Label Section */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Ticket className="w-4 h-4 text-gray-500" />
+            <Label htmlFor="label" className="text-sm font-medium text-gray-700">
+              Label / Internal Note
+            </Label>
+            <Badge variant="secondary" className="text-xs">Optional</Badge>
+          </div>
+          <div className="space-y-2">
+            <Input 
+              id="label" 
+              {...form.register("label")} 
+              placeholder="e.g., Holiday Sale, VIP Customer, etc." 
+              className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-500">
+              This helps you organize and identify your coupons internally
+            </p>
+            {form.formState.errors.label && (
+              <p className="text-sm text-red-600 flex items-center space-x-1">
+                <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+                <span>{form.formState.errors.label.message}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Discount Type Section */}
+        <div className="space-y-4">
+          <Label className="text-sm font-medium text-gray-700">
+            Discount Type
+          </Label>
+          <RadioGroup
+            value={form.watch("type")}
+            onValueChange={(val) => form.setValue("type", val as "percent" | "amount" | "free")}
+            className="space-y-3"
+          >
+            <label className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+              <RadioGroupItem id="type-percent" value="percent" />
+              <div className="flex items-center space-x-2 flex-1">
+                <span className="font-medium">Percentage Off</span>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                Most popular
+              </Badge>
+            </label>
+            <label className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+              <RadioGroupItem id="type-amount" value="amount" />
+              <div className="flex items-center space-x-2 flex-1">
+                <span className="font-medium">Fixed Amount Off</span>
+              </div>
+            </label>
+            <label className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+              <RadioGroupItem id="type-free" value="free" />
+              <div className="flex items-center space-x-2 flex-1">
+                <span className="font-medium">Free Item or Service</span>
+              </div>
+            </label>
+          </RadioGroup>
+          {form.formState.errors.type && (
+            <p className="text-sm text-red-600 flex items-center space-x-1">
+              <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+              <span>{form.formState.errors.type.message}</span>
+            </p>
           )}
         </div>
-      )}
-      <div>
-        <Label htmlFor="expirationDate">Expiration Date</Label>
-        <Input
-          id="expirationDate"
-          type="date"
-          {...form.register("expirationDate")}
-        />
-        {form.formState.errors.expirationDate && (
-          <p className="text-sm text-red-600 mt-1">{form.formState.errors.expirationDate.message}</p>
+
+        {/* Value Section */}
+        {watchedType !== "free" && (
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              {watchedType === "percent" ? (
+                <Percent className="w-4 h-4 text-gray-500" />
+              ) : (
+                <DollarSign className="w-4 h-4 text-gray-500" />
+              )}
+              <Label htmlFor="value" className="text-sm font-medium text-gray-700">
+                {watchedType === "percent" ? "Percentage Value" : "Dollar Amount"}
+              </Label>
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                {watchedType === "amount" && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                    $
+                  </span>
+                )}
+                <Input
+                  id="value"
+                  type="number"
+                  step={watchedType === "percent" ? "1" : "0.01"}
+                  min={watchedType === "percent" ? "1" : "0"}
+                  max={watchedType === "percent" ? "100" : undefined}
+                  {...form.register("value")}
+                  className={cn(
+                    "transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                    watchedType === "amount" && "pl-8",
+                    watchedType === "percent" && "pr-8"
+                  )}
+                  placeholder={watchedType === "percent" ? "Enter percentage (1-100)" : "Enter amount"}
+                />
+                {watchedType === "percent" && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                    %
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {watchedType === "percent" 
+                    ? "Enter a whole number between 1-100" 
+                    : "Enter the dollar amount to discount"
+                  }
+                </p>
+                {(watchedValue > 0 || (watchedType as any) === "free") && (
+                  <div className="flex items-center space-x-1 text-xs text-green-600">
+                    <CheckCircle className="w-3 h-3" />
+                    <span>
+                      {/* @ts-ignore - TypeScript incorrectly narrowing enum type */}
+                      {watchedType === "free" ? "Free Item/Service" :
+                       watchedType === "percent" ? `${watchedValue}% off` :
+                       `$${watchedValue} off`}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {form.formState.errors.value && (
+                <p className="text-sm text-red-600 flex items-center space-x-1">
+                  <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+                  <span>{form.formState.errors.value.message}</span>
+                </p>
+              )}
+            </div>
+          </div>
         )}
-      </div>
-      <div className="flex space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
-          Cancel
-        </Button>
-        <Button type="submit" disabled={!form.formState.isValid || pending} className="flex-1">
-          {pending ? "Saving..." : submitLabel}
-        </Button>
-      </div>
-    </form>
+
+        {/* Expiration Section */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <Label htmlFor="expirationDate" className="text-sm font-medium text-gray-700">
+              Expiration Date
+            </Label>
+            <Badge variant="secondary" className="text-xs">Optional</Badge>
+          </div>
+          <div className="space-y-2">
+            <Input
+              id="expirationDate"
+              type="date"
+              {...form.register("expirationDate")}
+              className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-500">
+              Leave empty for no expiration date
+            </p>
+            {form.formState.errors.expirationDate && (
+              <p className="text-sm text-red-600 flex items-center space-x-1">
+                <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+                <span>{form.formState.errors.expirationDate.message}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Action Buttons */}
+        <div className="flex space-x-3 pt-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel} 
+            className="flex-1 h-11"
+            disabled={pending}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={!form.formState.isValid || pending} 
+            className="flex-1 h-11 bg-blue-600 hover:bg-blue-700"
+          >
+            {pending ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>{submitLabel}</span>
+              </div>
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

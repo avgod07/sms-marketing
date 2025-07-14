@@ -8,7 +8,7 @@ import {
 import { formatPhoneNumber } from "@/lib/utils";
 import StatusBadge from "@/components/status-badge";
 import { Contact } from "@shared/schema";
-import { MoreHorizontal, Mail, Phone, Edit, Trash2, History } from "lucide-react";
+import { MoreHorizontal, Mail, Phone, Edit, Trash2, History, MessageSquare } from "lucide-react";
 
 interface ContactTableProps {
   contacts: Contact[];
@@ -17,6 +17,7 @@ interface ContactTableProps {
   onEdit: (contact: Contact) => void;
   onViewRedemptions: (contact: Contact) => void;
   onDelete: (contact: Contact) => void;
+  onMessage: (contact: Contact) => void;
 }
 
 export default function ContactTable({
@@ -26,6 +27,7 @@ export default function ContactTable({
   onEdit,
   onViewRedemptions,
   onDelete,
+  onMessage,
 }: ContactTableProps) {
   if (isLoading) {
     return (
@@ -121,6 +123,9 @@ export default function ContactTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onMessage(contact)}>
+                      <MessageSquare className="mr-2 h-4 w-4" /> Message
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onEdit(contact)}>
                       <Edit className="mr-2 h-4 w-4" /> Edit Contact
                     </DropdownMenuItem>

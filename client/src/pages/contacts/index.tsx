@@ -36,6 +36,12 @@ import type { User } from "@shared/schema";
 import type { Contact } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import ContactRedemptionTable from "@/components/contacts/contact-redemption-table";
+import { AlertCircle } from "lucide-react";
+import { useLocation } from "wouter";
+import { Label } from "@/components/ui/label";
+import { Copy, Download, QrCode } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Link } from "wouter";
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,6 +57,7 @@ export default function Contacts() {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const { data: user } = useAuth() as { data: User | null };
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts", { search: trimmedSearch }],
@@ -157,6 +164,15 @@ export default function Contacts() {
     deleteContactMutation.mutate();
   };
 
+  const handleMessage = (contact: Contact) => {
+    // Navigate to inbox with the contact pre-selected
+    const params = new URLSearchParams();
+    params.set('contactId', contact.id.toString());
+    params.set('contactName', `${contact.firstName} ${contact.lastName}`);
+    params.set('phoneNumber', contact.phoneNumber);
+    navigate(`/inbox?${params.toString()}`);
+  };
+
   const loadHtml2Pdf = () => {
     if ((window as any).html2pdf) {
       return Promise.resolve();
@@ -202,6 +218,8 @@ export default function Contacts() {
     }
   };
 
+  const disabled = !setup?.phoneConfigured || !setup?.hasContacts || !setup?.onboardingComplete;
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -216,6 +234,19 @@ export default function Contacts() {
 
       {/* Content */}
       <div className="p-8">
+        {disabled && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+            <AlertTitle>Finish Setup</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>Complete your onboarding to start adding contacts and sending messages.</p>
+              <div className="flex gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/onboarding">Complete Setup</Link>
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Contact Management Section */}
         <Card>
@@ -227,36 +258,109 @@ export default function Contacts() {
               <div className="flex items-center space-x-2">
                 <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">Show QR Code</Button>
+                    <Button variant="outline" size="sm" disabled={disabled}>
+                      <QrCode className="w-4 h-4 mr-2" />
+                      QR Code
+                    </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-sm text-center">
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Join Link QR Code</DialogTitle>
+                      <DialogTitle className="text-center">Join Link QR Code</DialogTitle>
                     </DialogHeader>
-                    <div className="flex justify-center py-4">
-                      {user?.businessId ? (
-                        <QRCode
-                          id="business-qr-code"
-                          value={`${window.location.origin}/join/${user.businessId}`}
-                        />
-                      ) : (
-                        <Skeleton className="h-40 w-40" />
-                      )}
-                    </div>
-                    <div className="flex flex-col items-center space-y-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={downloadQrPdf}
-                      >
-                        Download
-                      </Button>
+                    
+                    <div className="space-y-6">
+                      {/* QR Code Display */}
+                      <div className="flex justify-center p-6 bg-white rounded-lg border-2 border-gray-200">
+                        {user?.businessId ? (
+                          <QRCode
+                            id="business-qr-code"
+                            value={`${window.location.origin}/join/${user.businessId}`}
+                            size={200}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                          />
+                        ) : (
+                          <Skeleton className="h-48 w-48" />
+                        )}
+                      </div>
+
+                      {/* Instructions */}
+                      <div className="text-center space-y-2">
+                        <p className="text-sm font-medium text-gray-900">
+                          Share this QR code with customers
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          When scanned, customers will be taken to your contact signup page
+                        </p>
+                      </div>
+
+                      {/* Join URL Display */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium text-gray-700">Direct Link:</Label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            readOnly
+                            value={`${window.location.origin}/join/${user?.businessId || ''}`}
+                            className="text-xs bg-gray-50 border-gray-200"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const url = `${window.location.origin}/join/${user?.businessId}`;
+                              navigator.clipboard.writeText(url);
+                              toast({ title: "Link copied to clipboard!" });
+                            }}
+                            className="shrink-0"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={downloadQrPdf}
+                          className="flex-1"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const canvas = document.createElement('canvas');
+                            const svgElement = document.getElementById('business-qr-code');
+                            if (svgElement && svgElement.tagName === 'svg') {
+                              const svg = svgElement as unknown as SVGSVGElement;
+                              const svgData = new XMLSerializer().serializeToString(svg);
+                              const img = new Image();
+                              img.onload = () => {
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                const ctx = canvas.getContext('2d');
+                                ctx?.drawImage(img, 0, 0);
+                                const link = document.createElement('a');
+                                link.download = 'qr-code.png';
+                                link.href = canvas.toDataURL();
+                                link.click();
+                              };
+                              img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+                            }
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PNG
+                        </Button>
+                      </div>
                     </div>
                   </DialogContent>
                 </Dialog>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm">
+                    <Button size="sm" disabled={disabled}>
                       <Plus className="w-4 h-4 mr-2" />
                       Add Contact
                     </Button>
@@ -265,12 +369,40 @@ export default function Contacts() {
                   <DialogHeader>
                     <DialogTitle>Add New Contact</DialogTitle>
                   </DialogHeader>
-                  <ContactForm
-                    onSubmit={handleCreateSubmit}
-                    onCancel={() => setIsCreateOpen(false)}
-                    pending={createContactMutation.isPending}
-                    submitLabel="Add Contact"
-                  />
+                  {!setup?.onboardingComplete ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2 text-amber-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-sm font-medium">Onboarding Required</span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Please complete onboarding and set your welcome message before adding contacts.
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsCreateOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            setIsCreateOpen(false);
+                            navigate("/onboarding");
+                          }}
+                        >
+                          Complete Onboarding
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <ContactForm
+                      onSubmit={handleCreateSubmit}
+                      onCancel={() => setIsCreateOpen(false)}
+                      pending={createContactMutation.isPending}
+                      submitLabel="Add Contact"
+                    />
+                  )}
                 </DialogContent>
               </Dialog>
               <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -348,6 +480,7 @@ export default function Contacts() {
                 setIsHistoryOpen(true);
               }}
               onDelete={handleDelete}
+              onMessage={handleMessage}
             />
           </CardContent>
         </Card>

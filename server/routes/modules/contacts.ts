@@ -2,6 +2,10 @@ import type { Express } from "express";
 import { z } from "zod";
 import { requireAuth } from "@clerk/express";
 import { insertContactSchema } from "@shared/schema";
+import {
+  MessageCreditService,
+  InsufficientCreditsError,
+} from "../../services/message-credits.js";
 import { getBizForRequest, logDetailedError } from "./utils";
 import { logError } from "../../utils/logger.util";
 
@@ -82,8 +86,73 @@ export function registerContactRoutes(app: Express) {
   app.post("/api/contacts", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
+
+      // Check if onboarding is complete
+      const business = await biz.getBusiness();
+      if (!business.onboardingComplete || !business.initialMessage) {
+        return res.status(400).json({
+          message:
+            "Please complete onboarding and set an initial message before adding contacts.",
+          code: "ONBOARDING_INCOMPLETE",
+        });
+      }
+
       const validatedData = insertContactSchema.parse(req.body);
       const contact = await biz.createContact(validatedData);
+
+      // Send initial message to the new contact with credit deduction
+      try {
+        const creds = await biz.getTwilioCredentials();
+        const numbers = await biz.getPhoneNumbers();
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+        if (creds && from) {
+          // Use the new credit deduction service
+          const result = await MessageCreditService.sendWithCreditDeduction(
+            biz,
+            creds,
+            {
+              to: contact.phoneNumber,
+              message: business.initialMessage,
+              from,
+              messagingServiceSid: creds?.messagingServiceSid || undefined,
+              contactId: contact.id,
+              messageType: "initial",
+            }
+          );
+
+          // Record the sent message in the database
+          await biz.createMessage({
+            phoneNumber: contact.phoneNumber,
+            contactId: contact.id,
+            content: business.initialMessage,
+            status: result.success ? "sent" : "failed",
+            messageSid: result.messageSid,
+          });
+
+          // Log credit usage for initial message
+          if (result.success) {
+            logError("Initial message sent with credit deduction", {
+              contactId: contact.id,
+              phoneNumber: contact.phoneNumber,
+              creditCost: result.creditCost,
+              remainingCredits: result.remainingCredits,
+            });
+          }
+        }
+      } catch (smsError) {
+        // Log the SMS error but don't fail the contact creation
+        if (smsError instanceof InsufficientCreditsError) {
+          logError("Insufficient credits for initial message", {
+            contactId: contact.id,
+            phoneNumber: contact.phoneNumber,
+            error: smsError.message,
+          });
+        } else {
+          logError("Error sending initial message:", smsError);
+        }
+      }
+
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {

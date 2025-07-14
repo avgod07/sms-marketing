@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import ChatBubble from "@/components/shared/ChatBubble";
 import { formatPhoneNumber, timeAgo } from "@/lib/utils";
-import { Search, MessageSquareText } from "lucide-react";
+import { Search, MessageSquareText, Plus, AlertTriangle } from "lucide-react";
 import { emitMessageSend } from "@/lib/socket";
 import { useMessageSocket } from "@/hooks/use-message-socket";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -13,8 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { handleApiError } from "@/lib/handleApiError";
 import type { Message as ApiMessage } from "@shared/schema";
+import type { Contact } from "@shared/schema";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import NewMessageModal from "@/components/inbox/new-message-modal";
+import { useLocation, Link } from "wouter";
 
 interface Message {
   id: number;
@@ -38,10 +41,13 @@ export default function Inbox() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reply, setReply] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
+  const [preSelectedContact, setPreSelectedContact] = useState<Contact | null>(null);
   const { toast } = useToast();
   const { data: user } = useAuth();
   const debouncedSearch = useDebounce(searchQuery, 300);
   const trimmedSearch = debouncedSearch.trim().toLowerCase();
+  const [location] = useLocation();
   const selected =
     selectedId !== null
       ? conversations.find((c) => c.id === selectedId) || null
@@ -52,6 +58,32 @@ export default function Inbox() {
     return target.includes(trimmedSearch);
   });
   const { data: setup } = useSetupStatus(!!user);
+
+  // Handle pre-selected contact from URL parameters
+  useEffect(() => {
+    if (location.includes('contactId=')) {
+      const urlParams = new URLSearchParams(location.split('?')[1]);
+      const contactId = urlParams.get('contactId');
+      const contactName = urlParams.get('contactName');
+      const phoneNumber = urlParams.get('phoneNumber');
+      
+      if (contactId && contactName && phoneNumber) {
+        const contact: Contact = {
+          id: parseInt(contactId),
+          firstName: contactName.split(' ')[0] || '',
+          lastName: contactName.split(' ').slice(1).join(' ') || '',
+          phoneNumber: phoneNumber,
+          email: null,
+          active: true,
+          businessId: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        setPreSelectedContact(contact);
+        setIsNewMessageModalOpen(true);
+      }
+    }
+  }, [location]);
 
   useEffect(() => {
     if (!user) return; // Only load conversations when user is authenticated
@@ -247,6 +279,58 @@ export default function Inbox() {
     }
   };
 
+  const handleNewMessageClick = () => {
+    setIsNewMessageModalOpen(true);
+  };
+
+  const handleNewMessageModalClose = () => {
+    setIsNewMessageModalOpen(false);
+    setPreSelectedContact(null);
+  };
+
+  const handleMessageSent = (message: ApiMessage) => {
+    // Refresh conversations to show the new conversation
+    const loadConversations = async () => {
+      try {
+        const res = await fetch("/api/conversations");
+        if (res.ok) {
+          const data = await res.json();
+          const convs: Conversation[] = data.map((c: any) => ({
+            id: c.id,
+            contactName:
+              c.firstName || c.lastName
+                ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()
+                : undefined,
+            phone: c.phoneNumber,
+            active: c.active !== false,
+            messages: c.lastMessage
+              ? [
+                  {
+                    id: c.lastMessage.id,
+                    text: c.lastMessage.content,
+                    timestamp: new Date(c.lastMessage.createdAt),
+                    incoming: c.lastMessage.status === "received",
+                    status: c.lastMessage.status,
+                  },
+                ]
+              : [],
+            hasUnread: false,
+          }));
+          setConversations(convs);
+          
+          // Select the conversation with the contact we just messaged
+          const newConv = convs.find(c => c.id === message.contactId);
+          if (newConv) {
+            setSelectedId(newConv.id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to refresh conversations:", err);
+      }
+    };
+    loadConversations();
+  };
+
   return (
     <div className="fade-in h-full flex flex-col">
       {/* Page Header */}
@@ -256,12 +340,38 @@ export default function Inbox() {
           <p className="text-gray-600 mt-1">View and reply to incoming messages</p>
         </div>
       </header>
+      
+      {/* Content */}
       <div className="flex-1 p-8">
+        {/* Setup Warning - Show at top if onboarding not complete */}
+        {setup && !setup.onboardingComplete && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Finish Setup</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>Complete your onboarding to start sending messages and receiving replies.</p>
+              <div className="flex gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/onboarding">Complete Setup</Link>
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Card className="mx-auto h-full w-full max-w-[1200px] p-6">
           <div className="flex h-full w-full">
             {/* Conversations Sidebar */}
             <aside className="hidden md:flex w-[300px] flex-col border-r border-gray-200">
               <div className="p-4 border-b">
+                <Button
+                  onClick={handleNewMessageClick}
+                  className="w-full mb-3"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Message
+                </Button>
                 <div className="relative mt-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
@@ -345,9 +455,6 @@ export default function Inbox() {
                 <p className="text-gray-600 mb-4">
                   Add a contact or wait for someone to message you. Your chats will show up here.
                 </p>
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-yellow-700">
-                  You'll need to finish setting up your account before you can send messages. Head to onboarding to get started!
-                </div>
               </div>
             ) : selected && (
               <section className="flex flex-1 flex-col">
@@ -390,6 +497,13 @@ export default function Inbox() {
           </div>
         </Card>
       </div>
+      
+      <NewMessageModal
+        isOpen={isNewMessageModalOpen}
+        onClose={handleNewMessageModalClose}
+        onMessageSent={handleMessageSent}
+        preSelectedContact={preSelectedContact}
+      />
     </div>
   );
 }

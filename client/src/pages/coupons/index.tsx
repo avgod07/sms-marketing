@@ -285,7 +285,7 @@ export default function Coupons() {
           </CardContent>
         </Card>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Coupon</DialogTitle>
             </DialogHeader>

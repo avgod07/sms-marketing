@@ -55,11 +55,13 @@ export function registerBusinessRoutes(app: Express) {
       const contactStats = await biz.getContactStats();
       const couponStats = await biz.getCouponStats();
       const creds = await biz.getTwilioCredentials();
+      const business = await biz.getBusiness();
+
       res.json({
         phoneConfigured: !!creds,
         hasContacts: contactStats.allContacts > 0,
         hasCoupons: couponStats.allCoupons > 0,
-        onboardingComplete: !!user.onboardingComplete,
+        onboardingComplete: !!business.onboardingComplete,
       });
     } catch (error) {
       logDetailedError("Error fetching setup status", error);
@@ -124,6 +126,66 @@ export function registerBusinessRoutes(app: Express) {
       }
       logError("Error updating account info:", error);
       res.status(500).json({ message: "Failed to update account info" });
+    }
+  });
+
+  // New endpoint: Get initial message
+  app.get("/api/business/initial-message", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const business = await biz.getBusiness();
+
+      res.json({
+        initialMessage: business.initialMessage || "",
+        onboardingComplete: !!business.onboardingComplete,
+      });
+    } catch (error) {
+      logError("Error fetching initial message:", error);
+      res.status(500).json({ message: "Failed to fetch initial message" });
+    }
+  });
+
+  // New endpoint: Update initial message
+  const initialMessageSchema = z.object({
+    initialMessage: z
+      .string()
+      .min(1, "Initial message is required")
+      .max(160, "Initial message must be 160 characters or less"),
+  });
+
+  app.post("/api/business/initial-message", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const { initialMessage } = initialMessageSchema.parse(req.body);
+
+      // Ensure initial message includes compliance text
+      const complianceText = "Text STOP to unsubscribe.";
+      const finalMessage = initialMessage.includes(complianceText)
+        ? initialMessage
+        : `${initialMessage} ${complianceText}`;
+
+      // Check if final message exceeds 160 characters
+      if (finalMessage.length > 160) {
+        return res.status(400).json({
+          message:
+            "Initial message with compliance text exceeds 160 characters. Please shorten your message.",
+        });
+      }
+
+      await biz.updateBusiness({ initialMessage: finalMessage });
+
+      res.json({
+        success: true,
+        initialMessage: finalMessage,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error updating initial message:", error);
+      res.status(500).json({ message: "Failed to update initial message" });
     }
   });
 

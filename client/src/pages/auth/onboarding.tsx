@@ -2,6 +2,7 @@ import BusinessInfoForm from "@/components/onboarding/business-info-form";
 import MonthlyVolumeForm from "@/components/onboarding/monthly-volume-form";
 import UseCaseForm from "@/components/onboarding/use-case-form";
 import TollFreeNumberForm from "@/components/onboarding/toll-free-number-form";
+import InitialMessageForm from "@/components/onboarding/initial-message-form";
 import StepIndicator from "@/components/onboarding/step-indicator";
 import { OnboardingProvider, useOnboarding } from "@/components/onboarding/onboarding-context";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -15,6 +16,7 @@ const steps = [
   "Twilio Setup",
   "SMS Use Cases",
   "Toll-Free Number",
+  "Welcome Message",
 ];
 
 function Content() {
@@ -29,9 +31,13 @@ function Content() {
     setMonthlyVolume,
     useCases,
     setUseCases,
+    initialMessage,
+    setInitialMessage,
     saveProgress,
+    completeOnboarding,
     isLoading,
     isSaving,
+    isCompleting,
   } = useOnboarding();
   const [, navigate] = useLocation();
 
@@ -64,6 +70,15 @@ function Content() {
     saveProgress().catch((error) => {
       console.error("Failed to save progress on back navigation:", error);
     });
+  };
+
+  const handleCompleteOnboarding = async (data: { initialMessage: string }) => {
+    try {
+      await completeOnboarding(data);
+      navigate("/");
+    } catch (error) {
+      console.error("Failed to complete onboarding:", error);
+    }
   };
 
   if (isLoading) {
@@ -100,10 +115,10 @@ function Content() {
             <h1 className="text-2xl font-bold text-gray-900">Onboarding</h1>
             <p className="text-gray-600 mt-1">Let's set up your account.</p>
           </div>
-          {isSaving && (
+          {(isSaving || isCompleting) && (
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Saving...</span>
+              <span>{isCompleting ? "Completing..." : "Saving..."}</span>
             </div>
           )}
         </div>
@@ -114,7 +129,7 @@ function Content() {
           <CardHeader>
             <StepIndicator current={step} steps={steps} />
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
             {step === 1 && (
               <BusinessInfoForm
                 initialValues={businessInfo}
@@ -152,9 +167,17 @@ function Content() {
             )}
             {step === 4 && (
               <TollFreeNumberForm
-                onSuccess={() => navigate("/")}
+                onSuccess={() => handleStepChange(5)}
                 onBack={() => handleBack(3)}
                 isSaving={isSaving}
+              />
+            )}
+            {step === 5 && (
+              <InitialMessageForm
+                initialValues={initialMessage}
+                onSubmit={handleCompleteOnboarding}
+                onBack={() => handleBack(4)}
+                isSaving={isCompleting}
               />
             )}
           </CardContent>

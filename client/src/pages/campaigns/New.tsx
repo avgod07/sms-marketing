@@ -95,24 +95,11 @@ export default function NewCampaignPage() {
           <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
             <AlertTitle>Finish Setup</AlertTitle>
             <AlertDescription className="space-y-2">
-              <p>
-                { !setup?.phoneConfigured && !setup?.hasContacts
-                  ? 'Add a phone number and contacts before creating a campaign.'
-                  : !setup?.phoneConfigured
-                  ? 'Add a phone number before creating a campaign.'
-                  : 'Add contacts before creating a campaign.' }
-              </p>
+              <p>Complete your onboarding to start creating campaigns.</p>
               <div className="flex gap-2">
-                {!setup?.phoneConfigured && (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/settings">Add Number</Link>
-                  </Button>
-                )}
-                {!setup?.hasContacts && (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/contacts">Add Contacts</Link>
-                  </Button>
-                )}
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/onboarding">Complete Setup</Link>
+                </Button>
               </div>
             </AlertDescription>
           </Alert>

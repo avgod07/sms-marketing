@@ -21,6 +21,8 @@ export const businesses = pgTable("businesses", {
   trialEndsAt: timestamp("trial_ends_at"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
+  initialMessage: text("initial_message"),
+  onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

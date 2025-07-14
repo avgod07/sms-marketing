@@ -706,10 +706,15 @@ export function registerTwilioRoutes(app: Express) {
   });
 
   const saveProgressSchema = z.object({
-    step: z.number().min(1).max(4),
+    step: z.number().min(1).max(5),
     businessInfo: z.any().optional(),
     monthlyVolume: z.string().optional(),
     useCases: z.array(z.string()).optional(),
+    initialMessage: z
+      .object({
+        initialMessage: z.string().optional(),
+      })
+      .optional(),
   });
 
   app.post("/api/onboarding/save-progress", requireAuth(), async (req, res) => {
@@ -775,10 +780,39 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
+  const onboardingCompleteSchema = z.object({
+    initialMessage: z
+      .string()
+      .min(1, "Initial message is required")
+      .max(160, "Initial message must be 160 characters or less"),
+  });
+
   app.post("/api/onboarding/complete", requireAuth(), async (req, res) => {
     try {
       const { biz, user } = await getBizForRequest(req);
-      // Mark onboarding as complete
+      const { initialMessage } = onboardingCompleteSchema.parse(req.body);
+
+      // Ensure initial message includes compliance text
+      const complianceText = "Text STOP to unsubscribe.";
+      const finalMessage = initialMessage.includes(complianceText)
+        ? initialMessage
+        : `${initialMessage} ${complianceText}`;
+
+      // Check if final message exceeds 160 characters
+      if (finalMessage.length > 160) {
+        return res.status(400).json({
+          message:
+            "Initial message with compliance text exceeds 160 characters. Please shorten your message.",
+        });
+      }
+
+      // Mark onboarding as complete at business level and set initial message
+      await biz.updateBusiness({
+        initialMessage: finalMessage,
+        onboardingComplete: true,
+      });
+
+      // Also mark user onboarding as complete for backward compatibility
       await db
         .update(users)
         .set({ onboardingComplete: true })
@@ -798,8 +832,14 @@ export function registerTwilioRoutes(app: Express) {
         phoneNumber: defaultNum?.phoneNumber || null,
         serviceSid:
           defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+        initialMessage: finalMessage,
       });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
       logError("Error completing onboarding:", error);
       res.status(500).json({ message: "Failed to complete onboarding" });
     }

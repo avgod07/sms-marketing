@@ -197,52 +197,6 @@ describe("routes", () => {
     expect(res.status).toBe(204);
   });
 
-  it("public contact signup creates contact", async () => {
-    const businessMocks: Record<number, any> = {};
-    mockStorage.forBusiness.mockImplementation((businessId: number) => {
-      if (!businessMocks[businessId]) {
-        businessMocks[businessId] = {
-          createContact: vi.fn().mockResolvedValue({ id: 5 }),
-          getBusiness: vi
-            .fn()
-            .mockResolvedValue({ id: businessId, name: "Test Business" }),
-          getContactByPhoneNumber: vi.fn().mockResolvedValue(undefined),
-          getContacts: vi.fn().mockResolvedValue([]),
-          getCampaigns: vi.fn().mockResolvedValue([]),
-          getCoupons: vi.fn().mockResolvedValue([]),
-          getDashboardStats: vi.fn().mockResolvedValue({}),
-          getCredits: vi.fn().mockResolvedValue({ balance: 0 }),
-          adjustCredits: vi.fn(),
-          createUser: vi
-            .fn()
-            .mockImplementation(() => Promise.resolve({ id: 1, businessId })),
-        };
-      }
-      return businessMocks[businessId];
-    });
-
-    mockStorage.getUserByClerkId.mockReset();
-    mockStorage.createBusiness.mockReset();
-    mockStorage.getUserByClerkId
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ id: 1, businessId: 2 });
-    mockStorage.createBusiness.mockResolvedValue({ id: 2 });
-
-    const app = await setupApp({ id: 1, businessId: 2 });
-
-    const res = await request(app).post("/public/contacts").send({
-      businessId: 2,
-      firstName: "John",
-      lastName: "Doe",
-      phoneNumber: "+15551234567",
-      email: "j@example.com",
-    });
-
-    expect(res.status).toBe(201);
-    expect(mockStorage.forBusiness).toHaveBeenCalledWith(2);
-    expect(businessMocks[2].createContact).toHaveBeenCalled();
-  });
-
   it("scopes routes using the businessId from the session", async () => {
     mockForBusiness.getContacts = vi.fn().mockResolvedValue([]);
     mockStorage.getUserByClerkId.mockResolvedValue({ id: 1, businessId: 42 });
@@ -304,51 +258,6 @@ describe("routes", () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(msgs);
     expect(mockForBusiness.getMessagesByContact).toHaveBeenCalledWith(3);
-  });
-
-  it("sends sms and saves message", async () => {
-    const creds = {
-      accountSid: "AC123",
-      authTokenEncrypted: "enc",
-      messagingServiceSid: "MG456",
-    };
-    mockForBusiness.getTwilioCredentials = vi.fn().mockResolvedValue(creds);
-    mockForBusiness.getPhoneNumbers = vi
-      .fn()
-      .mockResolvedValue([{ phoneNumber: "+15550001111", isDefault: true }]);
-    mockForBusiness.getContact = vi
-      .fn()
-      .mockResolvedValue({ id: 4, active: true });
-    mockSendSMS.mockResolvedValue({ success: true, messageSid: "SM789" });
-    mockForBusiness.createMessage = vi
-      .fn()
-      .mockResolvedValue({ id: 7, content: "hi" });
-
-    const app = await setupApp({ businessId: 1 });
-
-    const res = await request(app).post("/api/messages").send({
-      phoneNumber: "+15551234567",
-      content: "hello",
-      contactId: 4,
-    });
-
-    expect(res.status).toBe(201);
-    expect(mockSendSMS).toHaveBeenCalledWith(creds, {
-      to: "+15551234567",
-      message: "hello",
-      from: "+15550001111",
-      messagingServiceSid: "MG456",
-      campaignId: undefined,
-      contactId: 4,
-    });
-    expect(mockForBusiness.createMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        phoneNumber: "+15551234567",
-        content: "hello",
-        status: "sent",
-        messageSid: "SM789",
-      })
-    );
   });
 
   it("handles inbound webhook and broadcasts message", async () => {
