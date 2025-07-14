@@ -47,8 +47,9 @@ cd /opt/sms-app
 sudo docker-compose -f docker-compose.prod.yml down
 tar -xzf /tmp/sms-app-production.tar.gz
 rm /tmp/sms-app-production.tar.gz
-sudo docker build -t sms-app:latest .
-sudo docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose -f docker-compose.prod.yml up -d --build
+echo "✅ Containers started successfully!"
+sudo docker ps
 ENDSSH
 
 echo "✅ Production update complete!"

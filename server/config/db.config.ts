@@ -31,7 +31,22 @@ const poolConfig = {
   // SSL configuration (important for production)
   ssl:
     process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: true }
+      ? (() => {
+          try {
+            const certPath = "/app/certs/us-east-1-bundle.pem";
+            const certContent = readFileSync(certPath).toString();
+            return {
+              rejectUnauthorized: true,
+              ca: certContent,
+            };
+          } catch (error) {
+            logError(
+              "Failed to load SSL certificate, falling back to basic SSL",
+              { error }
+            );
+            return { rejectUnauthorized: false };
+          }
+        })()
       : false,
 
   // Statement timeout (prevents long-running queries)
