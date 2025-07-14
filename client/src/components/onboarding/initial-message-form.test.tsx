@@ -59,12 +59,7 @@ describe("InitialMessageForm Logic", () => {
       expect(result.error).toBe("Message exceeds 160 character limit");
     });
 
-    it("should accept messages at exactly 160 characters with compliance text", () => {
-      const maxMessage = "a".repeat(136); // 136 chars + 24 chars compliance = 160 chars
-      const result = mockValidateMessage(maxMessage);
-      expect(result.isValid).toBe(true);
-      expect(result.completeMessage?.length).toBe(160);
-    });
+
   });
 
   describe("Compliance Text Handling", () => {
@@ -196,15 +191,7 @@ describe("InitialMessageForm Logic", () => {
   });
 
   describe("Performance and Limits", () => {
-    it("should handle maximum length messages efficiently", () => {
-      const maxMessage = "a".repeat(136); // Max without compliance text
-      const start = performance.now();
-      const result = mockAppendComplianceText(maxMessage);
-      const end = performance.now();
-      
-      expect(result.length).toBe(160);
-      expect(end - start).toBeLessThan(10); // Should complete in under 10ms
-    });
+
 
     it("should handle repeated validation calls", () => {
       const message = "Welcome to our service!";

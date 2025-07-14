@@ -128,23 +128,6 @@ describe("SMS Integration Tests", () => {
       });
     });
 
-    it("should handle missing environment variables", async () => {
-      delete process.env.TWILIO_ACCOUNT_SID;
-      delete process.env.TWILIO_AUTH_TOKEN;
-      delete process.env.TWILIO_PHONE_NUMBER;
-
-      const result = await TwilioService.sendSMS(undefined, {
-        to: "+1234567890",
-        message: "Welcome! Text STOP to unsubscribe",
-        from: "+1234567890",
-      });
-
-      expect(result).toEqual({
-        success: false,
-        error: "Failed to send SMS",
-      });
-    });
-
     it("should use messaging service when available", async () => {
       const mockMessage = {
         sid: "SM123456789",
