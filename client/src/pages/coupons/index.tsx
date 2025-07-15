@@ -89,7 +89,7 @@ export default function Coupons() {
       const payload = {
         ...data,
         value: data.type === "free" ? "0" : data.value.toString(),
-        expirationDate: data.expirationDate
+        expirationDate: data.expirationDate && data.expirationDate.trim()
           ? new Date(data.expirationDate)
           : undefined,
       };

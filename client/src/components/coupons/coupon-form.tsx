@@ -30,8 +30,16 @@ export const couponSchema = z
     type: z.enum(["percent", "amount", "free"]),
     value: z.coerce
       .number({ invalid_type_error: "Enter a numeric value" })
-      .nonnegative(),
+      .nonnegative()
+      .default(0),
     expirationDate: z.string().optional(),
+  })
+  .transform((data) => {
+    // For free coupons, automatically set value to 0
+    if (data.type === "free") {
+      return { ...data, value: 0 };
+    }
+    return data;
   })
   .superRefine((data, ctx) => {
     if (data.type !== "free" && data.value <= 0) {
@@ -98,6 +106,14 @@ export default function CouponForm({
   const watchedType = form.watch("type") as "percent" | "amount" | "free";
   const watchedValue = form.watch("value");
   const watchedCode = form.watch("code");
+
+  // Automatically set value to 0 when type is "free" and trigger validation
+  useEffect(() => {
+    if (watchedType === "free") {
+      form.setValue("value", 0);
+      form.trigger("value"); // Trigger validation for the value field
+    }
+  }, [watchedType, form]);
 
   return (
     <div className="space-y-6">
