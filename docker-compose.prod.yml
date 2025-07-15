@@ -1,8 +1,18 @@
+# Production Docker Compose Configuration
+# 
+# Environment Variable Handling:
+# - Build-time variables (like VITE_CLERK_PUBLISHABLE_KEY) are read from .env file
+#   that the deployment script creates from .env.production
+# - Runtime variables are loaded from .env.production via env_file directive
+# - This ensures frontend gets the correct environment variables baked into the build
+
 services:
   app:
     build:
       context: .
+      dockerfile: Dockerfile
       args:
+        # Read from .env file that will be created by deployment script
         - VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
     ports:
       - "5000:5000"

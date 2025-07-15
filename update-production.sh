@@ -5,6 +5,13 @@ set -e
 
 echo "🚀 Starting production update..."
 
+# Ensure we have the production environment file
+if [ ! -f .env.production ]; then
+    echo "❌ Error: .env.production file not found!"
+    echo "Please create .env.production with your production environment variables"
+    exit 1
+fi
+
 # Build production package
 echo "📦 Creating production package..."
 tar --exclude='node_modules' \
@@ -31,6 +38,7 @@ tar --exclude='node_modules' \
     --exclude='user-data.sh' \
     --exclude='test-trial-ending.js' \
     --exclude='generated-icon.png' \
+    --exclude='.env' \
     -czf sms-app-production.tar.gz .
 
 # Copy to server
@@ -47,7 +55,21 @@ cd /opt/sms-app
 sudo docker-compose -f docker-compose.prod.yml down
 tar -xzf /tmp/sms-app-production.tar.gz
 rm /tmp/sms-app-production.tar.gz
-sudo docker-compose -f docker-compose.prod.yml up -d --build
+
+# Create .env file for Docker Compose to read build args
+echo "🔧 Setting up environment for build..."
+cp .env.production .env
+
+# Force rebuild with no cache to ensure fresh build with correct environment variables
+echo "🔨 Building with production environment..."
+sudo docker-compose -f docker-compose.prod.yml build --no-cache
+
+echo "🚀 Starting production containers..."
+sudo docker-compose -f docker-compose.prod.yml up -d
+
+# Clean up the .env file (optional, for security)
+rm -f .env
+
 echo "✅ Containers started successfully!"
 sudo docker ps
 ENDSSH
