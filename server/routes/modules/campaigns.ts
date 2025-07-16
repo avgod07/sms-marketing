@@ -179,26 +179,6 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns/:id/duplicate", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const id = parseInt(req.params.id);
-      const campaign = await biz.getCampaign(id);
-      if (!campaign) {
-        return res.status(404).json({ message: "Campaign not found" });
-      }
-      const copy = await biz.createCampaign({
-        name: `${campaign.name} (Copy)`,
-        message: campaign.message,
-        status: "in_progress",
-      });
-      res.status(201).json(copy);
-    } catch (error) {
-      logError("Error duplicating campaign:", error);
-      res.status(500).json({ message: "Failed to duplicate campaign" });
-    }
-  });
-
   app.post("/api/campaigns/:id/send", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
