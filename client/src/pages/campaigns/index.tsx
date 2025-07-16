@@ -60,26 +60,7 @@ export default function Campaigns() {
     },
   });
 
-  const duplicateCampaignMutation = useMutation({
-    mutationFn: (campaign: Campaign) =>
-      apiRequest({ method: "POST", url: `/api/campaigns/${campaign.id}/duplicate` }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
-      toast({ title: "Campaign Duplicated" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: handleApiError(error),
-        variant: "destructive",
-      });
-    },
-  });
 
-  const handleDuplicate = (campaign: Campaign) => {
-    duplicateCampaignMutation.mutate(campaign);
-  };
 
   const handleDelete = (campaign: Campaign) => {
     setDeletingCampaign(campaign);
@@ -178,7 +159,6 @@ export default function Campaigns() {
             <CampaignTable
               campaigns={campaigns || []}
               isLoading={campaignsLoading}
-              onDuplicate={handleDuplicate}
               onDelete={handleDelete}
             />
           </CardContent>

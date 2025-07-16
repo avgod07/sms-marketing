@@ -8,19 +8,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
-import { MoreHorizontal, Copy, Trash2, Play } from "lucide-react";
+import { MoreHorizontal, Trash2, Play } from "lucide-react";
 
 interface CampaignTableProps {
   campaigns: Campaign[];
   isLoading: boolean;
-  onDuplicate: (campaign: Campaign) => void;
   onDelete: (campaign: Campaign) => void;
 }
 
 export default function CampaignTable({
   campaigns,
   isLoading,
-  onDuplicate,
   onDelete,
 }: CampaignTableProps) {
   if (isLoading) {
@@ -112,9 +110,6 @@ export default function CampaignTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => onDuplicate(campaign)}>
-                        <Copy className="mr-2 h-4 w-4" /> Duplicate
-                      </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => onDelete(campaign)} className="text-red-600 focus:text-red-600">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>

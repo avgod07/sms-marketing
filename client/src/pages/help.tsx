@@ -49,11 +49,7 @@ export default function Help() {
       answer:
         "You can send direct messages through the Inbox page or by clicking the 'Message' button next to any contact in your contact list. This opens a direct conversation with that contact.",
     },
-    {
-      question: "Can I duplicate existing campaigns?",
-      answer:
-        "Yes! In your Campaigns list, click the three dots menu next to any campaign and select 'Duplicate'. This creates a draft copy of the campaign with the same message that you can modify and send separately.",
-    },
+
   ];
 
   return (
