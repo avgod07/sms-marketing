@@ -354,7 +354,6 @@ export function registerCampaignRoutes(app: Express) {
             Key: key,
             Body: file.buffer,
             ContentType: file.mimetype,
-            ACL: "public-read",
           })
         );
         const url = `${S3_PUBLIC_URL_BASE}/${key}`;
