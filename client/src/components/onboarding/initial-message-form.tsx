@@ -15,7 +15,8 @@ import {
   Loader2, 
   CheckCircle,
   Info,
-  AlertCircle
+  AlertCircle,
+  ArrowRight
 } from "lucide-react";
 
 const initialMessageSchema = z.object({
@@ -89,10 +90,10 @@ export default function InitialMessageForm({
         </div>
         <div>
           <h3 className="text-base font-semibold text-gray-900">
-            Welcome Message
+            Auto-Welcome Message
           </h3>
           <p className="text-sm text-gray-500">
-            Create your initial message for new contacts
+            Automatically sent to users immediately upon signup
           </p>
         </div>
       </div>
@@ -103,18 +104,18 @@ export default function InitialMessageForm({
           <div className="flex items-center space-x-2">
             <Users className="w-4 h-4 text-gray-500" />
             <Label htmlFor="initialMessage" className="text-sm font-medium text-gray-700">
-              Welcome Message
+              Auto-Welcome Message
             </Label>
           </div>
 
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center space-x-2 mb-2">
               <Info className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">Auto-sent Message</span>
+              <span className="text-sm font-medium text-blue-900">Immediate Delivery</span>
             </div>
             <p className="text-sm text-blue-800">
-              This message will be automatically sent to new contacts when they join your SMS list. 
-              Make it welcoming and set proper expectations.
+              This message is automatically sent <strong>immediately</strong> when someone signs up for your SMS list. 
+              Use it to welcome new subscribers, set expectations, and provide important information about your service.
             </p>
           </div>
 
@@ -128,7 +129,7 @@ export default function InitialMessageForm({
             />
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-600">
-                Your message (compliance text will be added automatically)
+                Your auto-welcome message (compliance text added automatically)
               </span>
               <div className={`flex items-center space-x-1 font-mono ${
                 isOverLimit ? 'text-red-600' : 
@@ -218,12 +219,12 @@ export default function InitialMessageForm({
               {isSaving ? (
                 <div className="flex items-center space-x-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Completing Setup...</span>
+                  <span>Saving...</span>
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Complete Setup</span>
+                  <span>Save & Continue</span>
+                  <ArrowRight className="w-4 h-4" />
                 </div>
               )}
             </Button>

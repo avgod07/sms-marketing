@@ -34,7 +34,10 @@ import {
   businessPhoneNumbers,
   type BusinessPhoneNumber,
   type InsertBusinessPhoneNumber,
-  twilioA2pConfigs,
+  messagingConfigs,
+  type MessagingConfig,
+  type InsertMessagingConfig,
+  // Legacy aliases
   type TwilioA2pConfig,
   type InsertTwilioA2pConfig,
   businessCredits,
@@ -77,6 +80,11 @@ export interface IStorage {
   setPhoneNumbers(
     numbers: InsertBusinessPhoneNumber[]
   ): Promise<BusinessPhoneNumber[]>;
+  updatePhoneNumberTFV(
+    phoneNumberId: number,
+    tfvSid: string,
+    verificationStatus: string
+  ): Promise<BusinessPhoneNumber>;
   getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined>;
   upsertTwilioA2PConfig(
     config: InsertTwilioA2pConfig
@@ -1215,12 +1223,32 @@ export class DatabaseStorage implements IStorage {
     return rows;
   }
 
+  async updatePhoneNumberTFV(
+    phoneNumberId: number,
+    tfvSid: string,
+    verificationStatus: string
+  ): Promise<BusinessPhoneNumber> {
+    const businessId = this.requireBusinessId();
+    const [updatedPhoneNumber] = await db
+      .update(businessPhoneNumbers)
+      .set({
+        tfvSid,
+        verificationStatus,
+        updatedAt: new Date(),
+      })
+      .where(
+        sql`${businessPhoneNumbers.id} = ${phoneNumberId} AND ${businessPhoneNumbers.businessId} = ${businessId}`
+      )
+      .returning();
+    return updatedPhoneNumber;
+  }
+
   async getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined> {
     const businessId = this.requireBusinessId();
     const [row] = await db
       .select()
-      .from(twilioA2pConfigs)
-      .where(eq(twilioA2pConfigs.businessId, businessId));
+      .from(messagingConfigs)
+      .where(eq(messagingConfigs.businessId, businessId));
     return row || undefined;
   }
 
@@ -1231,14 +1259,14 @@ export class DatabaseStorage implements IStorage {
     const existing = await this.getTwilioA2PConfig();
     if (existing) {
       const [row] = await db
-        .update(twilioA2pConfigs)
+        .update(messagingConfigs)
         .set({ ...config, updatedAt: new Date() })
-        .where(eq(twilioA2pConfigs.businessId, businessId))
+        .where(eq(messagingConfigs.businessId, businessId))
         .returning();
       return row;
     }
     const [row] = await db
-      .insert(twilioA2pConfigs)
+      .insert(messagingConfigs)
       .values({ ...config, businessId })
       .returning();
     return row;

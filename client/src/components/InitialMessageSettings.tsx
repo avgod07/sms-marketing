@@ -51,7 +51,7 @@ export default function InitialMessageSettings() {
         data,
       }),
     onSuccess: (response) => {
-      toast({ title: "Success", description: "Welcome message updated" });
+      toast({ title: "Success", description: "Auto-welcome message updated" });
       queryClient.invalidateQueries({ queryKey: ["/api/business/initial-message"] });
       setIsDirty(false);
     },
@@ -91,7 +91,7 @@ export default function InitialMessageSettings() {
     return (
       <div className="flex items-center space-x-2 text-red-600">
         <AlertCircle className="h-4 w-4" />
-        <span>Error loading welcome message</span>
+        <span>Error loading auto-welcome message</span>
       </div>
     );
   }
@@ -99,7 +99,7 @@ export default function InitialMessageSettings() {
   if (!messageData?.onboardingComplete) {
     return (
       <div className="text-gray-500">
-        <p>Complete onboarding to set your welcome message.</p>
+        <p>Complete onboarding to set your auto-welcome message.</p>
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function InitialMessageSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="initial-message">Welcome Message</Label>
+        <Label htmlFor="initial-message">Auto-Welcome Message</Label>
         <Textarea
           id="initial-message"
           value={message}
@@ -118,7 +118,7 @@ export default function InitialMessageSettings() {
           disabled={saveMutation.isPending}
         />
         <p className="text-sm text-gray-500 mt-1">
-          This message will be automatically sent to new contacts when they join your list.
+          This message is automatically sent immediately when someone signs up for your SMS list.
         </p>
       </div>
 

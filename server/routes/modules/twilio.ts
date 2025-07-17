@@ -8,9 +8,9 @@ import { storage, findBusinessIdByPhoneNumber } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
 import { z } from "zod";
 import {
-  registerBusinessForA2P,
-  registerCampaignForA2P,
-} from "../../services/a2p.js";
+  submitTollFreeVerification,
+  getTollFreeVerificationStatus,
+} from "../../services/tfv.js";
 import { a2pConfigSchema, getBizForRequest } from "./utils";
 import { db } from "../../config/db.config";
 import { users } from "@shared/schema";
@@ -200,115 +200,23 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  // Onboarding related routes
-  const onboardingProfileSchema = z.object({
-    name: z.string().min(1),
-    addressLine1: z.string().min(1),
-    addressLine2: z.string().optional(),
-    addressCity: z.string().min(1),
-    addressState: z.string().min(1),
-    addressPostalCode: z.string().min(1),
-    addressCountry: z.string().min(1),
-    repEmail: z.string().email(),
-    repPhone: z.string().min(1),
+  // TFV-based onboarding - business profiles no longer needed
+
+  app.get("/api/twilio/tfv/status/:tfvSid", requireAuth(), async (req, res) => {
+    try {
+      const { tfvSid } = req.params;
+
+      if (!tfvSid) {
+        return res.status(400).json({ message: "TFV SID required" });
+      }
+
+      const status = await getTollFreeVerificationStatus(tfvSid);
+      res.json(status);
+    } catch (error) {
+      logError("Error checking TFV status:", error);
+      res.status(500).json({ message: "Failed to check TFV status" });
+    }
   });
-
-  app.post(
-    "/api/onboarding/business-profile",
-    requireAuth(),
-    async (req, res) => {
-      try {
-        const { biz } = await getBizForRequest(req);
-        const data = onboardingProfileSchema.parse(req.body);
-
-        const creds = await biz.getTwilioCredentials();
-        if (!creds) {
-          return res.status(400).json({ message: "Twilio not connected" });
-        }
-
-        // Use environment variables for Twilio client
-        const accountSid = process.env.TWILIO_ACCOUNT_SID;
-        const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-        if (!accountSid || !authToken) {
-          return res
-            .status(500)
-            .json({ message: "Twilio not configured on server" });
-        }
-
-        const client = twilio(accountSid, authToken);
-
-        const customer = await client.trusthub.v1.customerProfiles.create({
-          friendlyName: data.name,
-          email: data.repEmail,
-          policySid: "RNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-        });
-
-        const existing = await biz.getBusinessProfile();
-        if (!existing) {
-          return res.status(400).json({ message: "Business profile missing" });
-        }
-
-        const saved = await biz.upsertBusinessProfile({
-          ...existing,
-          customerProfileSid: customer.sid,
-          registrationStatus: customer.status || existing.registrationStatus,
-        });
-
-        res.json({
-          sid: saved.customerProfileSid,
-          status: saved.registrationStatus,
-        });
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          return res
-            .status(400)
-            .json({ message: "Validation error", errors: error.errors });
-        }
-        logError("Error creating Twilio business profile:", error);
-        const message: string =
-          (error as any)?.message || "Failed to create business profile";
-        res.status(500).json({ message });
-      }
-    }
-  );
-
-  app.post(
-    "/api/onboarding/register-campaign",
-    requireAuth(),
-    async (req, res) => {
-      try {
-        const { biz } = await getBizForRequest(req);
-        const creds = await biz.getTwilioCredentials();
-        const profile = await biz.getBusinessProfile();
-        const config = await biz.getTwilioA2PConfig();
-        if (!creds || !profile || !config) {
-          return res
-            .status(400)
-            .json({ message: "Missing profile, credentials or config" });
-        }
-
-        if (profile.campaignSid) {
-          return res.json({
-            sid: profile.campaignSid,
-            status: profile.registrationStatus,
-          });
-        }
-
-        const result = await registerCampaignForA2P(creds, profile, config);
-        const saved = await biz.upsertBusinessProfile({
-          ...profile,
-          brandSid: result.brandSid,
-          campaignSid: result.campaignSid,
-          registrationStatus: result.status,
-        });
-        res.json({ sid: saved.campaignSid, status: saved.registrationStatus });
-      } catch (error) {
-        logError("Error registering campaign:", error);
-        res.status(500).json({ message: "Failed to register campaign" });
-      }
-    }
-  );
 
   app.get("/api/twilio/credentials", requireAuth(), async (req, res) => {
     try {
@@ -330,6 +238,35 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
+  app.get("/api/messaging/config", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const config = await biz.getTwilioA2PConfig();
+      res.json(config || null);
+    } catch (error) {
+      logError("Error fetching messaging config:", error);
+      res.status(500).json({ message: "Failed to fetch messaging config" });
+    }
+  });
+
+  app.post("/api/messaging/config", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const data = a2pConfigSchema.parse(req.body);
+      const saved = await biz.upsertTwilioA2PConfig(data);
+      res.json(saved);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Validation error", errors: error.errors });
+      }
+      logError("Error saving messaging config:", error);
+      res.status(500).json({ message: "Failed to save messaging config" });
+    }
+  });
+
+  // Legacy endpoints for backward compatibility
   app.get("/api/twilio/a2p-config", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
@@ -645,10 +582,94 @@ export function registerTwilioRoutes(app: Express) {
           .services(creds.messagingServiceSid)
           .phoneNumbers.create({ phoneNumberSid: num.sid });
       }
+
+      // Store phone number with phone SID for TFV
       const [record] = await biz.setPhoneNumbers([
-        { phoneNumber: num.phoneNumber, isDefault: true },
+        {
+          phoneNumber: num.phoneNumber,
+          phoneSid: num.sid,
+          isDefault: true,
+          verificationStatus: "pending",
+        },
       ]);
-      res.json(record);
+
+      // Automatically submit TFV if onboarding data exists
+      try {
+        const business = await biz.getBusiness();
+        const config = await biz.getTwilioA2PConfig();
+
+        if (config && business) {
+          const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+          // Get business email, address, and website from onboarding progress
+          let businessEmail: string | undefined;
+          let businessAddress: any;
+          let businessWebsiteUrl: string | undefined;
+          try {
+            const onboardingProgress = await biz.getOnboardingProgress();
+            businessEmail = onboardingProgress?.email || undefined;
+            businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+            // Extract address data if available
+            if (
+              onboardingProgress?.address1 &&
+              onboardingProgress?.city &&
+              onboardingProgress?.state &&
+              onboardingProgress?.postalCode
+            ) {
+              businessAddress = {
+                address1: onboardingProgress.address1,
+                address2: onboardingProgress.address2 || "",
+                city: onboardingProgress.city,
+                state: onboardingProgress.state,
+                postalCode: onboardingProgress.postalCode,
+                country: onboardingProgress.country || "US",
+              };
+            }
+          } catch (e) {
+            // No onboarding progress, fallbacks will be used
+          }
+
+          const tfvResult = await submitTollFreeVerification(
+            num.sid, // Use phone SID, not number
+            business,
+            config,
+            business.id,
+            baseUrl,
+            businessEmail,
+            businessAddress,
+            businessWebsiteUrl
+          );
+
+          // Update phone number with TFV info
+          await biz.updatePhoneNumberTFV(
+            record.id,
+            tfvResult.tfvSid,
+            tfvResult.status
+          );
+
+          res.json({
+            ...record,
+            tfvSid: tfvResult.tfvSid,
+            verificationStatus: tfvResult.status,
+            message: "Phone number purchased and TFV submitted successfully",
+          });
+        } else {
+          res.json({
+            ...record,
+            message:
+              "Phone number purchased. Complete onboarding to submit TFV.",
+          });
+        }
+      } catch (tfvError) {
+        // TFV failed but phone number was purchased successfully
+        logError("TFV submission failed after phone purchase:", tfvError);
+        res.json({
+          ...record,
+          message:
+            "Phone number purchased successfully. TFV will be submitted later.",
+        });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res
@@ -845,35 +866,95 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.post("/api/twilio/a2p/register", requireAuth(), async (req, res) => {
+  app.post("/api/twilio/tfv/submit", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const creds = await biz.getTwilioCredentials();
-      const profile = await biz.getBusinessProfile();
+      const { phoneNumberSid } = z
+        .object({
+          phoneNumberSid: z.string(),
+        })
+        .parse(req.body);
+
       const business = await biz.getBusiness();
       const config = await biz.getTwilioA2PConfig();
-      if (!creds || !profile || !config) {
+      const numbers = await biz.getPhoneNumbers();
+
+      if (!config) {
         return res
           .status(400)
-          .json({ message: "Missing profile, credentials or config" });
+          .json({ message: "Missing A2P config - complete onboarding first" });
       }
-      const result = await registerBusinessForA2P(
-        creds,
+
+      // Find the phone number record
+      const phoneRecord = numbers.find((n) => n.phoneSid === phoneNumberSid);
+      if (!phoneRecord) {
+        return res.status(400).json({ message: "Phone number not found" });
+      }
+
+      // Check if already submitted
+      if (phoneRecord.tfvSid) {
+        return res.json({
+          tfvSid: phoneRecord.tfvSid,
+          status: phoneRecord.verificationStatus || "pending",
+        });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+      // Get business email, address, and website from onboarding progress
+      let businessEmail: string | undefined;
+      let businessAddress: any;
+      let businessWebsiteUrl: string | undefined;
+      try {
+        const onboardingProgress = await biz.getOnboardingProgress();
+        businessEmail = onboardingProgress?.email || undefined;
+        businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+        // Extract address data if available
+        if (
+          onboardingProgress?.address1 &&
+          onboardingProgress?.city &&
+          onboardingProgress?.state &&
+          onboardingProgress?.postalCode
+        ) {
+          businessAddress = {
+            address1: onboardingProgress.address1,
+            address2: onboardingProgress.address2 || "",
+            city: onboardingProgress.city,
+            state: onboardingProgress.state,
+            postalCode: onboardingProgress.postalCode,
+            country: onboardingProgress.country || "US",
+          };
+        }
+      } catch (e) {
+        // No onboarding progress, fallbacks will be used
+      }
+
+      const result = await submitTollFreeVerification(
+        phoneNumberSid,
         business,
-        profile,
-        config
+        config,
+        business.id,
+        baseUrl,
+        businessEmail,
+        businessAddress,
+        businessWebsiteUrl
       );
-      await biz.upsertBusinessProfile({
-        ...profile,
-        customerProfileSid: result.customerProfileSid,
-        brandSid: result.brandSid,
-        campaignSid: result.campaignSid,
-        registrationStatus: result.status,
+
+      // Update phone number with TFV info
+      await biz.updatePhoneNumberTFV(
+        phoneRecord.id,
+        result.tfvSid,
+        result.status
+      );
+
+      res.json({
+        tfvSid: result.tfvSid,
+        status: result.status,
       });
-      res.json({ status: result.status });
     } catch (error) {
-      logError("Error registering A2P:", error);
-      res.status(500).json({ message: "Failed to register A2P" });
+      logError("Error submitting TFV:", error);
+      res.status(500).json({ message: "Failed to submit TFV" });
     }
   });
 

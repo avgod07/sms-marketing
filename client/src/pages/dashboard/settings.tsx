@@ -191,7 +191,7 @@ export default function Settings() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <MessageSquareText className="w-5 h-5" />
-                    <span>Welcome Message</span>
+                    <span>Auto-Welcome Message</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

@@ -15,8 +15,8 @@ const steps = [
   "Business Info",
   "Twilio Setup",
   "SMS Use Cases",
+  "Auto-Welcome Message",
   "Toll-Free Number",
-  "Welcome Message",
 ];
 
 function Content() {
@@ -72,9 +72,18 @@ function Content() {
     });
   };
 
-  const handleCompleteOnboarding = async (data: { initialMessage: string }) => {
+  const handleCompleteOnboarding = async (data?: { initialMessage: string }) => {
     try {
-      await completeOnboarding(data);
+      if (data) {
+        // If initial message data is provided, use it
+        await completeOnboarding(data);
+      } else {
+        // If no data provided, use the saved initial message
+        if (!initialMessage?.initialMessage) {
+          throw new Error("No initial message found");
+        }
+        await completeOnboarding(initialMessage);
+      }
       navigate("/");
     } catch (error) {
       console.error("Failed to complete onboarding:", error);
@@ -166,16 +175,20 @@ function Content() {
               />
             )}
             {step === 4 && (
-              <TollFreeNumberForm
-                onSuccess={() => handleStepChange(5)}
+              <InitialMessageForm
+                initialValues={initialMessage}
+                onSubmit={async (data) => {
+                  setInitialMessage(data);
+                  await saveProgress();
+                  handleStepChange(5);
+                }}
                 onBack={() => handleBack(3)}
                 isSaving={isSaving}
               />
             )}
             {step === 5 && (
-              <InitialMessageForm
-                initialValues={initialMessage}
-                onSubmit={handleCompleteOnboarding}
+              <TollFreeNumberForm
+                onSuccess={() => handleCompleteOnboarding()}
                 onBack={() => handleBack(4)}
                 isSaving={isCompleting}
               />
