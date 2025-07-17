@@ -37,16 +37,15 @@ export const businessInfoSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   websiteUrl: z
     .string()
-    .optional()
-    .or(z.literal(""))
+    .min(1, "Website URL is required for verification")
     .transform((v) => {
       // Handle the https:// prefix automatically
       if (v && v.trim() && !v.startsWith("http://") && !v.startsWith("https://")) {
         return `https://${v.trim()}`;
       }
-      return v;
+      return v || "";
     })
-    .refine((v) => !v || /^https?:\/\/[^\s]+\.[^\s]+/.test(v), {
+    .refine((v) => v && /^https?:\/\/[^\s]+\.[^\s]+/.test(v), {
       message: "Enter a valid website URL",
     }),
   address1: z.string().min(1, "Address Line 1 is required"),
@@ -190,7 +189,6 @@ export default function BusinessInfoForm({
                 <Label htmlFor="websiteUrl" className="text-sm font-medium text-gray-700">
                   Website URL
                 </Label>
-                <Badge variant="secondary" className="text-xs">Optional</Badge>
               </div>
               <div className="flex mt-1">
                 <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-gray-50 text-gray-500 text-sm">

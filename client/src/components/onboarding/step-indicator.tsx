@@ -7,7 +7,7 @@ interface StepIndicatorProps {
 
 export default function StepIndicator({ current, steps }: StepIndicatorProps) {
   return (
-    <div className="flex justify-between items-center max-w-lg mx-auto mb-8">
+    <div className="flex justify-between items-center gap-6 max-w-lg mx-auto mb-8">
       {steps.map((label, idx) => {
         const stepNum = idx + 1;
         const active = stepNum <= current;
@@ -19,9 +19,6 @@ export default function StepIndicator({ current, steps }: StepIndicatorProps) {
                 active ? "bg-primary" : "bg-gray-300"
               )}
             />
-            <span className="text-xs mt-2 text-center text-gray-700 line-clamp-1">
-              {label}
-            </span>
           </div>
         );
       })}

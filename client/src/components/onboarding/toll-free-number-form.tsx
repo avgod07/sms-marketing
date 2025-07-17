@@ -40,14 +40,24 @@ export default function TollFreeNumberForm({
   const mutation = useMutation({
     mutationFn: async () => {
       if (!selected) throw new Error("No number selected");
-      await apiRequest({
+      const response = await apiRequest({
         method: "POST",
         url: "/api/twilio/tollfree",
         data: { phoneNumber: selected },
       });
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      
+      // Show TFV-aware success message
+      toast({
+        title: "Setup Complete!",
+        description: data.tfvSid 
+          ? "Your toll-free number is secured and verification has been submitted to Twilio. You can start sending SMS immediately!"
+          : "Your toll-free number is secured. Your SMS platform is ready to use!",
+      });
+      
       onSuccess();
     },
     onError: (error: any) => {
@@ -208,7 +218,7 @@ export default function TollFreeNumberForm({
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span>Purchase & Continue</span>
+                    <span>Purchase & Complete Setup</span>
                     <ArrowRight className="w-4 h-4" />
                   </div>
                 )}

@@ -225,12 +225,6 @@ export const businessProfiles = pgTable("business_profiles", {
   campaignDescription: text("campaign_description").notNull(),
   sample1: text("sample1").notNull(),
   sample2: text("sample2").notNull(),
-  customerProfileSid: varchar("customer_profile_sid", { length: 64 }),
-  brandSid: varchar("brand_sid", { length: 64 }),
-  campaignSid: varchar("campaign_sid", { length: 64 }),
-  registrationStatus: text("registration_status")
-    .default("not_started")
-    .notNull(),
   status: text("status").default("provided").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -258,11 +252,13 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   phoneSid: varchar("phone_sid", { length: 64 }),
   serviceSid: varchar("service_sid", { length: 64 }),
   assignmentStatus: text("assignment_status"),
+  tfvSid: varchar("tfv_sid", { length: 64 }),
+  verificationStatus: text("verification_status").default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const twilioA2pConfigs = pgTable("twilio_a2p_config", {
+export const messagingConfigs = pgTable("messaging_config", {
   id: serial("id").primaryKey(),
   businessId: integer("business_id")
     .references(() => businesses.id)
@@ -385,7 +381,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   businessProfiles: many(businessProfiles),
   twilioCredentials: many(twilioCredentials),
   phoneNumbers: many(businessPhoneNumbers),
-  a2pConfig: many(twilioA2pConfigs),
+  messagingConfig: many(messagingConfigs),
   businessCredits: many(businessCredits),
   creditTransactions: many(creditTransactions),
   onboardingProgress: many(onboardingProgress),
@@ -477,14 +473,17 @@ export const insertBusinessPhoneNumberSchema = createInsertSchema(
   updatedAt: true,
 });
 
-export const insertTwilioA2pConfigSchema = createInsertSchema(
-  twilioA2pConfigs
+export const insertMessagingConfigSchema = createInsertSchema(
+  messagingConfigs
 ).omit({
   id: true,
   businessId: true,
   createdAt: true,
   updatedAt: true,
 });
+
+// Legacy alias for backward compatibility
+export const insertTwilioA2pConfigSchema = insertMessagingConfigSchema;
 
 export const insertUserSchema = createInsertSchema(users)
   .omit({
@@ -579,8 +578,12 @@ export type InsertBusinessPhoneNumber = z.infer<
   typeof insertBusinessPhoneNumberSchema
 >;
 
-export type TwilioA2pConfig = typeof twilioA2pConfigs.$inferSelect;
-export type InsertTwilioA2pConfig = z.infer<typeof insertTwilioA2pConfigSchema>;
+export type MessagingConfig = typeof messagingConfigs.$inferSelect;
+export type InsertMessagingConfig = z.infer<typeof insertMessagingConfigSchema>;
+
+// Legacy aliases for backward compatibility during transition
+export type TwilioA2pConfig = MessagingConfig;
+export type InsertTwilioA2pConfig = InsertMessagingConfig;
 
 export type BusinessCredit = typeof businessCredits.$inferSelect;
 export type InsertBusinessCredit = z.infer<typeof insertBusinessCreditSchema>;
