@@ -11,9 +11,9 @@ import { apiRequest } from "@/lib/queryClient";
 
 const STARTER_FEATURES = [
   "Send bulk SMS campaigns",
-  "Direct messages & inbox",
-  "Contact list segmentation",
-  "Human support based in the USA",
+  "Two-way messaging with unified inbox",
+  "MMS support with image attachments",
+  "Expert US support with <1 hour response",
 ];
 
 export default function PricingPage() {
