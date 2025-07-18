@@ -87,7 +87,7 @@ export function registerCreditsRoutes(app: Express) {
         return res.status(400).send(`Webhook Error: ${err}`);
       }
 
-      // Handle successful payment
+      // Handle credit purchase events (existing functionality)
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as any;
         const businessId = Number(session.metadata?.businessId);
@@ -154,6 +154,34 @@ export function registerCreditsRoutes(app: Express) {
           return res.status(500).json({ error: "Failed to process payment" });
         }
       }
+
+      // Handle subscription-related events (new functionality)
+      if (
+        event.type.startsWith("customer.subscription.") ||
+        event.type.startsWith("invoice.payment.")
+      ) {
+        try {
+          const { handleSubscriptionWebhook } = await import(
+            "../../services/subscription"
+          );
+          await handleSubscriptionWebhook(event);
+
+          logInfo("Subscription webhook processed successfully", {
+            eventType: event.type,
+            eventId: event.id,
+          });
+        } catch (err) {
+          logError("Failed to handle subscription webhook", {
+            eventType: event.type,
+            eventId: event.id,
+            error: err,
+          });
+          return res
+            .status(500)
+            .json({ error: "Failed to process subscription webhook" });
+        }
+      }
+
       res.json({ received: true });
     }
   );
