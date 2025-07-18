@@ -104,7 +104,7 @@ export default function PricingPage() {
               <ul className="space-y-3 my-6">
                 {STARTER_FEATURES.map((feature) => (
                   <li key={feature} className="flex items-center text-gray-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" /> {feature}
+                    <CheckCircle className="w-5 h-5 text-primary mr-2" /> {feature}
                   </li>
                 ))}
               </ul>
