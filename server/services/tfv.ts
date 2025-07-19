@@ -4,6 +4,7 @@ import type {
   TwilioCredential,
   TwilioA2pConfig, // Using legacy alias for compatibility
 } from "@shared/schema";
+import { logInfo, logError } from "../utils/logger.util";
 
 export interface TFVRegistrationResult {
   tfvSid: string;
@@ -110,6 +111,18 @@ export async function submitTollFreeVerification(
   },
   businessWebsiteUrl?: string
 ): Promise<TFVRegistrationResult> {
+  // Log TFV submission start
+  logInfo("Starting TFV submission", {
+    businessId,
+    businessName: business.name,
+    phoneNumberSid,
+    hasBusinessEmail: !!businessEmail,
+    hasBusinessWebsite: !!businessWebsiteUrl,
+    hasBusinessAddress: !!businessAddress,
+    useCases: config.useCases,
+    volume: config.volume,
+  });
+
   const client = await createClient();
 
   // Get the primary use case for the notification type
@@ -140,6 +153,28 @@ export async function submitTollFreeVerification(
       });
     }
 
+    // Log TFV submission data being sent to Twilio
+    logInfo("TFV submission data", {
+      businessId,
+      businessName: business.name,
+      businessWebsite: businessWebsiteUrl || `${baseUrl}/join/${businessId}`,
+      notificationEmail,
+      useCaseCategories: config.useCases.map(mapUseCaseToTFVCategory),
+      useCaseSummary: `Business using SMS for ${config.useCases
+        .join(", ")
+        .toLowerCase()} purposes with expected monthly volume of ${config.volume.toLowerCase()}. Primary category: ${notificationType}.`,
+      productionMessageSample: messageSamples[0],
+      optInType: "VERBAL",
+      businessStreetAddress: businessAddress?.address1 || business.name,
+      businessCity: businessAddress?.city || "San Francisco",
+      businessState: businessAddress?.state || "CA",
+      businessPostalCode: businessAddress?.postalCode || "94105",
+      businessCountry: businessAddress?.country || "US",
+      messageVolume: expectedVolume.toString(),
+      tollfreePhoneNumberSid: phoneNumberSid,
+      optInImageUrls,
+    });
+
     // Submit TFV application with all required fields
     const verification = await client.messaging.v1.tollfreeVerifications.create(
       {
@@ -167,13 +202,31 @@ export async function submitTollFreeVerification(
       }
     );
 
+    // Log TFV submission success
+    logInfo("TFV submission successful", {
+      businessId,
+      businessName: business.name,
+      tfvSid: verification.sid,
+      status: verification.status || "pending",
+      phoneNumberSid,
+    });
+
     return {
       tfvSid: verification.sid,
       status: verification.status || "pending",
       phoneNumber: phoneNumberSid, // Return the SID for reference
     };
   } catch (error: any) {
-    console.error("TFV submission error:", error);
+    // Log TFV submission error with detailed information
+    logError("TFV submission error", {
+      businessId,
+      businessName: business.name,
+      phoneNumberSid,
+      error: error.message,
+      code: error.code,
+      status: error.status,
+      moreInfo: error.moreInfo,
+    });
     throw new Error(
       `TFV submission failed: ${error.message || "Unknown error"}`
     );
@@ -191,12 +244,24 @@ export async function getTollFreeVerificationStatus(tfvSid: string): Promise<{
       .tollfreeVerifications(tfvSid)
       .fetch();
 
+    // Log TFV status check
+    logInfo("TFV status check", {
+      tfvSid,
+      status: verification.status || "pending",
+      rejectionReason: verification.rejectionReason || undefined,
+    });
+
     return {
       status: verification.status || "pending",
       rejectionReason: verification.rejectionReason || undefined,
     };
   } catch (error: any) {
-    console.error("TFV status check error:", error);
+    logError("TFV status check error", {
+      tfvSid,
+      error: error.message,
+      code: error.code,
+      status: error.status,
+    });
     throw new Error(`Failed to check TFV status: ${error.message}`);
   }
 }

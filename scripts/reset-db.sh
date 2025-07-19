@@ -6,8 +6,20 @@ if [ -f "/.dockerenv" ]; then
   echo "Resetting database inside dev container..."
   
   echo "Dropping all tables and recreating schema..."
-  # Use Drizzle to drop and recreate the schema
-  npm run db:push -- --force
+  
+  # Check if DATABASE_URL is set
+  if [ -z "$DATABASE_URL" ]; then
+    echo "Error: DATABASE_URL environment variable is not set" >&2
+    exit 1
+  fi
+  
+  # Run the Node.js script to drop all tables using tsx to access dependencies
+  echo "Dropping all tables..."
+  npx tsx scripts/reset-db.js
+  
+  # Recreate the schema using Drizzle
+  echo "Recreating schema..."
+  npx drizzle-kit push --config=drizzle.config.ts
   
   if [ "$1" = "--seed" ]; then
     SEED="y"
@@ -17,7 +29,7 @@ if [ -f "/.dockerenv" ]; then
   
   if [[ "$SEED" =~ ^[Yy]$ ]]; then
     echo "Seeding database..."
-    npm run seed
+    npm run db:seed
   else
     echo "Skipping seed"
   fi

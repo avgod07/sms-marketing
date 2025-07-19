@@ -58,12 +58,6 @@ function Router() {
       return;
     }
 
-    // If user is authenticated and not on auth/public/onboarding pages but onboarding is incomplete, redirect to onboarding
-    if (user && isClerkAuthenticated && !isAuthPage && !isPublicPage && !isOnboardingPage && setupStatus && !setupStatus.onboardingComplete) {
-      navigate("/onboarding");
-      return;
-    }
-
     // If user is not authenticated and not on auth/public pages, redirect to login
     if (!isClerkAuthenticated && !isAuthPage && !isPublicPage) {
       navigate("/login");
@@ -87,7 +81,7 @@ function Router() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {!isAuthPage && !isPublicPage && !isOnboardingPage && <Sidebar />}
+      {!isAuthPage && !isPublicPage && <Sidebar />}
       <main className="flex-1 overflow-y-auto">
         <Switch>
           <Route path="/login" component={Login} />

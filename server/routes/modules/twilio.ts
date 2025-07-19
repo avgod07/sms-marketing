@@ -15,6 +15,7 @@ import { a2pConfigSchema, getBizForRequest } from "./utils";
 import { db } from "../../config/db.config";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { logInfo } from "../../utils/logger.util";
 
 export function registerTwilioRoutes(app: Express) {
   // Twilio status webhook endpoint (authenticated for internal use)
@@ -733,6 +734,17 @@ export function registerTwilioRoutes(app: Express) {
         const config = await biz.getTwilioA2PConfig();
 
         if (config && business) {
+          logInfo(
+            "TFV submission conditions met - proceeding with submission",
+            {
+              businessId: business.id,
+              businessName: business.name,
+              phoneNumberSid: num.sid,
+              hasConfig: !!config,
+              hasBusiness: !!business,
+            }
+          );
+
           const baseUrl = `${req.protocol}://${req.get("host")}`;
 
           // Get business email, address, and website from onboarding progress
@@ -760,8 +772,22 @@ export function registerTwilioRoutes(app: Express) {
                 country: onboardingProgress.country || "US",
               };
             }
+
+            logInfo("Onboarding progress data extracted for TFV", {
+              businessId: business.id,
+              hasBusinessEmail: !!businessEmail,
+              hasBusinessWebsite: !!businessWebsiteUrl,
+              hasBusinessAddress: !!businessAddress,
+              businessEmail,
+              businessWebsiteUrl,
+              businessAddress,
+            });
           } catch (e) {
             // No onboarding progress, fallbacks will be used
+            logInfo("No onboarding progress found - using fallbacks for TFV", {
+              businessId: business.id,
+              error: e instanceof Error ? e.message : String(e),
+            });
           }
 
           const tfvResult = await submitTollFreeVerification(
@@ -782,6 +808,13 @@ export function registerTwilioRoutes(app: Express) {
             tfvResult.status
           );
 
+          logInfo("TFV submission completed successfully", {
+            businessId: business.id,
+            phoneNumberId: record.id,
+            tfvSid: tfvResult.tfvSid,
+            status: tfvResult.status,
+          });
+
           res.json({
             ...record,
             tfvSid: tfvResult.tfvSid,
@@ -789,6 +822,14 @@ export function registerTwilioRoutes(app: Express) {
             message: "Phone number purchased and TFV submitted successfully",
           });
         } else {
+          logInfo("TFV submission skipped - missing required data", {
+            businessId: business?.id,
+            hasConfig: !!config,
+            hasBusiness: !!business,
+            configUseCases: config?.useCases,
+            configVolume: config?.volume,
+          });
+
           res.json({
             ...record,
             message:
@@ -797,7 +838,12 @@ export function registerTwilioRoutes(app: Express) {
         }
       } catch (tfvError) {
         // TFV failed but phone number was purchased successfully
-        logError("TFV submission failed after phone purchase:", tfvError);
+        logError("TFV submission failed after phone purchase", {
+          businessId: business?.id,
+          phoneNumberSid: num.sid,
+          error:
+            tfvError instanceof Error ? tfvError.message : String(tfvError),
+        });
         res.json({
           ...record,
           message:
