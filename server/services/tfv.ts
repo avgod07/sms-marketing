@@ -86,9 +86,16 @@ function generateSampleMessages(useCases: string[]): string[] {
 async function createClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const businessProfileSid = process.env.TWILIO_BUSINESS_PROFILE_SID;
 
   if (!accountSid || !authToken) {
     throw new Error("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set");
+  }
+
+  if (!businessProfileSid) {
+    throw new Error(
+      "TWILIO_BUSINESS_PROFILE_SID must be set for TFV submissions"
+    );
   }
 
   return twilio(accountSid, authToken);
@@ -199,6 +206,7 @@ export async function submitTollFreeVerification(
         messageVolume: expectedVolume.toString(),
         tollfreePhoneNumberSid: phoneNumberSid, // Phone number SID from Twilio
         optInImageUrls: optInImageUrls,
+        customerProfileSid: process.env.TWILIO_BUSINESS_PROFILE_SID!, // Business Profile SID
       }
     );
 

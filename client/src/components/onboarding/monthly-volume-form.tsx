@@ -91,10 +91,10 @@ export default function MonthlyVolumeForm({
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center space-x-2 mb-2">
               <Info className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">A2P Compliance</span>
+              <span className="text-sm font-medium text-blue-900">TFV Compliance</span>
             </div>
             <p className="text-sm text-blue-800">
-              This information helps ensure compliance with Application-to-Person (A2P) messaging regulations 
+              This information helps ensure compliance with Toll Free Number (TFN) messaging regulations 
               and allows us to configure your account properly.
             </p>
           </div>
