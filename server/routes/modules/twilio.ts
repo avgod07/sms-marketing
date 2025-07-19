@@ -502,7 +502,10 @@ export function registerTwilioRoutes(app: Express) {
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
-        const { phoneNumber } = reserveSchema.parse(req.body);
+        const { phoneNumber: rawPhoneNumber } = reserveSchema.parse(req.body);
+
+        // Normalize phone number to E.164 format (add +1 prefix if missing)
+        const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
 
         // Check server-side Twilio configuration
         const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -595,7 +598,18 @@ export function registerTwilioRoutes(app: Express) {
   app.post("/api/twilio/tollfree", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const { phoneNumber } = tollFreeSchema.parse(req.body);
+      const { phoneNumber: rawPhoneNumber } = tollFreeSchema.parse(req.body);
+
+      // Normalize phone number to E.164 format (add +1 prefix if missing)
+      const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
+
+      // Debug logging
+      const business = await biz.getBusiness();
+      logError("Toll-free purchase attempt", {
+        rawPhoneNumber,
+        normalizedPhoneNumber: phoneNumber,
+        businessId: business.id,
+      });
 
       // Check server-side Twilio configuration
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -608,6 +622,19 @@ export function registerTwilioRoutes(app: Express) {
       }
 
       const client = twilio(accountSid, authToken);
+
+      // Check account type to see if it's a trial account
+      try {
+        const account = await client.api.accounts(accountSid).fetch();
+        logError("Twilio account info", {
+          accountType: account.type,
+          status: account.status,
+          sid: accountSid.slice(-4),
+        });
+      } catch (accountError) {
+        logError("Failed to fetch account info:", accountError);
+      }
+
       const webhookUrl = `${req.protocol}://${req.get(
         "host"
       )}/api/twilio/webhook`;
@@ -616,15 +643,17 @@ export function registerTwilioRoutes(app: Express) {
       let messagingServiceSid = await biz.getMessagingServiceSid();
       if (!messagingServiceSid) {
         const service = await client.messaging.services.create({
-          friendlyName: `Business ${
-            (
-              await biz.getBusiness()
-            ).id
-          } - Messaging Service`,
+          friendlyName: `Business ${business.id} - Messaging Service`,
         });
         messagingServiceSid = service.sid;
         await biz.setMessagingServiceSid(messagingServiceSid);
       }
+
+      logError("About to purchase phone number", {
+        phoneNumber,
+        smsUrl: webhookUrl,
+        messagingServiceSid,
+      });
 
       const num = await client.incomingPhoneNumbers.create({
         phoneNumber,

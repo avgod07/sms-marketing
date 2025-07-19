@@ -1,5 +1,6 @@
 import twilio from "twilio";
 import type { TwilioCredential } from "@shared/schema";
+import { normalizePhoneNumber } from "../utils/normalize.util.js";
 
 // Centralized Twilio configuration from environment variables
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
@@ -156,6 +157,9 @@ export class TwilioService {
   ): Promise<{ phoneSid: string; serviceSid: string }> {
     const client = getClient();
 
+    // Normalize phone number to E.164 format (add +1 prefix if missing)
+    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+
     let serviceSid = creds.messagingServiceSid;
     if (!serviceSid) {
       const service = await client.messaging.services.create({
@@ -165,7 +169,7 @@ export class TwilioService {
     }
 
     const num = await client.incomingPhoneNumbers.create({
-      phoneNumber,
+      phoneNumber: normalizedPhoneNumber,
       smsUrl: webhookUrl,
     });
 
