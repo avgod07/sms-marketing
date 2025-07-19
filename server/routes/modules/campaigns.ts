@@ -265,23 +265,33 @@ export function registerCampaignRoutes(app: Express) {
         });
       }
 
-      // Get Twilio credentials and phone numbers
-      const creds = await biz.getTwilioCredentials();
+      // Get messaging service SID and phone numbers
+      const messagingServiceSid = await biz.getMessagingServiceSid();
       const numbers = await biz.getPhoneNumbers();
       const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-      if (!creds || !from) {
+      if (!from || !process.env.TWILIO_ACCOUNT_SID) {
         return res.status(400).json({
           message: "Twilio not configured or no default phone number",
         });
       }
 
+      // Create a minimal creds object for compatibility
+      const tempCreds = {
+        businessId: business.id,
+        accountSid: process.env.TWILIO_ACCOUNT_SID,
+        messagingServiceSid: messagingServiceSid || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: 0,
+      };
+
       // Send the test message
-      const result = await TwilioService.sendSMS(creds, {
+      const result = await TwilioService.sendSMS(tempCreds, {
         to: phoneNumber,
         message: message,
         from,
-        messagingServiceSid: creds?.messagingServiceSid || undefined,
+        messagingServiceSid: messagingServiceSid ?? undefined,
       });
 
       if (result.success) {

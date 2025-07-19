@@ -65,7 +65,9 @@ export class MessageCreditService {
         to: options.to,
         message: options.message,
         from: options.from,
-        messagingServiceSid: options.messagingServiceSid,
+        messagingServiceSid:
+          options.messagingServiceSid ||
+          (creds?.messagingServiceSid ?? undefined),
         contactId: options.contactId,
         campaignId: options.campaignId,
       });

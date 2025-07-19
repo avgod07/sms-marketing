@@ -97,20 +97,30 @@ export function registerPublicRoutes(app: Express) {
 
       // Send initial message to the new contact with credit deduction
       try {
-        const creds = await contactStore.getTwilioCredentials();
+        const messagingServiceSid = await contactStore.getMessagingServiceSid();
         const numbers = await contactStore.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-        if (creds && from) {
+        if (from && process.env.TWILIO_ACCOUNT_SID) {
+          // Create a minimal creds object for compatibility
+          const tempCreds = {
+            businessId: business.id,
+            accountSid: process.env.TWILIO_ACCOUNT_SID,
+            messagingServiceSid: messagingServiceSid || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            id: 0,
+          };
+
           // Use the new credit deduction service
           const result = await MessageCreditService.sendWithCreditDeduction(
             contactStore,
-            creds,
+            tempCreds,
             {
               to: newContact.phoneNumber,
               message: business.initialMessage,
               from,
-              messagingServiceSid: creds?.messagingServiceSid || undefined,
+              messagingServiceSid: messagingServiceSid ?? undefined,
               contactId: newContact.id,
               messageType: "initial",
             }

@@ -22,6 +22,7 @@ export const businesses = pgTable("businesses", {
   stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
   initialMessage: text("initial_message"),
+  messagingServiceSid: varchar("messaging_service_sid", { length: 64 }),
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -320,6 +321,9 @@ export const onboardingProgress = pgTable("onboarding_progress", {
 
   // Step 3: Use Cases (for A2P)
   useCases: text("use_cases").array(),
+
+  // Step 4: Initial Message
+  initialMessage: text("initial_message"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

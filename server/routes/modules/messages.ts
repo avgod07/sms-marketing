@@ -125,19 +125,29 @@ export function registerMessageRoutes(app: Express) {
         return res.status(400).json({ message: "Contact is inactive" });
       }
 
-      const creds = await biz.getTwilioCredentials();
+      const messagingServiceSid = await biz.getMessagingServiceSid();
       const numbers = await biz.getPhoneNumbers();
       const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+      // Create a minimal creds object for compatibility
+      const tempCreds = {
+        businessId: (await biz.getBusiness()).id,
+        accountSid: process.env.TWILIO_ACCOUNT_SID!,
+        messagingServiceSid: messagingServiceSid || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: 0,
+      };
 
       // Use the new credit deduction service
       const result = await MessageCreditService.sendWithCreditDeduction(
         biz,
-        creds,
+        tempCreds,
         {
           to: validatedData.phoneNumber,
           message: validatedData.content,
           from,
-          messagingServiceSid: creds?.messagingServiceSid || undefined,
+          messagingServiceSid: messagingServiceSid ?? undefined,
           campaignId: validatedData.campaignId ?? undefined,
           contactId: validatedData.contactId,
           messageType: "regular",

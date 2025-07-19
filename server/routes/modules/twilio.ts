@@ -180,13 +180,24 @@ export function registerTwilioRoutes(app: Express) {
         }
         const numbers = await bizStore.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-        const creds = await bizStore.getTwilioCredentials();
-        await TwilioService.sendSMS(creds, {
+        const messagingServiceSid = await bizStore.getMessagingServiceSid();
+
+        // Create a minimal creds object for compatibility
+        const tempCreds = {
+          businessId: businessId,
+          accountSid: process.env.TWILIO_ACCOUNT_SID!,
+          messagingServiceSid: messagingServiceSid || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          id: 0,
+        };
+
+        await TwilioService.sendSMS(tempCreds, {
           to: normalizedFrom,
           message:
             "You've been removed from our list. You will no longer receive messages from us.",
           from,
-          messagingServiceSid: creds?.messagingServiceSid || undefined,
+          messagingServiceSid: messagingServiceSid ?? undefined,
           contactId: contact.id,
         });
       } else {
@@ -221,14 +232,14 @@ export function registerTwilioRoutes(app: Express) {
   app.get("/api/twilio/credentials", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const creds = await biz.getTwilioCredentials();
+      const messagingServiceSid = await biz.getMessagingServiceSid();
       const numbers = await biz.getPhoneNumbers();
       const phoneNumber = numbers.find((n) => n.isDefault)?.phoneNumber || null;
 
       // Return configuration from environment variables (no sensitive data)
       res.json({
         accountSid: process.env.TWILIO_ACCOUNT_SID || "Not configured",
-        messagingServiceSid: creds?.messagingServiceSid || null,
+        messagingServiceSid: messagingServiceSid || null,
         phoneNumber,
         isConfigured: TwilioService.isConfigured(),
       });
@@ -362,12 +373,8 @@ export function registerTwilioRoutes(app: Express) {
   app.get("/api/twilio/numbers", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
 
-      // Use environment variables for Twilio client
+      // Check server-side Twilio configuration
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -401,12 +408,8 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
       const data = numberSchema.parse(req.body);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
 
-      // Use environment variables for Twilio client
+      // Check server-side Twilio configuration
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -421,6 +424,20 @@ export function registerTwilioRoutes(app: Express) {
         "host"
       )}/api/twilio/webhook`;
 
+      // Get or create messaging service SID
+      let messagingServiceSid = await biz.getMessagingServiceSid();
+      if (!messagingServiceSid) {
+        const service = await client.messaging.services.create({
+          friendlyName: `Business ${
+            (
+              await biz.getBusiness()
+            ).id
+          } - Messaging Service`,
+        });
+        messagingServiceSid = service.sid;
+        await biz.setMessagingServiceSid(messagingServiceSid);
+      }
+
       const fetched = await Promise.all(
         data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
       );
@@ -429,15 +446,15 @@ export function registerTwilioRoutes(app: Express) {
           client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl })
         )
       );
-      if (creds.messagingServiceSid) {
-        await Promise.all(
-          fetched.map((num) =>
-            client.messaging
-              .services(creds.messagingServiceSid as string)
-              .phoneNumbers.create({ phoneNumberSid: num.sid })
-          )
-        );
-      }
+
+      // Add all phone numbers to messaging service
+      await Promise.all(
+        fetched.map((num) =>
+          client.messaging
+            .services(messagingServiceSid!)
+            .phoneNumbers.create({ phoneNumberSid: num.sid })
+        )
+      );
       const records = await biz.setPhoneNumbers(
         fetched.map((n) => ({
           phoneSid: n.sid,
@@ -486,28 +503,53 @@ export function registerTwilioRoutes(app: Express) {
       try {
         const { biz } = await getBizForRequest(req);
         const { phoneNumber } = reserveSchema.parse(req.body);
-        const creds = await biz.getTwilioCredentials();
-        if (!creds) {
-          return res.status(400).json({ message: "Twilio not connected" });
+
+        // Check server-side Twilio configuration
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+        if (!accountSid || !authToken) {
+          return res
+            .status(500)
+            .json({ message: "Twilio not configured on server" });
         }
+
         const webhookUrl = `${req.protocol}://${req.get(
           "host"
         )}/api/twilio/webhook`;
 
         try {
+          // Get or create messaging service SID
+          let messagingServiceSid = await biz.getMessagingServiceSid();
+          if (!messagingServiceSid) {
+            const client = twilio(accountSid, authToken);
+            const service = await client.messaging.services.create({
+              friendlyName: `Business ${
+                (
+                  await biz.getBusiness()
+                ).id
+              } - Messaging Service`,
+            });
+            messagingServiceSid = service.sid;
+            await biz.setMessagingServiceSid(messagingServiceSid);
+          }
+
+          // Create a temporary creds object for compatibility with existing TwilioService
+          const tempCreds = {
+            businessId: (await biz.getBusiness()).id,
+            accountSid: accountSid,
+            messagingServiceSid: messagingServiceSid,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            id: 0, // temporary ID
+          };
+
           const { phoneSid, serviceSid } =
             await TwilioService.purchaseAndAssignNumber(
-              creds,
+              tempCreds,
               phoneNumber,
               webhookUrl
             );
-
-          if (!creds.messagingServiceSid) {
-            await biz.upsertTwilioCredentials({
-              accountSid: process.env.TWILIO_ACCOUNT_SID!,
-              messagingServiceSid: serviceSid,
-            });
-          }
 
           await biz.setPhoneNumbers([
             {
@@ -554,12 +596,8 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
       const { phoneNumber } = tollFreeSchema.parse(req.body);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
 
-      // Use environment variables for Twilio client
+      // Check server-side Twilio configuration
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -573,15 +611,30 @@ export function registerTwilioRoutes(app: Express) {
       const webhookUrl = `${req.protocol}://${req.get(
         "host"
       )}/api/twilio/webhook`;
+
+      // Get or create messaging service SID
+      let messagingServiceSid = await biz.getMessagingServiceSid();
+      if (!messagingServiceSid) {
+        const service = await client.messaging.services.create({
+          friendlyName: `Business ${
+            (
+              await biz.getBusiness()
+            ).id
+          } - Messaging Service`,
+        });
+        messagingServiceSid = service.sid;
+        await biz.setMessagingServiceSid(messagingServiceSid);
+      }
+
       const num = await client.incomingPhoneNumbers.create({
         phoneNumber,
         smsUrl: webhookUrl,
       });
-      if (creds.messagingServiceSid) {
-        await client.messaging
-          .services(creds.messagingServiceSid)
-          .phoneNumbers.create({ phoneNumberSid: num.sid });
-      }
+
+      // Add phone number to messaging service
+      await client.messaging
+        .services(messagingServiceSid)
+        .phoneNumbers.create({ phoneNumberSid: num.sid });
 
       // Store phone number with phone SID for TFV
       const [record] = await biz.setPhoneNumbers([
@@ -693,6 +746,7 @@ export function registerTwilioRoutes(app: Express) {
           businessInfo: null,
           monthlyVolume: null,
           useCases: null,
+          initialMessage: null,
         });
       }
 
@@ -719,6 +773,9 @@ export function registerTwilioRoutes(app: Express) {
         businessInfo,
         monthlyVolume: progress.monthlyVolume,
         useCases: progress.useCases,
+        initialMessage: progress.initialMessage
+          ? { initialMessage: progress.initialMessage }
+          : null,
       });
     } catch (error) {
       logError("Error fetching onboarding progress:", error);
@@ -764,6 +821,8 @@ export function registerTwilioRoutes(app: Express) {
         // A2P fields
         monthlyVolume: data.monthlyVolume || null,
         useCases: data.useCases || null,
+        // Step 4: Initial message
+        initialMessage: data.initialMessage?.initialMessage || null,
       });
 
       // Convert back to frontend format
@@ -789,6 +848,9 @@ export function registerTwilioRoutes(app: Express) {
         businessInfo: responseBusinessInfo,
         monthlyVolume: progress.monthlyVolume,
         useCases: progress.useCases,
+        initialMessage: progress.initialMessage
+          ? { initialMessage: progress.initialMessage }
+          : null,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -846,13 +908,12 @@ export function registerTwilioRoutes(app: Express) {
       }
 
       const numbers = await biz.getPhoneNumbers();
-      const creds = await biz.getTwilioCredentials();
+      const messagingServiceSid = await biz.getMessagingServiceSid();
       const defaultNum = numbers.find((n) => n.isDefault);
 
       res.json({
         phoneNumber: defaultNum?.phoneNumber || null,
-        serviceSid:
-          defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+        serviceSid: defaultNum?.serviceSid || messagingServiceSid || null,
         initialMessage: finalMessage,
       });
     } catch (error) {

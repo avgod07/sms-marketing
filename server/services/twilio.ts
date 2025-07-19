@@ -139,7 +139,7 @@ export class TwilioService {
 
     const params: any = {
       smsEnabled: true,
-      voiceEnabled: false, // Only SMS-capable numbers, no voice
+      voiceEnabled: true, // Only SMS-capable numbers, no voice
       pageSize: opts.limit ?? 12,
       pageNumber: opts.page ?? 0,
     };
