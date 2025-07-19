@@ -79,6 +79,10 @@ export function registerBusinessRoutes(app: Express) {
       const { biz, user } = await getBizForRequest(req);
       const business = await biz.getBusiness();
       const progress = await biz.getOnboardingProgress();
+      const phoneNumbers = await biz.getPhoneNumbers();
+
+      // Get the default phone number
+      const defaultPhone = phoneNumbers.find((n) => n.isDefault);
 
       // Get Clerk user email
       let clerkEmail = "";
@@ -99,6 +103,7 @@ export function registerBusinessRoutes(app: Express) {
       res.json({
         companyName: business.name || progress?.businessName || "",
         contactEmail: clerkEmail || progress?.email || "",
+        phoneNumber: defaultPhone?.phoneNumber || null,
       });
     } catch (error) {
       logError("Error fetching account info:", error);
