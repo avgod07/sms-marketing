@@ -89,6 +89,14 @@ export interface IStorage {
     tfvSid: string,
     verificationStatus: string
   ): Promise<BusinessPhoneNumber>;
+  // TFV Verification status checking
+  getTFVVerificationStatus(): Promise<{
+    isVerified: boolean;
+    status: string;
+    hasPhoneNumbers: boolean;
+    pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }>;
+  }>;
+  refreshTFVStatusFromTwilio(): Promise<void>;
   getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined>;
   upsertTwilioA2PConfig(
     config: InsertTwilioA2pConfig
@@ -1309,6 +1317,103 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return updatedPhoneNumber;
+  }
+
+  async getTFVVerificationStatus(): Promise<{
+    isVerified: boolean;
+    status: string;
+    hasPhoneNumbers: boolean;
+    pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }>;
+  }> {
+    const businessId = this.requireBusinessId();
+    const phoneNumbers = await db
+      .select()
+      .from(businessPhoneNumbers)
+      .where(eq(businessPhoneNumbers.businessId, businessId));
+
+    if (phoneNumbers.length === 0) {
+      return {
+        isVerified: false,
+        status: "no_phone_numbers",
+        hasPhoneNumbers: false,
+        pendingTFVs: [],
+      };
+    }
+
+    // Check if any phone number is verified
+    const verifiedNumbers = phoneNumbers.filter(
+      (phone) => phone.verificationStatus === "APPROVED"
+    );
+
+    const pendingTFVs = phoneNumbers
+      .filter((phone) => phone.tfvSid && phone.verificationStatus === "pending")
+      .map((phone) => ({
+        tfvSid: phone.tfvSid!,
+        phoneNumber: phone.phoneNumber,
+      }));
+
+    // Business is considered verified if at least one phone number is verified
+    const isVerified = verifiedNumbers.length > 0;
+
+    let status = "pending";
+    if (isVerified) {
+      status = "verified";
+    } else if (
+      phoneNumbers.some((phone) => phone.verificationStatus === "DENIED")
+    ) {
+      status = "denied";
+    } else if (phoneNumbers.some((phone) => phone.tfvSid)) {
+      status = "pending";
+    } else {
+      status = "not_submitted";
+    }
+
+    return {
+      isVerified,
+      status,
+      hasPhoneNumbers: true,
+      pendingTFVs,
+    };
+  }
+
+  async refreshTFVStatusFromTwilio(): Promise<void> {
+    const businessId = this.requireBusinessId();
+    const phoneNumbers = await db
+      .select()
+      .from(businessPhoneNumbers)
+      .where(eq(businessPhoneNumbers.businessId, businessId));
+
+    // Import getTollFreeVerificationStatus dynamically to avoid circular dependencies
+    const { getTollFreeVerificationStatus } = await import(
+      "../services/tfv.js"
+    );
+
+    for (const phoneNumber of phoneNumbers) {
+      if (phoneNumber.tfvSid && phoneNumber.verificationStatus === "pending") {
+        try {
+          const tfvStatus = await getTollFreeVerificationStatus(
+            phoneNumber.tfvSid
+          );
+
+          // Only update if status has changed
+          if (tfvStatus.status !== phoneNumber.verificationStatus) {
+            await db
+              .update(businessPhoneNumbers)
+              .set({
+                verificationStatus: tfvStatus.status,
+                updatedAt: new Date(),
+              })
+              .where(eq(businessPhoneNumbers.id, phoneNumber.id));
+          }
+        } catch (error) {
+          logError(
+            `Failed to refresh TFV status for ${phoneNumber.tfvSid}:`,
+            error
+          );
+          // Continue with other phone numbers even if one fails
+        }
+      }
+    }
   }
 
   async getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined> {

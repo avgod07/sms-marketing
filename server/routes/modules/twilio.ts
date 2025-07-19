@@ -16,6 +16,7 @@ import { db } from "../../config/db.config";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logInfo } from "../../utils/logger.util";
+import { requireTFVPreCheck } from "../../middlewares/tfv-purchase-check.middleware";
 
 export function registerTwilioRoutes(app: Express) {
   // Twilio status webhook endpoint (unauthenticated - external Twilio calls)
@@ -510,6 +511,7 @@ export function registerTwilioRoutes(app: Express) {
   app.post(
     "/api/onboarding/reserve-number",
     requireAuth(),
+    requireTFVPreCheck,
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
@@ -643,234 +645,244 @@ export function registerTwilioRoutes(app: Express) {
 
   const tollFreeSchema = z.object({ phoneNumber: z.string() });
 
-  app.post("/api/twilio/tollfree", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const { phoneNumber: rawPhoneNumber } = tollFreeSchema.parse(req.body);
-
-      // Normalize phone number to E.164 format (add +1 prefix if missing)
-      const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
-
-      // Debug logging
-      const business = await biz.getBusiness();
-      logError("Toll-free purchase attempt", {
-        rawPhoneNumber,
-        normalizedPhoneNumber: phoneNumber,
-        businessId: business.id,
-      });
-
-      // Check server-side Twilio configuration
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-      if (!accountSid || !authToken) {
-        return res
-          .status(500)
-          .json({ message: "Twilio not configured on server" });
-      }
-
-      const client = twilio(accountSid, authToken);
-
-      // Check account type to see if it's a trial account
+  app.post(
+    "/api/twilio/tollfree",
+    requireAuth(),
+    requireTFVPreCheck,
+    async (req, res) => {
       try {
-        const account = await client.api.accounts(accountSid).fetch();
-        logError("Twilio account info", {
-          accountType: account.type,
-          status: account.status,
-          sid: accountSid.slice(-4),
-        });
-      } catch (accountError) {
-        logError("Failed to fetch account info:", accountError);
-      }
+        const { biz } = await getBizForRequest(req);
+        const { phoneNumber: rawPhoneNumber } = tollFreeSchema.parse(req.body);
 
-      // Use environment variable for webhook URL, or skip in development
-      const webhookUrl =
-        process.env.TWILIO_WEBHOOK_URL ||
-        (process.env.NODE_ENV === "production"
-          ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
-          : "");
+        // Normalize phone number to E.164 format (add +1 prefix if missing)
+        const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
 
-      // Get or create messaging service SID
-      let messagingServiceSid = await biz.getMessagingServiceSid();
-      if (!messagingServiceSid) {
-        const service = await client.messaging.services.create({
-          friendlyName: `Business ${business.id} - Messaging Service`,
-        });
-        messagingServiceSid = service.sid;
-        await biz.setMessagingServiceSid(messagingServiceSid);
-      }
-
-      logError("About to purchase phone number", {
-        phoneNumber,
-        smsUrl: webhookUrl,
-        messagingServiceSid,
-      });
-
-      const createParams: any = {
-        phoneNumber,
-      };
-
-      // Only set smsUrl if webhookUrl is provided (for production)
-      if (webhookUrl) {
-        createParams.smsUrl = webhookUrl;
-      }
-
-      const num = await client.incomingPhoneNumbers.create(createParams);
-
-      // Add phone number to messaging service
-      await client.messaging
-        .services(messagingServiceSid)
-        .phoneNumbers.create({ phoneNumberSid: num.sid });
-
-      // Store phone number with phone SID for TFV
-      const [record] = await biz.setPhoneNumbers([
-        {
-          phoneNumber: num.phoneNumber,
-          phoneSid: num.sid,
-          isDefault: true,
-          verificationStatus: "pending",
-        },
-      ]);
-
-      // Automatically submit TFV if onboarding data exists
-      try {
+        // Debug logging
         const business = await biz.getBusiness();
-        const onboardingProgress = await biz.getOnboardingProgress();
+        logError("Toll-free purchase attempt", {
+          rawPhoneNumber,
+          normalizedPhoneNumber: phoneNumber,
+          businessId: business.id,
+        });
 
-        if (
-          business &&
-          onboardingProgress?.useCases &&
-          onboardingProgress?.monthlyVolume
-        ) {
-          logInfo(
-            "TFV submission conditions met - proceeding with submission",
-            {
-              businessId: business.id,
-              businessName: business.name,
-              phoneNumberSid: num.sid,
-              hasBusiness: !!business,
-              hasUseCases: !!onboardingProgress.useCases,
-              hasVolume: !!onboardingProgress.monthlyVolume,
-            }
-          );
+        // Check server-side Twilio configuration
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
 
-          const baseUrl = `${req.protocol}://${req.get("host")}`;
+        if (!accountSid || !authToken) {
+          return res
+            .status(500)
+            .json({ message: "Twilio not configured on server" });
+        }
 
-          // Get business email, address, and website from onboarding progress
-          let businessEmail: string | undefined;
-          let businessAddress: any;
-          let businessWebsiteUrl: string | undefined;
+        const client = twilio(accountSid, authToken);
 
-          businessEmail = onboardingProgress?.email || undefined;
-          businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+        // Check account type to see if it's a trial account
+        try {
+          const account = await client.api.accounts(accountSid).fetch();
+          logError("Twilio account info", {
+            accountType: account.type,
+            status: account.status,
+            sid: accountSid.slice(-4),
+          });
+        } catch (accountError) {
+          logError("Failed to fetch account info:", accountError);
+        }
 
-          // Extract address data if available
+        // Use environment variable for webhook URL, or skip in development
+        const webhookUrl =
+          process.env.TWILIO_WEBHOOK_URL ||
+          (process.env.NODE_ENV === "production"
+            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            : "");
+
+        // Get or create messaging service SID
+        let messagingServiceSid = await biz.getMessagingServiceSid();
+        if (!messagingServiceSid) {
+          const service = await client.messaging.services.create({
+            friendlyName: `Business ${business.id} - Messaging Service`,
+          });
+          messagingServiceSid = service.sid;
+          await biz.setMessagingServiceSid(messagingServiceSid);
+        }
+
+        logError("About to purchase phone number", {
+          phoneNumber,
+          smsUrl: webhookUrl,
+          messagingServiceSid,
+        });
+
+        const createParams: any = {
+          phoneNumber,
+        };
+
+        // Only set smsUrl if webhookUrl is provided (for production)
+        if (webhookUrl) {
+          createParams.smsUrl = webhookUrl;
+        }
+
+        const num = await client.incomingPhoneNumbers.create(createParams);
+
+        // Add phone number to messaging service
+        await client.messaging
+          .services(messagingServiceSid)
+          .phoneNumbers.create({ phoneNumberSid: num.sid });
+
+        // Store phone number with phone SID for TFV
+        const [record] = await biz.setPhoneNumbers([
+          {
+            phoneNumber: num.phoneNumber,
+            phoneSid: num.sid,
+            isDefault: true,
+            verificationStatus: "pending",
+          },
+        ]);
+
+        // Automatically submit TFV if onboarding data exists
+        try {
+          const business = await biz.getBusiness();
+          const onboardingProgress = await biz.getOnboardingProgress();
+
           if (
-            onboardingProgress?.address1 &&
-            onboardingProgress?.city &&
-            onboardingProgress?.state &&
-            onboardingProgress?.postalCode
+            business &&
+            onboardingProgress?.useCases &&
+            onboardingProgress?.monthlyVolume
           ) {
-            businessAddress = {
-              address1: onboardingProgress.address1,
-              address2: onboardingProgress.address2 || "",
-              city: onboardingProgress.city,
-              state: onboardingProgress.state,
-              postalCode: onboardingProgress.postalCode,
-              country: onboardingProgress.country || "US",
-            };
+            logInfo(
+              "TFV submission conditions met - proceeding with submission",
+              {
+                businessId: business.id,
+                businessName: business.name,
+                phoneNumberSid: num.sid,
+                hasBusiness: !!business,
+                hasUseCases: !!onboardingProgress.useCases,
+                hasVolume: !!onboardingProgress.monthlyVolume,
+              }
+            );
+
+            const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+            // Get business email, address, and website from onboarding progress
+            let businessEmail: string | undefined;
+            let businessAddress: any;
+            let businessWebsiteUrl: string | undefined;
+
+            businessEmail = onboardingProgress?.email || undefined;
+            businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+            // Extract address data if available
+            if (
+              onboardingProgress?.address1 &&
+              onboardingProgress?.city &&
+              onboardingProgress?.state &&
+              onboardingProgress?.postalCode
+            ) {
+              businessAddress = {
+                address1: onboardingProgress.address1,
+                address2: onboardingProgress.address2 || "",
+                city: onboardingProgress.city,
+                state: onboardingProgress.state,
+                postalCode: onboardingProgress.postalCode,
+                country: onboardingProgress.country || "US",
+              };
+            }
+
+            logInfo("Onboarding progress data extracted for TFV", {
+              businessId: business.id,
+              hasBusinessEmail: !!businessEmail,
+              hasBusinessWebsite: !!businessWebsiteUrl,
+              hasBusinessAddress: !!businessAddress,
+              businessEmail,
+              businessWebsiteUrl,
+              businessAddress,
+              useCases: onboardingProgress.useCases,
+              volume: onboardingProgress.monthlyVolume,
+            });
+
+            // Create a config object from onboarding progress for TFV
+            const tfvConfig = {
+              useCases: onboardingProgress.useCases,
+              volume: onboardingProgress.monthlyVolume,
+            } as any; // Type assertion since we only need useCases and volume
+
+            const tfvResult = await submitTollFreeVerification(
+              num.sid, // Use phone SID, not number
+              business,
+              tfvConfig,
+              business.id,
+              baseUrl,
+              businessEmail,
+              businessAddress,
+              businessWebsiteUrl
+            );
+
+            // Update phone number with TFV info
+            await biz.updatePhoneNumberTFV(
+              record.id,
+              tfvResult.tfvSid,
+              tfvResult.status
+            );
+
+            logInfo("TFV submission completed successfully", {
+              businessId: business.id,
+              phoneNumberId: record.id,
+              tfvSid: tfvResult.tfvSid,
+              status: tfvResult.status,
+            });
+
+            res.json({
+              ...record,
+              tfvSid: tfvResult.tfvSid,
+              verificationStatus: tfvResult.status,
+              message: "Phone number purchased and TFV submitted successfully",
+            });
+          } else {
+            logInfo(
+              "TFV submission skipped - missing required onboarding data",
+              {
+                businessId: business?.id,
+                hasBusiness: !!business,
+                hasOnboardingProgress: !!onboardingProgress,
+                hasUseCases: !!onboardingProgress?.useCases,
+                hasVolume: !!onboardingProgress?.monthlyVolume,
+                useCases: onboardingProgress?.useCases,
+                volume: onboardingProgress?.monthlyVolume,
+              }
+            );
+
+            res.json({
+              ...record,
+              message:
+                "Phone number purchased. Complete onboarding to submit TFV.",
+            });
           }
-
-          logInfo("Onboarding progress data extracted for TFV", {
-            businessId: business.id,
-            hasBusinessEmail: !!businessEmail,
-            hasBusinessWebsite: !!businessWebsiteUrl,
-            hasBusinessAddress: !!businessAddress,
-            businessEmail,
-            businessWebsiteUrl,
-            businessAddress,
-            useCases: onboardingProgress.useCases,
-            volume: onboardingProgress.monthlyVolume,
-          });
-
-          // Create a config object from onboarding progress for TFV
-          const tfvConfig = {
-            useCases: onboardingProgress.useCases,
-            volume: onboardingProgress.monthlyVolume,
-          } as any; // Type assertion since we only need useCases and volume
-
-          const tfvResult = await submitTollFreeVerification(
-            num.sid, // Use phone SID, not number
-            business,
-            tfvConfig,
-            business.id,
-            baseUrl,
-            businessEmail,
-            businessAddress,
-            businessWebsiteUrl
-          );
-
-          // Update phone number with TFV info
-          await biz.updatePhoneNumberTFV(
-            record.id,
-            tfvResult.tfvSid,
-            tfvResult.status
-          );
-
-          logInfo("TFV submission completed successfully", {
-            businessId: business.id,
-            phoneNumberId: record.id,
-            tfvSid: tfvResult.tfvSid,
-            status: tfvResult.status,
-          });
-
-          res.json({
-            ...record,
-            tfvSid: tfvResult.tfvSid,
-            verificationStatus: tfvResult.status,
-            message: "Phone number purchased and TFV submitted successfully",
-          });
-        } else {
-          logInfo("TFV submission skipped - missing required onboarding data", {
+        } catch (tfvError) {
+          // TFV failed but phone number was purchased successfully
+          logError("TFV submission failed after phone purchase", {
             businessId: business?.id,
-            hasBusiness: !!business,
-            hasOnboardingProgress: !!onboardingProgress,
-            hasUseCases: !!onboardingProgress?.useCases,
-            hasVolume: !!onboardingProgress?.monthlyVolume,
-            useCases: onboardingProgress?.useCases,
-            volume: onboardingProgress?.monthlyVolume,
+            phoneNumberSid: num.sid,
+            error:
+              tfvError instanceof Error ? tfvError.message : String(tfvError),
           });
-
           res.json({
             ...record,
             message:
-              "Phone number purchased. Complete onboarding to submit TFV.",
+              "Phone number purchased successfully. TFV will be submitted later.",
           });
         }
-      } catch (tfvError) {
-        // TFV failed but phone number was purchased successfully
-        logError("TFV submission failed after phone purchase", {
-          businessId: business?.id,
-          phoneNumberSid: num.sid,
-          error:
-            tfvError instanceof Error ? tfvError.message : String(tfvError),
-        });
-        res.json({
-          ...record,
-          message:
-            "Phone number purchased successfully. TFV will be submitted later.",
-        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        logError("Error purchasing toll-free number:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to purchase toll-free number" });
       }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error purchasing toll-free number:", error);
-      res.status(500).json({ message: "Failed to purchase toll-free number" });
     }
-  });
+  );
 
   // Onboarding Progress Endpoints
   app.get("/api/onboarding/progress", requireAuth(), async (req, res) => {

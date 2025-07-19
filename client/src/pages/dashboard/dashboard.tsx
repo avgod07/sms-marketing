@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Users, MessageSquare, Send, TrendingUp, Plus } from "lucide-react";
 import type { DashboardStats } from "@shared/api-types";
+import { TFVStatusBanner } from "@/components/tfv-status-banner";
 
 export default function Dashboard() {
   const {
@@ -61,6 +62,9 @@ export default function Dashboard() {
 
       {/* Dashboard Content */}
       <div className="p-8">
+        {/* TFV Status Banner */}
+        <TFVStatusBanner />
+        
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard

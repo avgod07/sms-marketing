@@ -9,6 +9,11 @@ interface LocalUserResponse {
   hasLocalAccount?: boolean;
   userId?: number;
   businessId?: number;
+  tfvStatus?: {
+    isVerified: boolean;
+    status: string;
+    hasPhoneNumbers: boolean;
+  };
   [key: string]: any;
 }
 
