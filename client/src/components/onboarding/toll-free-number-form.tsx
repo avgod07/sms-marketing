@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { cn, formatTollFree } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { handleApiError } from "@/lib/handleApiError";
-import { Phone, Loader2, ArrowLeft } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  Phone, 
+  RefreshCw, 
+  Check,
+  Loader2, 
+  ArrowRight,
+  Info
+} from "lucide-react";
 
 interface TollFreeNumberFormProps {
   onSuccess: () => void;
@@ -23,29 +30,15 @@ export default function TollFreeNumberForm({
 }: TollFreeNumberFormProps) {
   const [selected, setSelected] = useState<string>("");
   const [page, setPage] = useState(0);
-  const [skipNumberSelection, setSkipNumberSelection] = useState(false);
   const { toast } = useToast();
 
   const { data: numbers, isFetching } = useQuery<string[]>({
     queryKey: [`/api/twilio/available-tollfree?page=${page}`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !skipNumberSelection,
   });
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (skipNumberSelection) {
-        // Skip phone number selection and complete onboarding directly
-        const response = await apiRequest({
-          method: "POST",
-          url: "/api/onboarding/complete",
-          data: { 
-            initialMessage: "Welcome! Thank you for signing up. Text STOP to unsubscribe." 
-          },
-        });
-        return response.json();
-      }
-      
       if (!selected) throw new Error("No number selected");
       const response = await apiRequest({
         method: "POST",
@@ -59,35 +52,17 @@ export default function TollFreeNumberForm({
       queryClient.invalidateQueries({ queryKey: ["/api/business/account-info"] });
       queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       
-      if (skipNumberSelection) {
-        toast({
-          title: "Onboarding Complete!",
-          description: "Your account setup is complete. You can add a phone number later in settings.",
-        });
-      } else {
-        toast({
-          title: "Setup Complete!",
-          description: data.tfvSid 
-            ? "Your toll-free number is secured and verification has been submitted to Twilio. You can start sending SMS immediately!"
-            : "Your toll-free number is secured. Your SMS platform is ready to use!",
-        });
-      }
+      toast({
+        title: "Setup Complete!",
+        description: data.tfvSid 
+          ? "Your toll-free number is secured and verification has been submitted to Twilio. You can start sending SMS immediately!"
+          : "Your toll-free number is secured. Your SMS platform is ready to use!",
+      });
       
       onSuccess();
     },
     onError: (error: any) => {
       const errorMessage = handleApiError(error);
-      
-      // If it's a Twilio configuration error, offer to skip number selection
-      if (errorMessage.includes("Twilio not configured") || errorMessage.includes("Twilio not connected")) {
-        toast({
-          title: "Phone Number Setup Unavailable",
-          description: "Twilio is not configured. You can complete onboarding and add a phone number later in settings.",
-          variant: "destructive",
-        });
-        setSkipNumberSelection(true);
-        return;
-      }
       
       toast({
         title: "Error",
@@ -97,164 +72,164 @@ export default function TollFreeNumberForm({
     },
   });
 
-  const handleSubmit = () => {
-    mutation.mutate();
-  };
-
-  const handleSkipAndComplete = () => {
-    setSkipNumberSelection(true);
-    mutation.mutate();
-  };
-
-  if (skipNumberSelection) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Complete Onboarding</h2>
-          <p className="text-gray-600">
-            Phone number configuration is not available right now. You can complete onboarding and add a phone number later.
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto">
+      {/* Compact Header */}
+      <div className="flex items-center space-x-3 pb-4 border-b border-gray-200">
+        <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg">
+          <Phone className="w-4 h-4 text-blue-600" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-gray-900">
+            Toll-Free Number
+          </h3>
+          <p className="text-sm text-gray-500">
+            Choose your dedicated phone number
           </p>
         </div>
-
-        <Alert>
-          <AlertDescription>
-            Don't worry! You can add and configure your phone number later in the Settings page under the Account tab.
-          </AlertDescription>
-        </Alert>
-
-        <div className="flex space-x-3">
-          <Button
-            variant="outline"
-            onClick={onBack}
-            disabled={mutation.isPending}
-            className="flex-1"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={mutation.isPending}
-            className="flex-1"
-          >
-            {mutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Completing...
-              </>
-            ) : (
-              "Complete Onboarding"
-            )}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold mb-2">Choose Your Toll-Free Number</h2>
-        <p className="text-gray-600">
-          Select a toll-free number for your SMS campaigns. This will be your business number.
-        </p>
       </div>
 
-      {isFetching ? (
-        <div className="text-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading available numbers...</p>
-        </div>
-      ) : numbers && numbers.length > 0 ? (
-        <div className="space-y-4">
-          <Label>Available Toll-Free Numbers</Label>
-          <RadioGroup value={selected} onValueChange={setSelected}>
-            <div className="grid gap-2 max-h-64 overflow-y-auto">
-              {numbers.map((number, index) => (
-                <div key={number} className="flex items-center space-x-2">
-                  <RadioGroupItem value={number} id={`number-${index}`} />
-                  <Label 
-                    htmlFor={`number-${index}`} 
-                    className="cursor-pointer flex-1 p-2 rounded hover:bg-gray-50"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Phone className="w-4 h-4" />
-                      <span className="font-mono">{number}</span>
-                    </div>
-                  </Label>
-                </div>
-              ))}
+      <div className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (selected) mutation.mutate();
+          }}
+          className="space-y-6"
+        >
+          {/* Number Selection Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Phone className="w-4 h-4 text-gray-500" />
+                <Label className="text-sm font-medium text-gray-700">
+                  Available Numbers
+                </Label>
+              </div>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => setPage((p) => p + 1)} 
+                disabled={isFetching}
+              >
+                {isFetching ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                More Numbers
+              </Button>
             </div>
-          </RadioGroup>
 
-          {page > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setPage(page - 1)}
-              disabled={isFetching}
-              size="sm"
-            >
-              Previous Page
-            </Button>
-          )}
-          
-          <Button
-            variant="outline"
-            onClick={() => setPage(page + 1)}
-            disabled={isFetching}
-            size="sm"
-          >
-            Load More Numbers
-          </Button>
-        </div>
-      ) : (
-        <Alert>
-          <AlertDescription>
-            No toll-free numbers are currently available. Please try again later or contact support.
-          </AlertDescription>
-        </Alert>
-      )}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-center space-x-2 mb-2">
+                <Info className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">About Toll-Free Numbers</span>
+              </div>
+              <p className="text-sm text-blue-800">
+                Toll-free numbers (800, 888, 877, etc.) provide better deliverability for SMS marketing 
+                and give your business a professional appearance.
+              </p>
+            </div>
 
-      <div className="border-t pt-4">
-        <Alert>
-          <AlertDescription>
-            Having trouble? You can{" "}
-            <button
-              onClick={handleSkipAndComplete}
-              className="text-blue-600 hover:text-blue-800 underline"
-              disabled={mutation.isPending}
-            >
-              skip phone number setup
-            </button>
-            {" "}and add it later in settings.
-          </AlertDescription>
-        </Alert>
-      </div>
+            {isFetching ? (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                </div>
+                <p className="text-gray-500">Loading available numbers...</p>
+              </div>
+            ) : numbers && numbers.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {numbers.map((number: string) => (
+                  <button
+                    type="button"
+                    key={number}
+                    onClick={() => setSelected(number)}
+                    className={cn(
+                      "relative p-4 border-2 rounded-lg text-center transition-all duration-200 hover:border-blue-300",
+                      selected === number 
+                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500" 
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    )}
+                  >
+                    <div className="text-lg font-mono font-semibold text-gray-900">
+                      {formatTollFree(number)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Toll-Free Number
+                    </div>
+                    {selected === number && (
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4">
+                  <Phone className="w-6 h-6 text-gray-500" />
+                </div>
+                <p className="text-gray-500">No numbers available. Please refresh.</p>
+              </div>
+            )}
 
-      <div className="flex space-x-3">
-        <Button
-          variant="outline"
-          onClick={onBack}
-          disabled={mutation.isPending}
-          className="flex-1"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={!selected || mutation.isPending}
-          className="flex-1"
-        >
-          {mutation.isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {isSaving ? "Completing..." : "Securing Number..."}
-            </>
-          ) : (
-            "Secure Number & Complete"
-          )}
-        </Button>
+            {selected && (
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Check className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-900">Selected Number</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-mono font-semibold text-green-800">
+                      {formatTollFree(selected)}
+                    </p>
+                    <p className="text-sm text-green-700">
+                      This will be your SMS sender identity
+                    </p>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800 border-green-300">
+                    Ready to Purchase
+                  </Badge>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between pt-4">
+            {onBack && (
+              <Button type="button" variant="outline" onClick={onBack} className="h-11">
+                Back
+              </Button>
+            )}
+            <div className="ml-auto">
+              <Button 
+                type="submit" 
+                disabled={!selected || mutation.isPending || isSaving}
+                className="h-11 bg-blue-600 hover:bg-blue-700"
+              >
+                {mutation.isPending || isSaving ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{mutation.isPending ? "Purchasing..." : "Saving..."}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span>Purchase & Continue</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                )}
+              </Button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

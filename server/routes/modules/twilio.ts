@@ -731,17 +731,22 @@ export function registerTwilioRoutes(app: Express) {
       // Automatically submit TFV if onboarding data exists
       try {
         const business = await biz.getBusiness();
-        const config = await biz.getTwilioA2PConfig();
+        const onboardingProgress = await biz.getOnboardingProgress();
 
-        if (config && business) {
+        if (
+          business &&
+          onboardingProgress?.useCases &&
+          onboardingProgress?.monthlyVolume
+        ) {
           logInfo(
             "TFV submission conditions met - proceeding with submission",
             {
               businessId: business.id,
               businessName: business.name,
               phoneNumberSid: num.sid,
-              hasConfig: !!config,
               hasBusiness: !!business,
+              hasUseCases: !!onboardingProgress.useCases,
+              hasVolume: !!onboardingProgress.monthlyVolume,
             }
           );
 
@@ -751,49 +756,49 @@ export function registerTwilioRoutes(app: Express) {
           let businessEmail: string | undefined;
           let businessAddress: any;
           let businessWebsiteUrl: string | undefined;
-          try {
-            const onboardingProgress = await biz.getOnboardingProgress();
-            businessEmail = onboardingProgress?.email || undefined;
-            businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
 
-            // Extract address data if available
-            if (
-              onboardingProgress?.address1 &&
-              onboardingProgress?.city &&
-              onboardingProgress?.state &&
-              onboardingProgress?.postalCode
-            ) {
-              businessAddress = {
-                address1: onboardingProgress.address1,
-                address2: onboardingProgress.address2 || "",
-                city: onboardingProgress.city,
-                state: onboardingProgress.state,
-                postalCode: onboardingProgress.postalCode,
-                country: onboardingProgress.country || "US",
-              };
-            }
+          businessEmail = onboardingProgress?.email || undefined;
+          businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
 
-            logInfo("Onboarding progress data extracted for TFV", {
-              businessId: business.id,
-              hasBusinessEmail: !!businessEmail,
-              hasBusinessWebsite: !!businessWebsiteUrl,
-              hasBusinessAddress: !!businessAddress,
-              businessEmail,
-              businessWebsiteUrl,
-              businessAddress,
-            });
-          } catch (e) {
-            // No onboarding progress, fallbacks will be used
-            logInfo("No onboarding progress found - using fallbacks for TFV", {
-              businessId: business.id,
-              error: e instanceof Error ? e.message : String(e),
-            });
+          // Extract address data if available
+          if (
+            onboardingProgress?.address1 &&
+            onboardingProgress?.city &&
+            onboardingProgress?.state &&
+            onboardingProgress?.postalCode
+          ) {
+            businessAddress = {
+              address1: onboardingProgress.address1,
+              address2: onboardingProgress.address2 || "",
+              city: onboardingProgress.city,
+              state: onboardingProgress.state,
+              postalCode: onboardingProgress.postalCode,
+              country: onboardingProgress.country || "US",
+            };
           }
+
+          logInfo("Onboarding progress data extracted for TFV", {
+            businessId: business.id,
+            hasBusinessEmail: !!businessEmail,
+            hasBusinessWebsite: !!businessWebsiteUrl,
+            hasBusinessAddress: !!businessAddress,
+            businessEmail,
+            businessWebsiteUrl,
+            businessAddress,
+            useCases: onboardingProgress.useCases,
+            volume: onboardingProgress.monthlyVolume,
+          });
+
+          // Create a config object from onboarding progress for TFV
+          const tfvConfig = {
+            useCases: onboardingProgress.useCases,
+            volume: onboardingProgress.monthlyVolume,
+          } as any; // Type assertion since we only need useCases and volume
 
           const tfvResult = await submitTollFreeVerification(
             num.sid, // Use phone SID, not number
             business,
-            config,
+            tfvConfig,
             business.id,
             baseUrl,
             businessEmail,
@@ -822,12 +827,14 @@ export function registerTwilioRoutes(app: Express) {
             message: "Phone number purchased and TFV submitted successfully",
           });
         } else {
-          logInfo("TFV submission skipped - missing required data", {
+          logInfo("TFV submission skipped - missing required onboarding data", {
             businessId: business?.id,
-            hasConfig: !!config,
             hasBusiness: !!business,
-            configUseCases: config?.useCases,
-            configVolume: config?.volume,
+            hasOnboardingProgress: !!onboardingProgress,
+            hasUseCases: !!onboardingProgress?.useCases,
+            hasVolume: !!onboardingProgress?.monthlyVolume,
+            useCases: onboardingProgress?.useCases,
+            volume: onboardingProgress?.monthlyVolume,
           });
 
           res.json({
