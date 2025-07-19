@@ -10,6 +10,16 @@ export class InsufficientCreditsError extends Error {
   }
 }
 
+export interface MessageCreditResult {
+  success: boolean;
+  messageSid?: string;
+  error?: string;
+  creditCost: number;
+  remainingCredits: number;
+  billingStatus: "success" | "failed";
+  internalNote?: string;
+}
+
 export interface MessageCreditOptions {
   to: string;
   message: string;
@@ -21,20 +31,12 @@ export interface MessageCreditOptions {
   messageType?: "initial" | "regular" | "campaign";
 }
 
-export interface MessageCreditResult {
-  success: boolean;
-  messageSid?: string;
-  error?: string;
-  creditCost: number;
-  remainingCredits: number;
-}
-
 /**
  * Centralized service for handling message sending with credit deduction
  */
 export class MessageCreditService {
   /**
-   * Send a message with proper credit deduction
+   * Send a message with proper credit deduction - SEND FIRST, THEN DEDUCT
    * @param biz - Business storage instance
    * @param creds - Twilio credentials
    * @param options - Message options
@@ -49,19 +51,20 @@ export class MessageCreditService {
     const isMMS = !!options.mediaUrl;
     const creditCost = isMMS ? 3 : 1;
 
-    // Check current credit balance
+    // Get current credit balance for validation
     const credits = await biz.getCredits();
     const currentBalance = credits?.balance || 0;
 
     try {
+      // STEP 1: CHECK CREDITS FIRST - CRITICAL BUSINESS PROTECTION
       if (currentBalance < creditCost) {
         throw new InsufficientCreditsError(
           `Insufficient credits. Need ${creditCost}, have ${currentBalance}`
         );
       }
 
-      // Send the message via Twilio
-      const result = await TwilioService.sendSMS(creds, {
+      // STEP 2: Send message to Twilio ONLY if user has credits
+      const twilioResult = await TwilioService.sendSMS(creds, {
         to: options.to,
         message: options.message,
         from: options.from,
@@ -72,68 +75,78 @@ export class MessageCreditService {
         campaignId: options.campaignId,
       });
 
-      // Only deduct credits if message was sent successfully
-      if (result.success) {
-        try {
-          const messageTypeLabel = options.messageType || "regular";
-          const description = `Sent ${
-            isMMS ? "MMS" : "SMS"
-          } ${messageTypeLabel} message to ${options.to}`;
-
-          const updatedCredits = await biz.adjustCredits(
-            -creditCost,
-            isMMS ? "send_mms" : "send_sms",
-            description,
-            {
-              to: options.to,
-              contactId: options.contactId,
-              campaignId: options.campaignId,
-              messageType: options.messageType,
-              messageSid: result.messageSid,
-            }
-          );
-
-          logInfo("Message sent and credits deducted", {
-            to: options.to,
-            creditCost,
-            remainingCredits: updatedCredits.balance,
-            messageType: options.messageType,
-            messageSid: result.messageSid,
-          });
-
-          return {
-            success: true,
-            messageSid: result.messageSid,
-            creditCost,
-            remainingCredits: updatedCredits.balance,
-          };
-        } catch (creditError) {
-          logError("Failed to deduct credits for sent message", {
-            to: options.to,
-            creditCost,
-            messageSid: result.messageSid,
-            error:
-              creditError instanceof Error
-                ? creditError.message
-                : String(creditError),
-          });
-
-          // Message was sent but credit deduction failed
-          // This is a critical error that should be monitored
-          return {
-            success: false,
-            error: "Message sent but credit deduction failed",
-            creditCost,
-            remainingCredits: currentBalance,
-          };
-        }
-      } else {
-        // Message failed to send, no credits deducted
+      // If Twilio failed, stop here - no billing needed
+      if (!twilioResult.success) {
         return {
           success: false,
-          error: result.error || "Failed to send message",
+          error: twilioResult.error || "Failed to send message via Twilio",
           creditCost,
           remainingCredits: currentBalance,
+          billingStatus: "success", // No billing attempted
+        };
+      }
+
+      // STEP 3: Twilio succeeded - now attempt to deduct credits
+      try {
+        const messageTypeLabel = options.messageType || "regular";
+        const description = `Sent ${
+          isMMS ? "MMS" : "SMS"
+        } ${messageTypeLabel} message to ${options.to}`;
+
+        const updatedCredits = await biz.adjustCredits(
+          -creditCost,
+          isMMS ? "send_mms" : "send_sms",
+          description,
+          {
+            to: options.to,
+            contactId: options.contactId,
+            campaignId: options.campaignId,
+            messageType: options.messageType,
+            messageSid: twilioResult.messageSid,
+          }
+        );
+
+        logInfo("Message sent and credits deducted successfully", {
+          to: options.to,
+          creditCost,
+          remainingCredits: updatedCredits.balance,
+          messageType: options.messageType,
+          messageSid: twilioResult.messageSid,
+        });
+
+        return {
+          success: true,
+          messageSid: twilioResult.messageSid,
+          creditCost,
+          remainingCredits: updatedCredits.balance,
+          billingStatus: "success",
+        };
+      } catch (billingError) {
+        // STEP 4: Message was sent but billing failed - rare technical issue
+        logError(
+          "BILLING_SYSTEM_FAILURE: Message sent but credit deduction failed",
+          {
+            to: options.to,
+            creditCost,
+            messageSid: twilioResult.messageSid,
+            messageType: options.messageType,
+            error:
+              billingError instanceof Error
+                ? billingError.message
+                : String(billingError),
+            timestamp: new Date().toISOString(),
+          }
+        );
+
+        // Return success since message was sent - billing failure is internal issue
+        return {
+          success: true,
+          messageSid: twilioResult.messageSid,
+          creditCost,
+          remainingCredits: currentBalance, // Unchanged since deduction failed
+          billingStatus: "failed",
+          internalNote:
+            "Billing system failure - requires internal investigation",
         };
       }
     } catch (error) {
@@ -150,9 +163,11 @@ export class MessageCreditService {
           error: error.message,
           creditCost,
           remainingCredits: currentBalance,
+          billingStatus: "success", // No billing attempted
         };
       }
 
+      // Unexpected error during process
       logError("Error in MessageCreditService.sendWithCreditDeduction", {
         to: options.to,
         error: error instanceof Error ? error.message : String(error),
@@ -164,6 +179,7 @@ export class MessageCreditService {
         error: error instanceof Error ? error.message : "Unknown error",
         creditCost,
         remainingCredits: currentBalance,
+        billingStatus: "success", // No billing attempted due to early failure
       };
     }
   }

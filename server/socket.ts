@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
-import type { Server } from "http";
+import type { Server, IncomingMessage } from "http";
 import type { Message } from "@shared/schema";
 import { logInfo, logWarn } from "./utils/logger.util";
 import { storage } from "./db/storage";
@@ -24,7 +24,11 @@ export class SocketService {
     this.wss = new WebSocketServer({
       server,
       path: "/ws",
-      verifyClient: async (info) => {
+      verifyClient: async (info: {
+        req: IncomingMessage;
+        origin: string;
+        secure: boolean;
+      }) => {
         try {
           // Extract business ID from query parameters
           const url = parseUrl(info.req.url || "", true);

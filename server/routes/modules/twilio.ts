@@ -188,6 +188,8 @@ export function registerTwilioRoutes(app: Express) {
           id: 0,
         };
 
+        // COMPLIANCE REQUIREMENT: STOP responses are free and mandatory
+        // These should NEVER be charged to the business
         await TwilioService.sendSMS(tempCreds, {
           to: normalizedFrom,
           message:
@@ -195,6 +197,13 @@ export function registerTwilioRoutes(app: Express) {
           from,
           messagingServiceSid: messagingServiceSid ?? undefined,
           contactId: contact.id,
+        });
+
+        // Log STOP response for compliance tracking (no billing)
+        logInfo("STOP response sent (compliance - no charge)", {
+          businessId,
+          contactId: contact.id,
+          phoneNumber: normalizedFrom,
         });
       } else {
         socketService?.broadcast("message:send", message, businessId);

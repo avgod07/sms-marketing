@@ -139,7 +139,7 @@ export function registerMessageRoutes(app: Express) {
         id: 0,
       };
 
-      // Use the new credit deduction service
+      // Use the updated credit deduction service (send-first-then-deduct)
       const result = await MessageCreditService.sendWithCreditDeduction(
         biz,
         tempCreds,
@@ -154,14 +154,16 @@ export function registerMessageRoutes(app: Express) {
         }
       );
 
+      // Create message record with both delivery and billing status
       const message = await biz.createMessage({
         ...validatedData,
         status: result.success ? "sent" : "failed",
         messageType: "regular",
+        billingStatus: result.billingStatus,
         messageSid: result.messageSid,
       });
 
-      // Return credit information in response
+      // Return clean success response - user doesn't need to know about billing failures
       res.status(201).json({
         ...message,
         creditCost: result.creditCost,

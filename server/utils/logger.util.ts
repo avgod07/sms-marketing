@@ -58,6 +58,17 @@ export function log(entry: LogEntry) {
   }
 }
 
+export function logBillingFailure(details: Record<string, any>) {
+  // Log billing failures with special formatting for monitoring systems
+  logError("BILLING_SYSTEM_FAILURE", {
+    category: "billing",
+    severity: "high",
+    requiresInvestigation: true,
+    ...details,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 export const logInfo = (message: string, meta: any = {}) =>
   log({ level: "info", message, ...meta });
 export const logError = (message: string, meta: any = {}) =>

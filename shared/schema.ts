@@ -89,19 +89,26 @@ export const messages = pgTable(
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
     messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received
+    billingStatus: text("billing_status").notNull().default("success"), // success, failed
     messageSid: varchar("message_sid", { length: 64 }),
     errorCode: integer("error_code"),
-    sentAt: timestamp("sent_at"),
-    deliveredAt: timestamp("delivered_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    sentAt: timestamp("sent_at", { mode: "string" }),
+    deliveredAt: timestamp("delivered_at", { mode: "string" }),
+    createdAt: timestamp("created_at", { mode: "string" })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => ({
-    statusIdx: index("messages_status_idx").on(table.status),
-    messageTypeIdx: index("messages_message_type_idx").on(table.messageType),
-    errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
-    sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
-    deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),
-  })
+  (table) => [
+    index("messages_delivered_at_idx").using(
+      "btree",
+      table.deliveredAt.asc().nullsLast().op("timestamp_ops")
+    ),
+    index("messages_contact_id_idx").using("btree", table.contactId),
+    index("messages_business_id_idx").using("btree", table.businessId),
+    index("messages_campaign_id_idx").using("btree", table.campaignId),
+    index("messages_message_type_idx").using("btree", table.messageType),
+    index("messages_billing_status_idx").using("btree", table.billingStatus),
+  ]
 );
 
 export const coupons = pgTable(

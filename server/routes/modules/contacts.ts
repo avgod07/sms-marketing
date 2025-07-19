@@ -8,6 +8,7 @@ import {
 } from "../../services/message-credits.js";
 import { getBizForRequest, logDetailedError } from "./utils";
 import { logError } from "../../utils/logger.util";
+import { logInfo } from "../../utils/logger.util";
 
 export function registerContactRoutes(app: Express) {
   app.get("/api/contacts", requireAuth(), async (req, res) => {
@@ -99,17 +100,7 @@ export function registerContactRoutes(app: Express) {
 
       const validatedData = insertContactSchema.parse(req.body);
 
-      // Check if user has sufficient credits for initial message (SMS = 1 credit)
-      const credits = await biz.getCredits();
-      const balance = credits?.balance || 0;
-      const creditsNeeded = 1; // Initial message is always SMS
-
-      if (balance < creditsNeeded) {
-        return res.status(400).json({
-          message: `Insufficient credits. Need ${creditsNeeded} credit for initial message.`,
-        });
-      }
-
+      // No need to check credits upfront - send-first-then-deduct will handle it
       const contact = await biz.createContact(validatedData);
 
       // Send initial message to the new contact with credit deduction
@@ -129,7 +120,7 @@ export function registerContactRoutes(app: Express) {
             id: 0,
           };
 
-          // Use the new credit deduction service
+          // Use the updated credit deduction service (send-first-then-deduct)
           const result = await MessageCreditService.sendWithCreditDeduction(
             biz,
             tempCreds,
@@ -143,38 +134,37 @@ export function registerContactRoutes(app: Express) {
             }
           );
 
-          // Record the sent message in the database
+          // Record the sent message in the database with billing status
           await biz.createMessage({
             phoneNumber: contact.phoneNumber,
             contactId: contact.id,
             content: business.initialMessage,
             status: result.success ? "sent" : "failed",
             messageType: "initial",
+            billingStatus: result.billingStatus,
             messageSid: result.messageSid,
           });
 
-          // Log credit usage for initial message
+          // Log initial message result for monitoring
           if (result.success) {
-            logError("Initial message sent with credit deduction", {
+            logInfo("Initial message sent successfully", {
               contactId: contact.id,
               phoneNumber: contact.phoneNumber,
               creditCost: result.creditCost,
               remainingCredits: result.remainingCredits,
+              billingStatus: result.billingStatus,
+            });
+          } else {
+            logError("Initial message failed to send", {
+              contactId: contact.id,
+              phoneNumber: contact.phoneNumber,
+              error: result.error,
             });
           }
         }
       } catch (smsError) {
-        // If SMS fails, we should still return the contact but log the error
-        // The credit deduction is handled by MessageCreditService
-        if (smsError instanceof InsufficientCreditsError) {
-          logError("Insufficient credits for initial message", {
-            contactId: contact.id,
-            phoneNumber: contact.phoneNumber,
-            error: smsError.message,
-          });
-        } else {
-          logError("Error sending initial message:", smsError);
-        }
+        // Log the SMS error but don't fail the contact creation
+        logError("Error sending initial message:", smsError);
       }
 
       res.status(201).json(contact);

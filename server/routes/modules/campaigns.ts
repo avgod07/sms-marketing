@@ -15,6 +15,7 @@ import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomBytes } from "crypto";
 import { TwilioService } from "../../services/twilio.js";
+import { MessageCreditService } from "../../services/message-credits.js";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -262,19 +263,6 @@ export function registerCampaignRoutes(app: Express) {
         })
         .parse(req.body);
 
-      // Check if user has sufficient credits
-      const credits = await biz.getCredits();
-      const creditsNeeded = mediaUrl ? 3 : 1; // MMS costs 3 credits, SMS costs 1
-      const balance = credits?.balance || 0;
-
-      if (balance < creditsNeeded) {
-        return res.status(400).json({
-          message: `Insufficient credits. Need ${creditsNeeded} credit${
-            creditsNeeded > 1 ? "s" : ""
-          } for ${mediaUrl ? "MMS" : "SMS"} test message.`,
-        });
-      }
-
       // Get messaging service SID and phone numbers
       const messagingServiceSid = await biz.getMessagingServiceSid();
       const numbers = await biz.getPhoneNumbers();
@@ -296,28 +284,27 @@ export function registerCampaignRoutes(app: Express) {
         id: 0,
       };
 
-      // Send the test message
-      const result = await TwilioService.sendSMS(tempCreds, {
-        to: phoneNumber,
-        message: message,
-        from,
-        messagingServiceSid: messagingServiceSid ?? undefined,
-      });
+      // Use MessageCreditService for consistent send-first-then-deduct approach
+      const result = await MessageCreditService.sendWithCreditDeduction(
+        biz,
+        tempCreds,
+        {
+          to: phoneNumber,
+          message: message,
+          from,
+          messagingServiceSid: messagingServiceSid ?? undefined,
+          mediaUrl: mediaUrl || undefined,
+          messageType: "campaign",
+        }
+      );
 
       if (result.success) {
-        // Deduct credits only on successful send
-        await biz.adjustCredits(
-          -creditsNeeded,
-          "test_message",
-          `Test ${mediaUrl ? "MMS" : "SMS"} message sent`,
-          { messageType: mediaUrl ? "MMS" : "SMS", phoneNumber }
-        );
-
         res.json({
           success: true,
           messageSid: result.messageSid,
-          creditsDeducted: creditsNeeded,
+          creditsDeducted: result.creditCost,
           messageType: mediaUrl ? "MMS" : "SMS",
+          billingStatus: result.billingStatus,
         });
       } else {
         res.status(400).json({

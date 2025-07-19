@@ -25,6 +25,7 @@ export const messages = pgTable(
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     status: text().default("pending").notNull(),
     messageType: text("message_type").default("regular").notNull(),
+    billingStatus: text("billing_status").default("success").notNull(),
     messageSid: varchar("message_sid", { length: 64 }),
     errorCode: integer("error_code"),
     sentAt: timestamp("sent_at", { mode: "string" }),
@@ -53,6 +54,10 @@ export const messages = pgTable(
     index("messages_message_type_idx").using(
       "btree",
       table.messageType.asc().nullsLast().op("text_ops")
+    ),
+    index("messages_billing_status_idx").using(
+      "btree",
+      table.billingStatus.asc().nullsLast().op("text_ops")
     ),
     foreignKey({
       columns: [table.campaignId],

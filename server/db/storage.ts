@@ -671,6 +671,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt));
   }
 
+  async getBillingFailures(): Promise<Message[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.businessId, businessId),
+          eq(messages.billingStatus, "failed")
+        )
+      )
+      .orderBy(desc(messages.createdAt));
+  }
+
   async getMessagesByCampaign(campaignId: number): Promise<Message[]> {
     const businessId = this.requireBusinessId();
     return await db

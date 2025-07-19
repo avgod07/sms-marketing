@@ -8,6 +8,7 @@ import {
 } from "../../services/message-credits.js";
 import { logError } from "../../utils/logger.util";
 import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
+import { logInfo } from "../../utils/logger.util";
 
 export function registerPublicRoutes(app: Express) {
   const publicContactRateLimiter = createRateLimiter({
@@ -112,7 +113,7 @@ export function registerPublicRoutes(app: Express) {
             id: 0,
           };
 
-          // Use the new credit deduction service
+          // Use the updated credit deduction service (send-first-then-deduct)
           const result = await MessageCreditService.sendWithCreditDeduction(
             contactStore,
             tempCreds,
@@ -126,40 +127,37 @@ export function registerPublicRoutes(app: Express) {
             }
           );
 
-          // Record the sent message in the database
+          // Record the sent message in the database with billing status
           await contactStore.createMessage({
             phoneNumber: newContact.phoneNumber,
             contactId: newContact.id,
             content: business.initialMessage,
             status: result.success ? "sent" : "failed",
             messageType: "initial",
+            billingStatus: result.billingStatus,
             messageSid: result.messageSid,
           });
 
-          // Log credit usage for initial message
+          // Log initial message result for monitoring
           if (result.success) {
-            logError(
-              "Initial message sent with credit deduction (public signup)",
-              {
-                contactId: newContact.id,
-                phoneNumber: newContact.phoneNumber,
-                creditCost: result.creditCost,
-                remainingCredits: result.remainingCredits,
-              }
-            );
+            logInfo("Initial message sent successfully (public signup)", {
+              contactId: newContact.id,
+              phoneNumber: newContact.phoneNumber,
+              creditCost: result.creditCost,
+              remainingCredits: result.remainingCredits,
+              billingStatus: result.billingStatus,
+            });
+          } else {
+            logError("Initial message failed to send (public signup)", {
+              contactId: newContact.id,
+              phoneNumber: newContact.phoneNumber,
+              error: result.error,
+            });
           }
         }
       } catch (smsError) {
         // Log the SMS error but don't fail the contact creation
-        if (smsError instanceof InsufficientCreditsError) {
-          logError("Insufficient credits for initial message (public signup)", {
-            contactId: newContact.id,
-            phoneNumber: newContact.phoneNumber,
-            error: smsError.message,
-          });
-        } else {
-          logError("Error sending initial message:", smsError);
-        }
+        logError("Error sending initial message:", smsError);
       }
 
       res.status(201).json(newContact);
