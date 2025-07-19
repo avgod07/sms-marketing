@@ -132,6 +132,7 @@ export function registerPublicRoutes(app: Express) {
             contactId: newContact.id,
             content: business.initialMessage,
             status: result.success ? "sent" : "failed",
+            messageType: "initial",
             messageSid: result.messageSid,
           });
 

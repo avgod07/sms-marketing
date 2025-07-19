@@ -95,21 +95,33 @@ export function registerCampaignRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
 
-      // Check if user is on a paid plan or has an active trial
-      const business = await biz.getBusiness();
-      const isTrialExpired = business.trialEndsAt
-        ? new Date(business.trialEndsAt) < new Date()
-        : false;
-
-      if (business.plan === "trial" || isTrialExpired) {
-        return res.status(403).json({
+      // Check if user has sufficient credits for campaign
+      const contacts = (await biz.getContacts()).filter((c) => c.active);
+      if (contacts.length === 0) {
+        return res.status(400).json({
           message:
-            "Campaign creation requires a paid plan. Please upgrade to continue.",
-          code: "UPGRADE_REQUIRED",
+            "No active contacts found. Please add contacts before creating a campaign.",
         });
       }
 
       const validatedData = simpleCampaignSchema.parse(req.body);
+      const isMMS = !!validatedData.mediaUrl;
+      const creditCost = isMMS ? 3 : 1;
+      const totalCreditsNeeded = contacts.length * creditCost;
+
+      const credits = await biz.getCredits();
+      const balance = credits?.balance || 0;
+
+      if (balance < totalCreditsNeeded) {
+        return res.status(400).json({
+          message: `Insufficient credits. Need ${totalCreditsNeeded} credit${
+            totalCreditsNeeded > 1 ? "s" : ""
+          } for ${contacts.length} contact${contacts.length > 1 ? "s" : ""} (${
+            isMMS ? "MMS" : "SMS"
+          } costs ${creditCost} credit${creditCost > 1 ? "s" : ""} each).`,
+        });
+      }
+
       const campaign = await biz.createCampaign({
         name: validatedData.name,
         message: validatedData.message,
@@ -183,25 +195,37 @@ export function registerCampaignRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
 
-      // Check if user is on a paid plan or has an active trial
-      const business = await biz.getBusiness();
-      const isTrialExpired = business.trialEndsAt
-        ? new Date(business.trialEndsAt) < new Date()
-        : false;
-
-      if (business.plan === "trial" || isTrialExpired) {
-        return res.status(403).json({
-          message:
-            "Campaign sending requires a paid plan. Please upgrade to continue.",
-          code: "UPGRADE_REQUIRED",
-        });
-      }
-
       const id = parseInt(req.params.id);
       const campaign = await biz.getCampaign(id);
 
       if (!campaign) {
         return res.status(404).json({ message: "Campaign not found" });
+      }
+
+      // Check if user has sufficient credits for campaign
+      const contacts = (await biz.getContacts()).filter((c) => c.active);
+      if (contacts.length === 0) {
+        return res.status(400).json({
+          message:
+            "No active contacts found. Please add contacts before sending a campaign.",
+        });
+      }
+
+      const isMMS = !!campaign.mediaUrl;
+      const creditCost = isMMS ? 3 : 1;
+      const totalCreditsNeeded = contacts.length * creditCost;
+
+      const credits = await biz.getCredits();
+      const balance = credits?.balance || 0;
+
+      if (balance < totalCreditsNeeded) {
+        return res.status(400).json({
+          message: `Insufficient credits. Need ${totalCreditsNeeded} credit${
+            totalCreditsNeeded > 1 ? "s" : ""
+          } for ${contacts.length} contact${contacts.length > 1 ? "s" : ""} (${
+            isMMS ? "MMS" : "SMS"
+          } costs ${creditCost} credit${creditCost > 1 ? "s" : ""} each).`,
+        });
       }
 
       const results = await executeCampaign(biz, id);
@@ -238,20 +262,6 @@ export function registerCampaignRoutes(app: Express) {
         })
         .parse(req.body);
 
-      // Check if user is on a paid plan or has an active trial
-      const business = await biz.getBusiness();
-      const isTrialExpired = business.trialEndsAt
-        ? new Date(business.trialEndsAt) < new Date()
-        : false;
-
-      if (business.plan === "trial" || isTrialExpired) {
-        return res.status(403).json({
-          message:
-            "Test messages require a paid plan. Please upgrade to continue.",
-          code: "UPGRADE_REQUIRED",
-        });
-      }
-
       // Check if user has sufficient credits
       const credits = await biz.getCredits();
       const creditsNeeded = mediaUrl ? 3 : 1; // MMS costs 3 credits, SMS costs 1
@@ -278,7 +288,7 @@ export function registerCampaignRoutes(app: Express) {
 
       // Create a minimal creds object for compatibility
       const tempCreds = {
-        businessId: business.id,
+        businessId: (await biz.getBusiness()).id,
         accountSid: process.env.TWILIO_ACCOUNT_SID,
         messagingServiceSid: messagingServiceSid || null,
         createdAt: new Date(),

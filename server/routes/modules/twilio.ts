@@ -173,6 +173,7 @@ export function registerTwilioRoutes(app: Express) {
         contactId: contact.id,
         content: bodyText,
         status: "received",
+        messageType: "received",
       });
 
       if (bodyText.toLowerCase() === "stop") {

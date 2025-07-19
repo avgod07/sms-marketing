@@ -88,6 +88,7 @@ export const messages = pgTable(
     content: text("content").notNull(),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
+    messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received
     messageSid: varchar("message_sid", { length: 64 }),
     errorCode: integer("error_code"),
     sentAt: timestamp("sent_at"),
@@ -96,6 +97,7 @@ export const messages = pgTable(
   },
   (table) => ({
     statusIdx: index("messages_status_idx").on(table.status),
+    messageTypeIdx: index("messages_message_type_idx").on(table.messageType),
     errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
     sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
     deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),

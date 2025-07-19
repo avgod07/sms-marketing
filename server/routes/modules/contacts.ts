@@ -98,6 +98,18 @@ export function registerContactRoutes(app: Express) {
       }
 
       const validatedData = insertContactSchema.parse(req.body);
+
+      // Check if user has sufficient credits for initial message (SMS = 1 credit)
+      const credits = await biz.getCredits();
+      const balance = credits?.balance || 0;
+      const creditsNeeded = 1; // Initial message is always SMS
+
+      if (balance < creditsNeeded) {
+        return res.status(400).json({
+          message: `Insufficient credits. Need ${creditsNeeded} credit for initial message.`,
+        });
+      }
+
       const contact = await biz.createContact(validatedData);
 
       // Send initial message to the new contact with credit deduction
@@ -137,6 +149,7 @@ export function registerContactRoutes(app: Express) {
             contactId: contact.id,
             content: business.initialMessage,
             status: result.success ? "sent" : "failed",
+            messageType: "initial",
             messageSid: result.messageSid,
           });
 
@@ -151,7 +164,8 @@ export function registerContactRoutes(app: Express) {
           }
         }
       } catch (smsError) {
-        // Log the SMS error but don't fail the contact creation
+        // If SMS fails, we should still return the contact but log the error
+        // The credit deduction is handled by MessageCreditService
         if (smsError instanceof InsufficientCreditsError) {
           logError("Insufficient credits for initial message", {
             contactId: contact.id,

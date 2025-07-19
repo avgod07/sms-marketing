@@ -696,15 +696,23 @@ export class DatabaseStorage implements IStorage {
   async getConversationSummaries(): Promise<any[]> {
     const businessId = this.requireBusinessId();
     const contactsList = await this.getContacts();
-    const allMessages = await db
+
+    // Only get messages that represent actual conversations (received or regular messages)
+    // Filter out initial/campaign messages that shouldn't create conversations
+    const conversationMessages = await db
       .select()
       .from(messages)
-      .where(eq(messages.businessId, businessId))
+      .where(
+        and(
+          eq(messages.businessId, businessId),
+          sql`${messages.messageType} IN ('received', 'regular')`
+        )
+      )
       .orderBy(desc(messages.createdAt));
 
     const seen = new Set<number>();
     const summaries: any[] = [];
-    for (const msg of allMessages) {
+    for (const msg of conversationMessages) {
       if (seen.has(msg.contactId)) continue;
       const contact = contactsList.find((c) => c.id === msg.contactId);
       if (contact) {

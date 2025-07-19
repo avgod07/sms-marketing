@@ -157,6 +157,7 @@ export function registerMessageRoutes(app: Express) {
       const message = await biz.createMessage({
         ...validatedData,
         status: result.success ? "sent" : "failed",
+        messageType: "regular",
         messageSid: result.messageSid,
       });
 
