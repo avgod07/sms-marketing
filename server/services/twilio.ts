@@ -140,7 +140,8 @@ export class TwilioService {
 
     const params: any = {
       smsEnabled: true,
-      voiceEnabled: true, // Only SMS-capable numbers, no voice
+      // Removed voiceEnabled - we don't care about voice capabilities
+      // Most toll-free numbers support both SMS and voice
       pageSize: opts.limit ?? 12,
       pageNumber: opts.page ?? 0,
     };
@@ -157,27 +158,91 @@ export class TwilioService {
   ): Promise<{ phoneSid: string; serviceSid: string }> {
     const client = getClient();
 
-    // Normalize phone number to E.164 format (add +1 prefix if missing)
-    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+    try {
+      console.log(`🔍 Attempting to purchase toll-free number: ${phoneNumber}`);
 
-    let serviceSid = creds.messagingServiceSid;
-    if (!serviceSid) {
-      const service = await client.messaging.services.create({
-        friendlyName: `Messaging Service - ${TWILIO_ACCOUNT_SID!.slice(-4)}`,
+      // Normalize phone number to E.164 format (add +1 prefix if missing)
+      const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+      console.log(`📞 Normalized phone number: ${normalizedPhoneNumber}`);
+
+      let serviceSid = creds.messagingServiceSid;
+      if (!serviceSid) {
+        console.log("📡 Creating new messaging service...");
+        const service = await client.messaging.services.create({
+          friendlyName: `Messaging Service - ${TWILIO_ACCOUNT_SID!.slice(-4)}`,
+        });
+        serviceSid = service.sid;
+        console.log(`✅ Created messaging service: ${serviceSid}`);
+      }
+
+      console.log("💰 Purchasing phone number from Twilio...");
+      const createParams: any = {
+        phoneNumber: normalizedPhoneNumber,
+      };
+
+      // Only set smsUrl if webhookUrl is provided (for production)
+      if (webhookUrl) {
+        createParams.smsUrl = webhookUrl;
+        console.log(`📞 Setting webhook URL: ${webhookUrl}`);
+      } else {
+        console.log("⚠️ No webhook URL set (development mode)");
+      }
+
+      const num = await client.incomingPhoneNumbers.create(createParams);
+      console.log(`✅ Phone number purchased successfully: ${num.sid}`);
+
+      console.log("🔗 Adding number to messaging service...");
+      try {
+        await client.messaging
+          .services(serviceSid)
+          .phoneNumbers.create({ phoneNumberSid: num.sid });
+        console.log("✅ Number added to messaging service successfully");
+      } catch (messagingError: any) {
+        console.log(
+          `⚠️ Failed to add to messaging service ${serviceSid}: ${messagingError.message}`
+        );
+
+        // If messaging service doesn't exist, create a new one
+        if (messagingError.status === 404) {
+          console.log("🔄 Creating new messaging service...");
+          const newService = await client.messaging.services.create({
+            friendlyName: `Messaging Service - ${TWILIO_ACCOUNT_SID!.slice(
+              -4
+            )}`,
+          });
+          serviceSid = newService.sid;
+          console.log(`✅ Created new messaging service: ${serviceSid}`);
+
+          // Try adding the number to the new service
+          await client.messaging
+            .services(serviceSid)
+            .phoneNumbers.create({ phoneNumberSid: num.sid });
+          console.log("✅ Number added to new messaging service successfully");
+        } else {
+          throw messagingError; // Re-throw if it's a different error
+        }
+      }
+
+      return { phoneSid: num.sid, serviceSid };
+    } catch (error: any) {
+      console.error(`❌ Error purchasing phone number ${phoneNumber}:`, {
+        error: error.message,
+        code: error.code,
+        status: error.status,
+        moreInfo: error.moreInfo,
+        details: error.details,
       });
-      serviceSid = service.sid;
+
+      // Re-throw with more specific error information
+      const enhancedError = new Error(
+        `Failed to purchase ${phoneNumber}: ${error.message} (Code: ${error.code})`
+      );
+      (enhancedError as any).code = error.code;
+      (enhancedError as any).status = error.status;
+      (enhancedError as any).moreInfo = error.moreInfo;
+      (enhancedError as any).details = error.details;
+      throw enhancedError;
     }
-
-    const num = await client.incomingPhoneNumbers.create({
-      phoneNumber: normalizedPhoneNumber,
-      smsUrl: webhookUrl,
-    });
-
-    await client.messaging
-      .services(serviceSid)
-      .phoneNumbers.create({ phoneNumberSid: num.sid });
-
-    return { phoneSid: num.sid, serviceSid };
   }
 
   static isConfigured(): boolean {

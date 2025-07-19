@@ -42,7 +42,7 @@ export default function TollFreeNumberForm({
       if (!selected) throw new Error("No number selected");
       const response = await apiRequest({
         method: "POST",
-        url: "/api/twilio/tollfree",
+        url: "/api/onboarding/reserve-number",
         data: { phoneNumber: selected },
       });
       return response.json();

@@ -420,9 +420,12 @@ export function registerTwilioRoutes(app: Express) {
       }
 
       const client = twilio(accountSid, authToken);
-      const webhookUrl = `${req.protocol}://${req.get(
-        "host"
-      )}/api/twilio/webhook`;
+      // Use environment variable for webhook URL, or skip in development
+      const webhookUrl =
+        process.env.TWILIO_WEBHOOK_URL ||
+        (process.env.NODE_ENV === "production"
+          ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+          : "");
 
       // Get or create messaging service SID
       let messagingServiceSid = await biz.getMessagingServiceSid();
@@ -441,11 +444,14 @@ export function registerTwilioRoutes(app: Express) {
       const fetched = await Promise.all(
         data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
       );
-      await Promise.all(
-        fetched.map((num) =>
-          client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl })
-        )
-      );
+      // Only update webhook URL if provided (for production)
+      if (webhookUrl) {
+        await Promise.all(
+          fetched.map((num) =>
+            client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl })
+          )
+        );
+      }
 
       // Add all phone numbers to messaging service
       await Promise.all(
@@ -517,15 +523,38 @@ export function registerTwilioRoutes(app: Express) {
             .json({ message: "Twilio not configured on server" });
         }
 
-        const webhookUrl = `${req.protocol}://${req.get(
-          "host"
-        )}/api/twilio/webhook`;
+        // Use environment variable for webhook URL, or skip in development
+        const webhookUrl =
+          process.env.TWILIO_WEBHOOK_URL ||
+          (process.env.NODE_ENV === "production"
+            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            : "");
 
         try {
           // Get or create messaging service SID
           let messagingServiceSid = await biz.getMessagingServiceSid();
+          const client = twilio(accountSid, authToken);
+
+          // Verify messaging service exists, create new one if not
+          if (messagingServiceSid) {
+            try {
+              await client.messaging.services(messagingServiceSid).fetch();
+              console.log(
+                `✅ Verified existing messaging service: ${messagingServiceSid}`
+              );
+            } catch (error: any) {
+              if (error.status === 404) {
+                console.log(
+                  `⚠️ Stored messaging service ${messagingServiceSid} not found, creating new one`
+                );
+                messagingServiceSid = undefined; // Reset to create a new one
+              } else {
+                throw error;
+              }
+            }
+          }
+
           if (!messagingServiceSid) {
-            const client = twilio(accountSid, authToken);
             const service = await client.messaging.services.create({
               friendlyName: `Business ${
                 (
@@ -535,6 +564,9 @@ export function registerTwilioRoutes(app: Express) {
             });
             messagingServiceSid = service.sid;
             await biz.setMessagingServiceSid(messagingServiceSid);
+            console.log(
+              `✅ Created new messaging service: ${messagingServiceSid}`
+            );
           }
 
           // Create a temporary creds object for compatibility with existing TwilioService
@@ -571,6 +603,17 @@ export function registerTwilioRoutes(app: Express) {
             assignmentStatus: "assigned",
           });
         } catch (err: any) {
+          // Add detailed logging to see what Twilio is actually returning
+          logError("Detailed onboarding number purchase error:", {
+            phoneNumber,
+            error: err.message,
+            code: err.code,
+            status: err.status,
+            moreInfo: err.moreInfo,
+            details: err.details,
+            stack: err.stack?.substring(0, 500), // Truncate stack trace
+          });
+
           if (err?.status === 400 || err?.status === 409) {
             return res.status(400).json({
               message: "Number is no longer available. Please choose another.",
@@ -635,9 +678,12 @@ export function registerTwilioRoutes(app: Express) {
         logError("Failed to fetch account info:", accountError);
       }
 
-      const webhookUrl = `${req.protocol}://${req.get(
-        "host"
-      )}/api/twilio/webhook`;
+      // Use environment variable for webhook URL, or skip in development
+      const webhookUrl =
+        process.env.TWILIO_WEBHOOK_URL ||
+        (process.env.NODE_ENV === "production"
+          ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+          : "");
 
       // Get or create messaging service SID
       let messagingServiceSid = await biz.getMessagingServiceSid();
@@ -655,10 +701,16 @@ export function registerTwilioRoutes(app: Express) {
         messagingServiceSid,
       });
 
-      const num = await client.incomingPhoneNumbers.create({
+      const createParams: any = {
         phoneNumber,
-        smsUrl: webhookUrl,
-      });
+      };
+
+      // Only set smsUrl if webhookUrl is provided (for production)
+      if (webhookUrl) {
+        createParams.smsUrl = webhookUrl;
+      }
+
+      const num = await client.incomingPhoneNumbers.create(createParams);
 
       // Add phone number to messaging service
       await client.messaging
