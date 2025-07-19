@@ -22,6 +22,9 @@ function createMockStorage() {
     updateCampaign: vi.fn(),
     getCredits: vi.fn().mockResolvedValue({ balance: 10 }),
     adjustCredits: vi.fn().mockResolvedValue({ balance: 8 }),
+    // Add missing methods that campaign service expects
+    getMessagingServiceSid: vi.fn().mockResolvedValue("MG123456"),
+    getBusiness: vi.fn().mockResolvedValue({ id: 1, name: "Test Business" }),
   } as any;
 }
 

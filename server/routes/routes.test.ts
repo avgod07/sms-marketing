@@ -177,6 +177,11 @@ describe("routes", () => {
       hasLocalAccount: true,
       userId: 2,
       businessId: 1,
+      tfvStatus: {
+        hasPhoneNumbers: false,
+        isVerified: false,
+        status: "unknown",
+      },
     });
   });
 

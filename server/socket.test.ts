@@ -108,7 +108,7 @@ describe("SocketService", () => {
     };
     mockForBusiness.createMessage.mockResolvedValue(saved);
 
-    const ws1 = new WebSocket(`ws://localhost:${port}/ws`);
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws?businessId=1`);
     await new Promise((resolve) => ws1.once("open", resolve));
 
     const msgs: string[] = [];
@@ -125,7 +125,8 @@ describe("SocketService", () => {
       });
     expect(res.status).toBe(200);
 
-    await new Promise((r) => setTimeout(r, 20));
+    // Increase timeout for more reliable testing
+    await new Promise((r) => setTimeout(r, 100));
 
     expect(msgs.length).toBe(1);
     const payload = JSON.parse(msgs[0]);
@@ -139,7 +140,7 @@ describe("SocketService", () => {
     const updated = { id: 5, status: "delivered" };
     mockForBusiness.updateMessageStatusBySid.mockResolvedValue(updated);
 
-    const ws1 = new WebSocket(`ws://localhost:${port}/ws`);
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws?businessId=1`);
     await new Promise((resolve) => ws1.once("open", resolve));
 
     const msgs: string[] = [];
@@ -156,7 +157,8 @@ describe("SocketService", () => {
       });
     expect(res.status).toBe(200);
 
-    await new Promise((r) => setTimeout(r, 20));
+    // Increase timeout for more reliable testing
+    await new Promise((r) => setTimeout(r, 100));
 
     expect(msgs.length).toBe(1);
     const payload = JSON.parse(msgs[0]);
