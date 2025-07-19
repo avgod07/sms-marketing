@@ -719,7 +719,9 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(messages.businessId, businessId),
-          sql`${messages.messageType} IN ('received', 'regular')`
+          sql`${messages.messageType} IN ('received', 'regular')`,
+          // Only include messages with valid contactId (exclude test messages)
+          sql`${messages.contactId} IS NOT NULL`
         )
       )
       .orderBy(desc(messages.createdAt));
@@ -727,6 +729,9 @@ export class DatabaseStorage implements IStorage {
     const seen = new Set<number>();
     const summaries: any[] = [];
     for (const msg of conversationMessages) {
+      // Skip messages without contactId (shouldn't happen due to WHERE clause, but safety check)
+      if (!msg.contactId) continue;
+
       if (seen.has(msg.contactId)) continue;
       const contact = contactsList.find((c) => c.id === msg.contactId);
       if (contact) {

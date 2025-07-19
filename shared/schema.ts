@@ -82,13 +82,11 @@ export const messages = pgTable(
     campaignId: integer("campaign_id").references(() => campaigns.id, {
       onDelete: "cascade",
     }),
-    contactId: integer("contact_id")
-      .references(() => contacts.id)
-      .notNull(),
+    contactId: integer("contact_id").references(() => contacts.id),
     content: text("content").notNull(),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
-    messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received
+    messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received, test
     billingStatus: text("billing_status").notNull().default("success"), // success, failed
     messageSid: varchar("message_sid", { length: 64 }),
     errorCode: integer("error_code"),

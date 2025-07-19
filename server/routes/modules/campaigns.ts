@@ -299,12 +299,23 @@ export function registerCampaignRoutes(app: Express) {
       );
 
       if (result.success) {
-        res.json({
-          success: true,
-          messageSid: result.messageSid,
-          creditsDeducted: result.creditCost,
-          messageType: mediaUrl ? "MMS" : "SMS",
+        // Create database record for test message to ensure credit-message alignment
+        const testMessage = await biz.createMessage({
+          phoneNumber: phoneNumber,
+          content: message,
+          status: result.success ? "sent" : "failed",
+          messageType: "test", // Use 'test' messageType for test messages
           billingStatus: result.billingStatus,
+          messageSid: result.messageSid,
+          contactId: null, // Test messages don't need a real contact
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Test message sent successfully",
+          creditCost: result.creditCost,
+          remainingCredits: result.remainingCredits,
+          messageId: testMessage.id,
         });
       } else {
         res.status(400).json({
