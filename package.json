@@ -19,6 +19,9 @@
     "db:fix-users": "node scripts/apply-users-fix.js",
     "db:migrate-messaging": "tsx scripts/run-migration.ts",
     "db:fix-production": "tsx scripts/fix-production-businesses.ts",
+    "audit:tfv": "npx tsx scripts/run-tfv-audit.ts",
+    "audit:tfv:quick": "npx tsx scripts/run-tfv-audit.ts --mode quick",
+    "audit:tfv:production": "npx tsx scripts/run-tfv-audit.ts --mode production-ready",
     "test": "vitest"
   },
   "dependencies": {
