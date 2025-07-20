@@ -1,6 +1,7 @@
 import type { IStorage } from "../db/storage";
 import { TwilioService } from "./twilio.js";
 import { logError } from "../utils/logger.util";
+import { logInfo } from "../utils/logger.util";
 
 export interface CampaignExecutionResult {
   sentCount: number;
@@ -57,9 +58,19 @@ export async function executeCampaign(
     }
   }
 
-  const creds = await bizStorage.getTwilioCredentials();
+  const messagingServiceSid = await bizStorage.getMessagingServiceSid();
   const numbers = await bizStorage.getPhoneNumbers();
   const defaultNumber = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+  // Create a minimal creds object for compatibility
+  const tempCreds = {
+    businessId: (await bizStorage.getBusiness()).id,
+    accountSid: process.env.TWILIO_ACCOUNT_SID!,
+    messagingServiceSid: messagingServiceSid || null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    id: 0,
+  };
 
   const smsMessages = contacts.map((contact) => ({
     to: contact.phoneNumber,
@@ -67,12 +78,12 @@ export async function executeCampaign(
     campaignId: campaign.id,
     contactId: contact.id,
     from: defaultNumber,
-    messagingServiceSid: creds?.messagingServiceSid || undefined,
+    messagingServiceSid: messagingServiceSid ?? undefined,
     mediaUrl: campaign.mediaUrl || undefined,
   }));
 
   try {
-    const results = await TwilioService.sendBulkSMS(creds, smsMessages);
+    const results = await TwilioService.sendBulkSMS(tempCreds, smsMessages);
 
     let sentCount = 0;
     let deliveredCount = 0;
@@ -89,12 +100,45 @@ export async function executeCampaign(
 
     // Only deduct credits for successfully sent messages
     if (sentCount > 0) {
-      await bizStorage.adjustCredits(
-        -sentCount * creditCost,
-        isMMS ? "send_mms" : "send_sms",
-        `Sent ${sentCount} ${isMMS ? "MMS" : "SMS"} for campaign ${campaignId}`,
-        { campaignId, totalContacts: contacts.length, failedCount }
-      );
+      try {
+        await bizStorage.adjustCredits(
+          -sentCount * creditCost,
+          isMMS ? "send_mms" : "send_sms",
+          `Sent ${sentCount} ${
+            isMMS ? "MMS" : "SMS"
+          } for campaign ${campaignId}`,
+          { campaignId, totalContacts: contacts.length, failedCount }
+        );
+
+        logInfo("Campaign credits deducted successfully", {
+          campaignId,
+          sentCount,
+          creditCost,
+          totalCreditsDeducted: sentCount * creditCost,
+        });
+      } catch (billingError) {
+        // NEW: Log billing failure but don't fail the campaign
+        // This is an internal infrastructure issue, not a user issue
+        logError(
+          "BILLING_SYSTEM_FAILURE: Campaign sent but credit deduction failed",
+          {
+            campaignId,
+            sentCount,
+            failedCount,
+            totalContacts: contacts.length,
+            creditCostPerMessage: creditCost,
+            totalCreditsAttempted: sentCount * creditCost,
+            error:
+              billingError instanceof Error
+                ? billingError.message
+                : String(billingError),
+            timestamp: new Date().toISOString(),
+          }
+        );
+
+        // Continue with campaign completion - don't fail the user experience
+        // The billing failure will be monitored and handled internally
+      }
     }
 
     // Update campaign with results

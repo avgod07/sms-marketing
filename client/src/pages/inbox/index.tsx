@@ -167,8 +167,14 @@ export default function Inbox() {
 
   useMessageSocket({
     onMessage: (data) => {
-      const contactId = (data as any).contactId as number | undefined;
+      const contactId = (data as any).contactId as number | null | undefined;
       const phone = (data as any).phoneNumber as string | undefined;
+      
+      // Skip messages without contactId (e.g., test messages) - they don't belong in conversations
+      if (!contactId) {
+        return;
+      }
+      
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c.id === contactId || c.phone === phone);
         if (idx === -1) return prev;
@@ -318,10 +324,12 @@ export default function Inbox() {
           }));
           setConversations(convs);
           
-          // Select the conversation with the contact we just messaged
-          const newConv = convs.find(c => c.id === message.contactId);
-          if (newConv) {
-            setSelectedId(newConv.id);
+          // Select the conversation with the contact we just messaged (only for messages with contactId)
+          if (message.contactId) {
+            const newConv = convs.find(c => c.id === message.contactId);
+            if (newConv) {
+              setSelectedId(newConv.id);
+            }
           }
         }
       } catch (err) {

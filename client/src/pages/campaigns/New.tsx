@@ -77,8 +77,8 @@ export default function NewCampaignPage() {
     queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
   };
 
-  const disabled =
-    !setup?.phoneConfigured || !setup?.hasContacts;
+  // Only disable if onboarding is not complete
+  const disabled = !setup?.onboardingComplete;
 
   return (
     <div className="fade-in">

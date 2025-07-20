@@ -15,6 +15,9 @@ import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomBytes } from "crypto";
 import { TwilioService } from "../../services/twilio.js";
+import { MessageCreditService } from "../../services/message-credits.js";
+import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
+import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -91,54 +94,74 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
+  app.post(
+    "/api/campaigns",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
 
-      // Check if user is on a paid plan or has an active trial
-      const business = await biz.getBusiness();
-      const isTrialExpired = business.trialEndsAt
-        ? new Date(business.trialEndsAt) < new Date()
-        : false;
+        // Check if user has sufficient credits for campaign
+        const contacts = (await biz.getContacts()).filter((c) => c.active);
+        if (contacts.length === 0) {
+          return res.status(400).json({
+            message:
+              "No active contacts found. Please add contacts before creating a campaign.",
+          });
+        }
 
-      if (business.plan === "trial" || isTrialExpired) {
-        return res.status(403).json({
-          message:
-            "Campaign creation requires a paid plan. Please upgrade to continue.",
-          code: "UPGRADE_REQUIRED",
+        const validatedData = simpleCampaignSchema.parse(req.body);
+        const isMMS = !!validatedData.mediaUrl;
+        const creditCost = isMMS ? 3 : 1;
+        const totalCreditsNeeded = contacts.length * creditCost;
+
+        const credits = await biz.getCredits();
+        const balance = credits?.balance || 0;
+
+        if (balance < totalCreditsNeeded) {
+          return res.status(400).json({
+            message: `Insufficient credits. Need ${totalCreditsNeeded} credit${
+              totalCreditsNeeded > 1 ? "s" : ""
+            } for ${contacts.length} contact${
+              contacts.length > 1 ? "s" : ""
+            } (${isMMS ? "MMS" : "SMS"} costs ${creditCost} credit${
+              creditCost > 1 ? "s" : ""
+            } each).`,
+          });
+        }
+
+        const campaign = await biz.createCampaign({
+          name: validatedData.name,
+          message: validatedData.message,
+          mediaUrl: validatedData.mediaUrl,
         });
-      }
 
-      const validatedData = simpleCampaignSchema.parse(req.body);
-      const campaign = await biz.createCampaign({
-        name: validatedData.name,
-        message: validatedData.message,
-        mediaUrl: validatedData.mediaUrl,
-      });
+        const results = await executeCampaign(biz, campaign.id);
 
-      const results = await executeCampaign(biz, campaign.id);
-
-      res.status(201).json({
-        campaign,
-        sentCount: results.sentCount,
-        failedCount: results.failedCount,
-        totalContacts: results.totalContacts,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
+        res.status(201).json({
+          campaign,
+          sentCount: results.sentCount,
+          failedCount: results.failedCount,
+          totalContacts: results.totalContacts,
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        if (error instanceof InsufficientCreditsError) {
+          return res
+            .status(400)
+            .json({ message: "Insufficient credits to send campaign" });
+        }
+        logError("Error creating campaign:", error);
+        res.status(500).json({ message: "Failed to create campaign" });
       }
-      if (error instanceof InsufficientCreditsError) {
-        return res
-          .status(400)
-          .json({ message: "Insufficient credits to send campaign" });
-      }
-      logError("Error creating campaign:", error);
-      res.status(500).json({ message: "Failed to create campaign" });
     }
-  });
+  );
 
   app.patch("/api/campaigns/:id", requireAuth(), async (req, res) => {
     try {
@@ -179,142 +202,161 @@ export function registerCampaignRoutes(app: Express) {
     }
   });
 
-  app.post("/api/campaigns/:id/send", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
+  app.post(
+    "/api/campaigns/:id/send",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
 
-      // Check if user is on a paid plan or has an active trial
-      const business = await biz.getBusiness();
-      const isTrialExpired = business.trialEndsAt
-        ? new Date(business.trialEndsAt) < new Date()
-        : false;
+        const id = parseInt(req.params.id);
+        const campaign = await biz.getCampaign(id);
 
-      if (business.plan === "trial" || isTrialExpired) {
-        return res.status(403).json({
-          message:
-            "Campaign sending requires a paid plan. Please upgrade to continue.",
-          code: "UPGRADE_REQUIRED",
-        });
-      }
+        if (!campaign) {
+          return res.status(404).json({ message: "Campaign not found" });
+        }
 
-      const id = parseInt(req.params.id);
-      const campaign = await biz.getCampaign(id);
+        // Check if user has sufficient credits for campaign
+        const contacts = (await biz.getContacts()).filter((c) => c.active);
+        if (contacts.length === 0) {
+          return res.status(400).json({
+            message:
+              "No active contacts found. Please add contacts before sending a campaign.",
+          });
+        }
 
-      if (!campaign) {
-        return res.status(404).json({ message: "Campaign not found" });
-      }
+        const isMMS = !!campaign.mediaUrl;
+        const creditCost = isMMS ? 3 : 1;
+        const totalCreditsNeeded = contacts.length * creditCost;
 
-      const results = await executeCampaign(biz, id);
+        const credits = await biz.getCredits();
+        const balance = credits?.balance || 0;
 
-      res.json({
-        message: "Campaign sent successfully",
-        sentCount: results.sentCount,
-        failedCount: results.failedCount,
-        totalContacts: results.totalContacts,
-      });
-    } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
-        return res
-          .status(400)
-          .json({ message: "Insufficient credits to send campaign" });
-      }
-      logError("Error sending campaign:", error);
-      res.status(500).json({ message: "Failed to send campaign" });
-    }
-  });
+        if (balance < totalCreditsNeeded) {
+          return res.status(400).json({
+            message: `Insufficient credits. Need ${totalCreditsNeeded} credit${
+              totalCreditsNeeded > 1 ? "s" : ""
+            } for ${contacts.length} contact${
+              contacts.length > 1 ? "s" : ""
+            } (${isMMS ? "MMS" : "SMS"} costs ${creditCost} credit${
+              creditCost > 1 ? "s" : ""
+            } each).`,
+          });
+        }
 
-  // Test campaign message endpoint - sends test message without creating campaign record
-  app.post("/api/campaigns/test", requireAuth(), async (req, res) => {
-    try {
-      const { biz, user } = await getBizForRequest(req);
-      const { message, mediaUrl, phoneNumber } = z
-        .object({
-          message: z
-            .string()
-            .min(1, "Message is required")
-            .max(160, "Message must be 160 characters or less"),
-          mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
-          phoneNumber: z.string().min(1, "Phone number is required"),
-        })
-        .parse(req.body);
-
-      // Check if user is on a paid plan or has an active trial
-      const business = await biz.getBusiness();
-      const isTrialExpired = business.trialEndsAt
-        ? new Date(business.trialEndsAt) < new Date()
-        : false;
-
-      if (business.plan === "trial" || isTrialExpired) {
-        return res.status(403).json({
-          message:
-            "Test messages require a paid plan. Please upgrade to continue.",
-          code: "UPGRADE_REQUIRED",
-        });
-      }
-
-      // Check if user has sufficient credits
-      const credits = await biz.getCredits();
-      const creditsNeeded = mediaUrl ? 3 : 1; // MMS costs 3 credits, SMS costs 1
-      const balance = credits?.balance || 0;
-
-      if (balance < creditsNeeded) {
-        return res.status(400).json({
-          message: `Insufficient credits. Need ${creditsNeeded} credit${
-            creditsNeeded > 1 ? "s" : ""
-          } for ${mediaUrl ? "MMS" : "SMS"} test message.`,
-        });
-      }
-
-      // Get Twilio credentials and phone numbers
-      const creds = await biz.getTwilioCredentials();
-      const numbers = await biz.getPhoneNumbers();
-      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-
-      if (!creds || !from) {
-        return res.status(400).json({
-          message: "Twilio not configured or no default phone number",
-        });
-      }
-
-      // Send the test message
-      const result = await TwilioService.sendSMS(creds, {
-        to: phoneNumber,
-        message: message,
-        from,
-        messagingServiceSid: creds?.messagingServiceSid || undefined,
-      });
-
-      if (result.success) {
-        // Deduct credits only on successful send
-        await biz.adjustCredits(
-          -creditsNeeded,
-          "test_message",
-          `Test ${mediaUrl ? "MMS" : "SMS"} message sent`,
-          { messageType: mediaUrl ? "MMS" : "SMS", phoneNumber }
-        );
+        const results = await executeCampaign(biz, id);
 
         res.json({
-          success: true,
-          messageSid: result.messageSid,
-          creditsDeducted: creditsNeeded,
-          messageType: mediaUrl ? "MMS" : "SMS",
+          message: "Campaign sent successfully",
+          sentCount: results.sentCount,
+          failedCount: results.failedCount,
+          totalContacts: results.totalContacts,
         });
-      } else {
-        res.status(400).json({
-          success: false,
-          error: result.error || "Failed to send test message",
-        });
+      } catch (error) {
+        if (error instanceof InsufficientCreditsError) {
+          return res
+            .status(400)
+            .json({ message: "Insufficient credits to send campaign" });
+        }
+        logError("Error sending campaign:", error);
+        res.status(500).json({ message: "Failed to send campaign" });
       }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error sending test campaign message:", error);
-      res.status(500).json({ message: "Failed to send test message" });
     }
-  });
+  );
+
+  // Test campaign message endpoint - sends test message without creating campaign record
+  app.post(
+    "/api/campaigns/test",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz, user } = await getBizForRequest(req);
+        const { message, mediaUrl, phoneNumber } = z
+          .object({
+            message: z
+              .string()
+              .min(1, "Message is required")
+              .max(160, "Message must be 160 characters or less"),
+            mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
+            phoneNumber: z.string().min(1, "Phone number is required"),
+          })
+          .parse(req.body);
+
+        // Get messaging service SID and phone numbers
+        const messagingServiceSid = await biz.getMessagingServiceSid();
+        const numbers = await biz.getPhoneNumbers();
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+        if (!from || !process.env.TWILIO_ACCOUNT_SID) {
+          return res.status(400).json({
+            message: "Twilio not configured or no default phone number",
+          });
+        }
+
+        // Create a minimal creds object for compatibility
+        const tempCreds = {
+          businessId: (await biz.getBusiness()).id,
+          accountSid: process.env.TWILIO_ACCOUNT_SID,
+          messagingServiceSid: messagingServiceSid || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          id: 0,
+        };
+
+        // Use MessageCreditService for consistent send-first-then-deduct approach
+        const result = await MessageCreditService.sendWithCreditDeduction(
+          biz,
+          tempCreds,
+          {
+            to: phoneNumber,
+            message: message,
+            from,
+            messagingServiceSid: messagingServiceSid ?? undefined,
+            mediaUrl: mediaUrl || undefined,
+            messageType: "campaign",
+          }
+        );
+
+        if (result.success) {
+          // Create database record for test message to ensure credit-message alignment
+          const testMessage = await biz.createMessage({
+            phoneNumber: phoneNumber,
+            content: message,
+            status: result.success ? "sent" : "failed",
+            messageType: "test", // Use 'test' messageType for test messages
+            billingStatus: result.billingStatus,
+            messageSid: result.messageSid,
+            contactId: null, // Test messages don't need a real contact
+          });
+
+          res.status(200).json({
+            success: true,
+            message: "Test message sent successfully",
+            creditCost: result.creditCost,
+            remainingCredits: result.remainingCredits,
+            messageId: testMessage.id,
+          });
+        } else {
+          res.status(400).json({
+            success: false,
+            error: result.error || "Failed to send test message",
+          });
+        }
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        logError("Error sending test campaign message:", error);
+        res.status(500).json({ message: "Failed to send test message" });
+      }
+    }
+  );
 
   app.post(
     "/api/campaigns/upload-image",

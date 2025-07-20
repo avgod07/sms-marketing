@@ -42,15 +42,16 @@ export default function TollFreeNumberForm({
       if (!selected) throw new Error("No number selected");
       const response = await apiRequest({
         method: "POST",
-        url: "/api/twilio/tollfree",
+        url: "/api/onboarding/reserve-number",
         data: { phoneNumber: selected },
       });
       return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/business/account-info"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       
-      // Show TFV-aware success message
       toast({
         title: "Setup Complete!",
         description: data.tfvSid 
@@ -61,9 +62,11 @@ export default function TollFreeNumberForm({
       onSuccess();
     },
     onError: (error: any) => {
+      const errorMessage = handleApiError(error);
+      
       toast({
         title: "Error",
-        description: handleApiError(error),
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -130,7 +133,14 @@ export default function TollFreeNumberForm({
               </p>
             </div>
 
-            {numbers && numbers.length > 0 ? (
+            {isFetching ? (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                </div>
+                <p className="text-gray-500">Loading available numbers...</p>
+              </div>
+            ) : numbers && numbers.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {numbers.map((number: string) => (
                   <button
@@ -161,15 +171,9 @@ export default function TollFreeNumberForm({
             ) : (
               <div className="text-center py-8">
                 <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4">
-                  {isFetching ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-                  ) : (
-                    <Phone className="w-6 h-6 text-gray-500" />
-                  )}
+                  <Phone className="w-6 h-6 text-gray-500" />
                 </div>
-                <p className="text-gray-500">
-                  {isFetching ? "Loading available numbers..." : "No numbers available. Please refresh."}
-                </p>
+                <p className="text-gray-500">No numbers available. Please refresh.</p>
               </div>
             )}
 
@@ -218,7 +222,7 @@ export default function TollFreeNumberForm({
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span>Purchase & Complete Setup</span>
+                    <span>Purchase & Continue</span>
                     <ArrowRight className="w-4 h-4" />
                   </div>
                 )}

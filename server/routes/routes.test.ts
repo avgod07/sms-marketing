@@ -177,6 +177,11 @@ describe("routes", () => {
       hasLocalAccount: true,
       userId: 2,
       businessId: 1,
+      tfvStatus: {
+        hasPhoneNumbers: false,
+        isVerified: false,
+        status: "unknown",
+      },
     });
   });
 
@@ -297,8 +302,9 @@ describe("routes", () => {
       contactId: 2,
       content: "hello",
       status: "received",
+      messageType: "received",
     });
-    expect(mockBroadcast).toHaveBeenCalledWith("message:send", saved);
+    expect(mockBroadcast).toHaveBeenCalledWith("message:send", saved, 1);
   });
 
   it("fetches recent contacts", async () => {

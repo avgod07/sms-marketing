@@ -68,7 +68,7 @@ export interface RecentMessage {
   content: string;
   status: string;
   phoneNumber: string;
-  contactId: number;
+  contactId: number | null;
   contactName?: string;
   createdAt: string;
 }
@@ -78,7 +78,7 @@ export interface RecentInboxMessage {
   content: string;
   status: string;
   phoneNumber: string;
-  contactId: number;
+  contactId: number | null;
   contactName?: string;
   createdAt: string;
 }

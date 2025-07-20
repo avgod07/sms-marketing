@@ -78,15 +78,43 @@ export default function Contacts() {
   });
 
   const createContactMutation = useMutation({
-    mutationFn: (data: ContactFormValues) => {
-      return apiRequest({ method: "POST", url: "/api/contacts", data });
-    },
+    mutationFn: (data: ContactFormValues) =>
+      apiRequest({
+        method: "POST",
+        url: "/api/contacts",
+        data,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       setIsCreateOpen(false);
+      setEditingContact(null);
       toast({ title: "Contact Added" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: handleApiError(error),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateContactMutation = useMutation({
+    mutationFn: (data: ContactFormValues) =>
+      apiRequest({
+        method: "PUT",
+        url: `/api/contacts/${editingContact!.id}`,
+        data,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsEditOpen(false);
+      setEditingContact(null);
+      toast({ title: "Contact Updated" });
     },
     onError: (error: any) => {
       toast({
@@ -105,28 +133,6 @@ export default function Contacts() {
     setEditingContact(contact);
     setIsEditOpen(true);
   };
-
-  const updateContactMutation = useMutation({
-    mutationFn: async (data: ContactFormValues) => {
-      if (!editingContact) return;
-      await apiRequest({ method: "PATCH", url: `/api/contacts/${editingContact.id}`, data });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
-      setIsEditOpen(false);
-      setEditingContact(null);
-      toast({ title: "Contact Updated" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: handleApiError(error),
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleEditSubmit = (data: ContactFormValues) => {
     updateContactMutation.mutate(data);
@@ -188,37 +194,55 @@ export default function Contacts() {
   };
 
   const downloadQrPdf = async () => {
-    const svg = document.getElementById("business-qr-code") as SVGSVGElement | null;
-    if (!svg) return;
     try {
       await loadHtml2Pdf();
-      const container = document.createElement("div");
-      container.style.display = "flex";
-      container.style.flexDirection = "column";
-      container.style.alignItems = "center";
-      container.style.justifyContent = "center";
-      container.style.padding = "40px";
-      const cloned = svg.cloneNode(true) as SVGSVGElement;
-      cloned.style.width = "200px";
-      cloned.style.height = "200px";
-      container.appendChild(cloned);
-      (window as any).html2pdf()
-        .from(container)
-        .set({
-          margin: 1,
-          filename: "join-qr-code.pdf",
-          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-        })
-        .save()
-        .finally(() => {
-          container.remove();
-        });
-    } catch {
-      // ignore
+      const joinUrl = `${window.location.origin}/join/${user?.businessId || ''}`;
+      const element = document.createElement("div");
+      element.innerHTML = `
+        <div style="text-align: center; padding: 20px; font-family: Arial, sans-serif;">
+          <h2 style="margin-bottom: 20px;">Join Our SMS List</h2>
+          <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+            <div id="qr-code"></div>
+          </div>
+          <p style="font-size: 16px; margin-bottom: 10px;">Scan the QR code to join our SMS list</p>
+          <p style="font-size: 14px; color: #666;">${joinUrl}</p>
+        </div>
+      `;
+      document.body.appendChild(element);
+      const qrCodeDiv = element.querySelector("#qr-code");
+      if (qrCodeDiv) {
+        qrCodeDiv.innerHTML = `<canvas id="qr-canvas"></canvas>`;
+        const canvas = qrCodeDiv.querySelector("canvas") as HTMLCanvasElement;
+        if (canvas) {
+          const QRious = (window as any).QRious;
+          new QRious({
+            element: canvas,
+            value: joinUrl,
+            size: 200,
+          });
+        }
+      }
+      const options = {
+        margin: 0.5,
+        filename: "sms-signup-qr.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      };
+      await (window as any).html2pdf().set(options).from(element).save();
+      document.body.removeChild(element);
+      toast({ title: "QR Code Downloaded", description: "PDF saved successfully" });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
     }
   };
 
-  const disabled = !setup?.phoneConfigured || !setup?.hasContacts || !setup?.onboardingComplete;
+  // Only disable if onboarding is not complete
+  const disabled = !setup?.onboardingComplete;
 
   return (
     <div className="fade-in">
@@ -369,40 +393,12 @@ export default function Contacts() {
                   <DialogHeader>
                     <DialogTitle>Add New Contact</DialogTitle>
                   </DialogHeader>
-                  {!setup?.onboardingComplete ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2 text-amber-600">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="text-sm font-medium">Onboarding Required</span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Please complete onboarding and set your welcome message before adding contacts.
-                      </p>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setIsCreateOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          onClick={() => {
-                            setIsCreateOpen(false);
-                            navigate("/onboarding");
-                          }}
-                        >
-                          Complete Onboarding
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <ContactForm
-                      onSubmit={handleCreateSubmit}
-                      onCancel={() => setIsCreateOpen(false)}
-                      pending={createContactMutation.isPending}
-                      submitLabel="Add Contact"
-                    />
-                  )}
+                  <ContactForm
+                    onSubmit={handleCreateSubmit}
+                    onCancel={() => setIsCreateOpen(false)}
+                    pending={createContactMutation.isPending}
+                    submitLabel="Add Contact"
+                  />
                 </DialogContent>
               </Dialog>
               <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

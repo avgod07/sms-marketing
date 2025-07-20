@@ -17,11 +17,14 @@ import { z } from "zod";
 export const businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  plan: text("plan").notNull().default("trial"), // 'trial', 'starter'
+  plan: text("plan").notNull().default("free_trial"), // 'free_trial', 'starter', 'cancelled'
   trialEndsAt: timestamp("trial_ends_at"),
+  trialUsed: boolean("trial_used").default(false).notNull(),
+  trialVoidedAt: timestamp("trial_voided_at"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
   initialMessage: text("initial_message"),
+  messagingServiceSid: varchar("messaging_service_sid", { length: 64 }),
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -81,24 +84,31 @@ export const messages = pgTable(
     campaignId: integer("campaign_id").references(() => campaigns.id, {
       onDelete: "cascade",
     }),
-    contactId: integer("contact_id")
-      .references(() => contacts.id)
-      .notNull(),
+    contactId: integer("contact_id").references(() => contacts.id),
     content: text("content").notNull(),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
+    messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received, test
+    billingStatus: text("billing_status").notNull().default("success"), // success, failed
     messageSid: varchar("message_sid", { length: 64 }),
     errorCode: integer("error_code"),
-    sentAt: timestamp("sent_at"),
-    deliveredAt: timestamp("delivered_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    sentAt: timestamp("sent_at", { mode: "string" }),
+    deliveredAt: timestamp("delivered_at", { mode: "string" }),
+    createdAt: timestamp("created_at", { mode: "string" })
+      .defaultNow()
+      .notNull(),
   },
-  (table) => ({
-    statusIdx: index("messages_status_idx").on(table.status),
-    errorCodeIdx: index("messages_error_code_idx").on(table.errorCode),
-    sentAtIdx: index("messages_sent_at_idx").on(table.sentAt),
-    deliveredAtIdx: index("messages_delivered_at_idx").on(table.deliveredAt),
-  })
+  (table) => [
+    index("messages_delivered_at_idx").using(
+      "btree",
+      table.deliveredAt.asc().nullsLast().op("timestamp_ops")
+    ),
+    index("messages_contact_id_idx").using("btree", table.contactId),
+    index("messages_business_id_idx").using("btree", table.businessId),
+    index("messages_campaign_id_idx").using("btree", table.campaignId),
+    index("messages_message_type_idx").using("btree", table.messageType),
+    index("messages_billing_status_idx").using("btree", table.billingStatus),
+  ]
 );
 
 export const coupons = pgTable(
@@ -253,7 +263,9 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   serviceSid: varchar("service_sid", { length: 64 }),
   assignmentStatus: text("assignment_status"),
   tfvSid: varchar("tfv_sid", { length: 64 }),
-  verificationStatus: text("verification_status").default("pending").notNull(),
+  verificationStatus: text("verification_status")
+    .default("PENDING_REVIEW")
+    .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -320,6 +332,9 @@ export const onboardingProgress = pgTable("onboarding_progress", {
 
   // Step 3: Use Cases (for A2P)
   useCases: text("use_cases").array(),
+
+  // Step 4: Initial Message
+  initialMessage: text("initial_message"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

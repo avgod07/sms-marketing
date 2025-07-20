@@ -120,7 +120,7 @@ describe("Coupons unique index", () => {
 });
 
 describe("createBusiness", () => {
-  it("grants 50 trial credits when business is created with trial plan", async () => {
+  it("grants 50 trial credits when business is created with free_trial plan", async () => {
     const storage = new DatabaseStorage();
     const mockAdjustCredits = vi.fn().mockResolvedValue({ balance: 50 });
     const mockForBusiness = vi.fn().mockReturnValue({
@@ -135,17 +135,17 @@ describe("createBusiness", () => {
       {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
       },
     ]);
 
     const business = await storage.createBusiness({
       name: "Test Business",
-      plan: "trial",
+      plan: "free_trial",
     });
 
     expect(business.name).toBe("Test Business");
-    expect(business.plan).toBe("trial");
+    expect(business.plan).toBe("free_trial");
     expect(storage.forBusiness).toHaveBeenCalledWith(business.id);
     expect(mockAdjustCredits).toHaveBeenCalledWith(
       50,
@@ -203,17 +203,17 @@ describe("createBusiness", () => {
       {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
       },
     ]);
 
     const business = await storage.createBusiness({
       name: "Test Business",
-      plan: "trial",
+      plan: "free_trial",
     });
 
     expect(business.name).toBe("Test Business");
-    expect(business.plan).toBe("trial");
+    expect(business.plan).toBe("free_trial");
     expect(mockAdjustCredits).toHaveBeenCalled();
     expect(logError).toHaveBeenCalledWith(
       "Failed to grant trial credits",

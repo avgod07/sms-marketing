@@ -76,6 +76,10 @@ export interface IStorage {
   upsertTwilioCredentials(
     creds: InsertTwilioCredential & { messagingServiceSid?: string }
   ): Promise<TwilioCredential>;
+  // New messaging service management
+  getMessagingServiceSid(): Promise<string | undefined>;
+  setMessagingServiceSid(serviceSid: string): Promise<Business>;
+  ensureMessagingServiceSid(): Promise<string>;
   getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
   setPhoneNumbers(
     numbers: InsertBusinessPhoneNumber[]
@@ -85,6 +89,14 @@ export interface IStorage {
     tfvSid: string,
     verificationStatus: string
   ): Promise<BusinessPhoneNumber>;
+  // TFV Verification status checking
+  getTFVVerificationStatus(): Promise<{
+    isVerified: boolean;
+    status: string;
+    hasPhoneNumbers: boolean;
+    pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }>;
+  }>;
+  refreshTFVStatusFromTwilio(): Promise<void>;
   getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined>;
   upsertTwilioA2PConfig(
     config: InsertTwilioA2pConfig
@@ -220,7 +232,7 @@ export interface IStorage {
     plan: string,
     stripeCustomerId?: string,
     stripeSubscriptionId?: string,
-    endTrial?: boolean
+    trialVoidedAt?: Date
   ): Promise<Business>;
   recordSubscriptionEvent(
     eventType: string,
@@ -667,6 +679,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt));
   }
 
+  async getBillingFailures(): Promise<Message[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.businessId, businessId),
+          eq(messages.billingStatus, "failed")
+        )
+      )
+      .orderBy(desc(messages.createdAt));
+  }
+
   async getMessagesByCampaign(campaignId: number): Promise<Message[]> {
     const businessId = this.requireBusinessId();
     return await db
@@ -692,15 +718,28 @@ export class DatabaseStorage implements IStorage {
   async getConversationSummaries(): Promise<any[]> {
     const businessId = this.requireBusinessId();
     const contactsList = await this.getContacts();
-    const allMessages = await db
+
+    // Only get messages that represent actual conversations (received or regular messages)
+    // Filter out initial/campaign messages that shouldn't create conversations
+    const conversationMessages = await db
       .select()
       .from(messages)
-      .where(eq(messages.businessId, businessId))
+      .where(
+        and(
+          eq(messages.businessId, businessId),
+          sql`${messages.messageType} IN ('received', 'regular')`,
+          // Only include messages with valid contactId (exclude test messages)
+          sql`${messages.contactId} IS NOT NULL`
+        )
+      )
       .orderBy(desc(messages.createdAt));
 
     const seen = new Set<number>();
     const summaries: any[] = [];
-    for (const msg of allMessages) {
+    for (const msg of conversationMessages) {
+      // Skip messages without contactId (shouldn't happen due to WHERE clause, but safety check)
+      if (!msg.contactId) continue;
+
       if (seen.has(msg.contactId)) continue;
       const contact = contactsList.find((c) => c.id === msg.contactId);
       if (contact) {
@@ -1094,8 +1133,8 @@ export class DatabaseStorage implements IStorage {
   async createBusiness(business: InsertBusiness): Promise<Business> {
     const [row] = await db.insert(businesses).values(business).returning();
 
-    // Grant 50 free trial credits if the business is created with "trial" plan
-    if (row.plan === "trial") {
+    // Grant 50 free trial credits if the business is created with "free_trial" plan
+    if (row.plan === "free_trial") {
       try {
         const biz = this.forBusiness(row.id);
         await biz.adjustCredits(
@@ -1199,6 +1238,43 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  // New messaging service management methods
+  async getMessagingServiceSid(): Promise<string | undefined> {
+    const businessId = this.requireBusinessId();
+
+    // First check the businesses table (new approach)
+    const business = await this.getBusiness();
+    if (business.messagingServiceSid) {
+      return business.messagingServiceSid;
+    }
+
+    // Fallback to twilioCredentials table for backward compatibility
+    const creds = await this.getTwilioCredentials();
+    return creds?.messagingServiceSid ?? undefined;
+  }
+
+  async setMessagingServiceSid(serviceSid: string): Promise<Business> {
+    const businessId = this.requireBusinessId();
+    const [updatedBusiness] = await db
+      .update(businesses)
+      .set({ messagingServiceSid: serviceSid })
+      .where(eq(businesses.id, businessId))
+      .returning();
+    return updatedBusiness;
+  }
+
+  async ensureMessagingServiceSid(): Promise<string> {
+    // First try to get existing messaging service SID
+    const existing = await this.getMessagingServiceSid();
+    if (existing) {
+      return existing;
+    }
+
+    // If none exists, we need to create one via the Twilio service
+    // This will be called from the routes where we have access to the Twilio client
+    throw new Error("No messaging service SID found - needs to be created");
+  }
+
   async getPhoneNumbers(): Promise<BusinessPhoneNumber[]> {
     const businessId = this.requireBusinessId();
     return await db
@@ -1241,6 +1317,111 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return updatedPhoneNumber;
+  }
+
+  async getTFVVerificationStatus(): Promise<{
+    isVerified: boolean;
+    status: string;
+    hasPhoneNumbers: boolean;
+    pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }>;
+  }> {
+    const businessId = this.requireBusinessId();
+    const phoneNumbers = await db
+      .select()
+      .from(businessPhoneNumbers)
+      .where(eq(businessPhoneNumbers.businessId, businessId));
+
+    if (phoneNumbers.length === 0) {
+      return {
+        isVerified: false,
+        status: "no_phone_numbers",
+        hasPhoneNumbers: false,
+        pendingTFVs: [],
+      };
+    }
+
+    // Check if any phone number is verified - USE CORRECT TWILIO STATUS VALUES
+    const verifiedNumbers = phoneNumbers.filter(
+      (phone) => phone.verificationStatus === "TWILIO_APPROVED" // ✅ CORRECT
+    );
+
+    const pendingTFVs = phoneNumbers
+      .filter(
+        (phone) => phone.tfvSid && phone.verificationStatus === "PENDING_REVIEW"
+      ) // ✅ CORRECT
+      .map((phone) => ({
+        tfvSid: phone.tfvSid!,
+        phoneNumber: phone.phoneNumber,
+      }));
+
+    // Business is considered verified if at least one phone number is verified
+    const isVerified = verifiedNumbers.length > 0;
+
+    let status = "PENDING_REVIEW"; // ✅ CORRECT
+    if (isVerified) {
+      status = "TWILIO_APPROVED"; // ✅ CORRECT
+    } else if (
+      phoneNumbers.some(
+        (phone) => phone.verificationStatus === "TWILIO_REJECTED"
+      ) // ✅ CORRECT
+    ) {
+      status = "TWILIO_REJECTED"; // ✅ CORRECT
+    } else if (phoneNumbers.some((phone) => phone.tfvSid)) {
+      status = "PENDING_REVIEW"; // ✅ CORRECT
+    } else {
+      status = "not_submitted";
+    }
+
+    return {
+      isVerified,
+      status,
+      hasPhoneNumbers: true,
+      pendingTFVs,
+    };
+  }
+
+  async refreshTFVStatusFromTwilio(): Promise<void> {
+    const businessId = this.requireBusinessId();
+    const phoneNumbers = await db
+      .select()
+      .from(businessPhoneNumbers)
+      .where(eq(businessPhoneNumbers.businessId, businessId));
+
+    // Import getTollFreeVerificationStatus dynamically to avoid circular dependencies
+    const { getTollFreeVerificationStatus } = await import(
+      "../services/tfv.js"
+    );
+
+    for (const phoneNumber of phoneNumbers) {
+      if (
+        phoneNumber.tfvSid &&
+        phoneNumber.verificationStatus === "PENDING_REVIEW"
+      ) {
+        // ✅ CORRECT
+        try {
+          const tfvStatus = await getTollFreeVerificationStatus(
+            phoneNumber.tfvSid
+          );
+
+          // Only update if status has changed
+          if (tfvStatus.status !== phoneNumber.verificationStatus) {
+            await db
+              .update(businessPhoneNumbers)
+              .set({
+                verificationStatus: tfvStatus.status,
+                updatedAt: new Date(),
+              })
+              .where(eq(businessPhoneNumbers.id, phoneNumber.id));
+          }
+        } catch (error) {
+          logError(
+            `Failed to refresh TFV status for ${phoneNumber.tfvSid}:`,
+            error
+          );
+          // Continue with other phone numbers even if one fails
+        }
+      }
+    }
   }
 
   async getTwilioA2PConfig(): Promise<TwilioA2pConfig | undefined> {
@@ -1437,7 +1618,7 @@ export class DatabaseStorage implements IStorage {
     plan: string,
     stripeCustomerId?: string,
     stripeSubscriptionId?: string,
-    endTrial?: boolean
+    trialVoidedAt?: Date
   ): Promise<Business> {
     const businessId = this.requireBusinessId();
 
@@ -1447,9 +1628,11 @@ export class DatabaseStorage implements IStorage {
       stripeSubscriptionId,
     };
 
-    // End trial immediately if upgrading from trial to paid
-    if (endTrial) {
-      updateData.trialEndsAt = new Date();
+    // If voiding trial, mark it as used and set voided timestamp
+    if (trialVoidedAt) {
+      updateData.trialUsed = true;
+      updateData.trialVoidedAt = trialVoidedAt;
+      updateData.trialEndsAt = trialVoidedAt; // Also end the trial period
     }
 
     const [row] = await db

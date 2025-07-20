@@ -9,6 +9,8 @@ import {
 } from "../../services/message-credits.js";
 import { getBizForRequest } from "./utils";
 import { logError } from "../../utils/logger.util";
+import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
+import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
 
 export function registerMessageRoutes(app: Express) {
   app.get("/api/conversations", requireAuth(), async (req, res) => {
@@ -68,7 +70,9 @@ export function registerMessageRoutes(app: Express) {
       // Get contact names for the messages
       const messagesWithContactNames = await Promise.all(
         messages.map(async (message) => {
-          const contact = await biz.getContact(message.contactId);
+          const contact = message.contactId
+            ? await biz.getContact(message.contactId)
+            : null;
           return {
             ...message,
             contactName: contact
@@ -95,7 +99,9 @@ export function registerMessageRoutes(app: Express) {
       // Get contact names for the messages
       const messagesWithContactNames = await Promise.all(
         messages.map(async (message) => {
-          const contact = await biz.getContact(message.contactId);
+          const contact = message.contactId
+            ? await biz.getContact(message.contactId)
+            : null;
           return {
             ...message,
             contactName: contact
@@ -115,64 +121,87 @@ export function registerMessageRoutes(app: Express) {
     }
   });
 
-  app.post("/api/messages", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const validatedData = insertMessageSchema.parse(req.body);
+  app.post(
+    "/api/messages",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
+        const validatedData = insertMessageSchema.parse(req.body);
 
-      const contact = await biz.getContact(validatedData.contactId);
-      if (!contact || !contact.active) {
-        return res.status(400).json({ message: "Contact is inactive" });
-      }
-
-      const creds = await biz.getTwilioCredentials();
-      const numbers = await biz.getPhoneNumbers();
-      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-
-      // Use the new credit deduction service
-      const result = await MessageCreditService.sendWithCreditDeduction(
-        biz,
-        creds,
-        {
-          to: validatedData.phoneNumber,
-          message: validatedData.content,
-          from,
-          messagingServiceSid: creds?.messagingServiceSid || undefined,
-          campaignId: validatedData.campaignId ?? undefined,
-          contactId: validatedData.contactId,
-          messageType: "regular",
+        if (!validatedData.contactId) {
+          return res.status(400).json({ message: "Contact ID is required" });
         }
-      );
 
-      const message = await biz.createMessage({
-        ...validatedData,
-        status: result.success ? "sent" : "failed",
-        messageSid: result.messageSid,
-      });
+        const contact = await biz.getContact(validatedData.contactId);
+        if (!contact || !contact.active) {
+          return res.status(400).json({ message: "Contact is inactive" });
+        }
 
-      // Return credit information in response
-      res.status(201).json({
-        ...message,
-        creditCost: result.creditCost,
-        remainingCredits: result.remainingCredits,
-      });
-    } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
-        return res.status(402).json({
-          message: "Insufficient credits",
-          error: error.message,
-          code: "INSUFFICIENT_CREDITS",
+        const messagingServiceSid = await biz.getMessagingServiceSid();
+        const numbers = await biz.getPhoneNumbers();
+        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+        // Create a minimal creds object for compatibility
+        const tempCreds = {
+          businessId: (await biz.getBusiness()).id,
+          accountSid: process.env.TWILIO_ACCOUNT_SID!,
+          messagingServiceSid: messagingServiceSid || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          id: 0,
+        };
+
+        // Use the updated credit deduction service (send-first-then-deduct)
+        const result = await MessageCreditService.sendWithCreditDeduction(
+          biz,
+          tempCreds,
+          {
+            to: validatedData.phoneNumber,
+            message: validatedData.content,
+            from,
+            messagingServiceSid: messagingServiceSid ?? undefined,
+            campaignId: validatedData.campaignId ?? undefined,
+            contactId: validatedData.contactId || undefined,
+            messageType: "regular",
+          }
+        );
+
+        // Create message record with both delivery and billing status
+        const message = await biz.createMessage({
+          ...validatedData,
+          status: result.success ? "sent" : "failed",
+          messageType: "regular",
+          billingStatus: result.billingStatus,
+          messageSid: result.messageSid,
         });
+
+        // Return clean success response - user doesn't need to know about billing failures
+        res.status(201).json({
+          ...message,
+          creditCost: result.creditCost,
+          remainingCredits: result.remainingCredits,
+        });
+      } catch (error) {
+        if (error instanceof InsufficientCreditsError) {
+          return res.status(402).json({
+            message: "Insufficient credits",
+            error: error.message,
+            code: "INSUFFICIENT_CREDITS",
+          });
+        }
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        logError("Error creating message:", error);
+        res.status(500).json({ message: "Failed to create message" });
       }
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error creating message:", error);
-      res.status(500).json({ message: "Failed to create message" });
     }
-  });
+  );
 
   app.patch("/api/messages/:id/status", requireAuth(), async (req, res) => {
     try {

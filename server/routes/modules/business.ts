@@ -54,11 +54,15 @@ export function registerBusinessRoutes(app: Express) {
       const { biz, user } = await getBizForRequest(req);
       const contactStats = await biz.getContactStats();
       const couponStats = await biz.getCouponStats();
-      const creds = await biz.getTwilioCredentials();
+      const messagingServiceSid = await biz.getMessagingServiceSid();
+      const phoneNumbers = await biz.getPhoneNumbers();
       const business = await biz.getBusiness();
 
+      // Consider phone configured if we have messaging service OR phone numbers
+      const phoneConfigured = !!messagingServiceSid || phoneNumbers.length > 0;
+
       res.json({
-        phoneConfigured: !!creds,
+        phoneConfigured,
         hasContacts: contactStats.allContacts > 0,
         hasCoupons: couponStats.allCoupons > 0,
         onboardingComplete: !!business.onboardingComplete,
@@ -75,6 +79,10 @@ export function registerBusinessRoutes(app: Express) {
       const { biz, user } = await getBizForRequest(req);
       const business = await biz.getBusiness();
       const progress = await biz.getOnboardingProgress();
+      const phoneNumbers = await biz.getPhoneNumbers();
+
+      // Get the default phone number
+      const defaultPhone = phoneNumbers.find((n) => n.isDefault);
 
       // Get Clerk user email
       let clerkEmail = "";
@@ -95,6 +103,7 @@ export function registerBusinessRoutes(app: Express) {
       res.json({
         companyName: business.name || progress?.businessName || "",
         contactEmail: clerkEmail || progress?.email || "",
+        phoneNumber: defaultPhone?.phoneNumber || null,
       });
     } catch (error) {
       logError("Error fetching account info:", error);

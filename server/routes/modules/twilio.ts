@@ -15,10 +15,16 @@ import { a2pConfigSchema, getBizForRequest } from "./utils";
 import { db } from "../../config/db.config";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { logInfo } from "../../utils/logger.util";
+import { requireTFVPreCheck } from "../../middlewares/tfv-purchase-check.middleware";
+import { createTFVRateLimiter } from "../../middlewares/rate-limit.middleware";
+
+// ✅ CREATE TFV RATE LIMITER INSTANCE
+const tfvRateLimiter = createTFVRateLimiter();
 
 export function registerTwilioRoutes(app: Express) {
-  // Twilio status webhook endpoint (authenticated for internal use)
-  app.post("/api/twilio/webhook", requireAuth(), async (req, res) => {
+  // Twilio status webhook endpoint (unauthenticated - external Twilio calls)
+  app.post("/api/twilio/webhook", async (req, res) => {
     try {
       const { AccountSid, MessageStatus, To } = req.body as any;
 
@@ -70,64 +76,58 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  // New Twilio status callback using message SID (authenticated for internal use)
-  app.post(
-    "/api/webhooks/twilio/status-callback",
-    requireAuth(),
-    async (req, res) => {
-      try {
-        const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
-          req.body as any;
+  // New Twilio status callback using message SID (unauthenticated - external Twilio calls)
+  app.post("/api/webhooks/twilio/status-callback", async (req, res) => {
+    try {
+      const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
+        req.body as any;
 
-        // Find business by phone number since we're using a single Twilio account
-        let businessId = await findBusinessIdByPhoneNumber(To);
-        if (!businessId) {
-          logError("Unknown status webhook", { AccountSid, To });
-          return res.status(400).send("Unknown phone number");
-        }
-
-        // Validate Twilio signature using environment variable
-        const signature = req.get("x-twilio-signature") || "";
-        const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-        const token = process.env.TWILIO_AUTH_TOKEN;
-        if (!token) {
-          logError("TWILIO_AUTH_TOKEN not configured");
-          return res
-            .status(500)
-            .json({ message: "Server configuration error" });
-        }
-        const isValid = twilio.validateRequest(token, signature, url, req.body);
-        if (!isValid) {
-          return res.status(403).json({ message: "Invalid Twilio signature" });
-        }
-
-        if (!MessageSid) {
-          return res.status(400).send("Missing MessageSid");
-        }
-
-        let status = "sent";
-        if (MessageStatus === "delivered") status = "delivered";
-        else if (MessageStatus === "failed" || MessageStatus === "undelivered")
-          status = "failed";
-
-        const bizStore = storage.forBusiness(businessId);
-        const updated = await bizStore.updateMessageStatusBySid(
-          MessageSid,
-          status,
-          ErrorCode ? parseInt(ErrorCode, 10) : undefined
-        );
-
-        if (updated) {
-          socketService?.broadcast("message:status", updated);
-        }
-
-        res.status(200).send("OK");
-      } catch (error) {
-        logError("Error processing Twilio webhook:", error);
-        res.status(500).json({ message: "Failed to process webhook" });
+      // Find business by phone number since we're using a single Twilio account
+      let businessId = await findBusinessIdByPhoneNumber(To);
+      if (!businessId) {
+        logError("Unknown status webhook", { AccountSid, To });
+        return res.status(400).send("Unknown phone number");
       }
+
+      // Validate Twilio signature using environment variable
+      const signature = req.get("x-twilio-signature") || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      if (!token) {
+        logError("TWILIO_AUTH_TOKEN not configured");
+        return res.status(500).json({ message: "Server configuration error" });
+      }
+      const isValid = twilio.validateRequest(token, signature, url, req.body);
+      if (!isValid) {
+        return res.status(403).json({ message: "Invalid Twilio signature" });
+      }
+
+      if (!MessageSid) {
+        return res.status(400).send("Missing MessageSid");
+      }
+
+      let status = "sent";
+      if (MessageStatus === "delivered") status = "delivered";
+      else if (MessageStatus === "failed" || MessageStatus === "undelivered")
+        status = "failed";
+
+      const bizStore = storage.forBusiness(businessId);
+      const updated = await bizStore.updateMessageStatusBySid(
+        MessageSid,
+        status,
+        ErrorCode ? parseInt(ErrorCode, 10) : undefined
+      );
+
+      if (updated) {
+        socketService?.broadcast("message:status", updated, businessId);
+      }
+
+      res.status(200).send("OK");
+    } catch (error) {
+      logError("Error processing Twilio webhook:", error);
+      res.status(500).json({ message: "Failed to process webhook" });
     }
-  );
+  });
 
   // Inbound message webhook for all businesses (must remain unauthenticated for Twilio)
   app.post("/webhooks/twilio-inbound", async (req, res) => {
@@ -172,6 +172,7 @@ export function registerTwilioRoutes(app: Express) {
         contactId: contact.id,
         content: bodyText,
         status: "received",
+        messageType: "received",
       });
 
       if (bodyText.toLowerCase() === "stop") {
@@ -180,17 +181,37 @@ export function registerTwilioRoutes(app: Express) {
         }
         const numbers = await bizStore.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-        const creds = await bizStore.getTwilioCredentials();
-        await TwilioService.sendSMS(creds, {
+        const messagingServiceSid = await bizStore.getMessagingServiceSid();
+
+        // Create a minimal creds object for compatibility
+        const tempCreds = {
+          businessId: businessId,
+          accountSid: process.env.TWILIO_ACCOUNT_SID!,
+          messagingServiceSid: messagingServiceSid || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          id: 0,
+        };
+
+        // COMPLIANCE REQUIREMENT: STOP responses are free and mandatory
+        // These should NEVER be charged to the business
+        await TwilioService.sendSMS(tempCreds, {
           to: normalizedFrom,
           message:
             "You've been removed from our list. You will no longer receive messages from us.",
           from,
-          messagingServiceSid: creds?.messagingServiceSid || undefined,
+          messagingServiceSid: messagingServiceSid ?? undefined,
           contactId: contact.id,
         });
+
+        // Log STOP response for compliance tracking (no billing)
+        logInfo("STOP response sent (compliance - no charge)", {
+          businessId,
+          contactId: contact.id,
+          phoneNumber: normalizedFrom,
+        });
       } else {
-        socketService?.broadcast("message:send", message);
+        socketService?.broadcast("message:send", message, businessId);
       }
 
       res.status(200).send("OK");
@@ -221,14 +242,14 @@ export function registerTwilioRoutes(app: Express) {
   app.get("/api/twilio/credentials", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const creds = await biz.getTwilioCredentials();
+      const messagingServiceSid = await biz.getMessagingServiceSid();
       const numbers = await biz.getPhoneNumbers();
       const phoneNumber = numbers.find((n) => n.isDefault)?.phoneNumber || null;
 
       // Return configuration from environment variables (no sensitive data)
       res.json({
         accountSid: process.env.TWILIO_ACCOUNT_SID || "Not configured",
-        messagingServiceSid: creds?.messagingServiceSid || null,
+        messagingServiceSid: messagingServiceSid || null,
         phoneNumber,
         isConfigured: TwilioService.isConfigured(),
       });
@@ -362,12 +383,8 @@ export function registerTwilioRoutes(app: Express) {
   app.get("/api/twilio/numbers", requireAuth(), async (req, res) => {
     try {
       const { biz } = await getBizForRequest(req);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
 
-      // Use environment variables for Twilio client
+      // Check server-side Twilio configuration
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -401,12 +418,8 @@ export function registerTwilioRoutes(app: Express) {
     try {
       const { biz } = await getBizForRequest(req);
       const data = numberSchema.parse(req.body);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
 
-      // Use environment variables for Twilio client
+      // Check server-side Twilio configuration
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -417,27 +430,47 @@ export function registerTwilioRoutes(app: Express) {
       }
 
       const client = twilio(accountSid, authToken);
-      const webhookUrl = `${req.protocol}://${req.get(
-        "host"
-      )}/api/twilio/webhook`;
+      // Use environment variable for webhook URL, or skip in development
+      const webhookUrl =
+        process.env.TWILIO_WEBHOOK_URL ||
+        (process.env.NODE_ENV === "production"
+          ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+          : "");
+
+      // Get or create messaging service SID
+      let messagingServiceSid = await biz.getMessagingServiceSid();
+      if (!messagingServiceSid) {
+        const service = await client.messaging.services.create({
+          friendlyName: `Business ${
+            (
+              await biz.getBusiness()
+            ).id
+          } - Messaging Service`,
+        });
+        messagingServiceSid = service.sid;
+        await biz.setMessagingServiceSid(messagingServiceSid);
+      }
 
       const fetched = await Promise.all(
         data.sids.map((sid) => client.incomingPhoneNumbers(sid).fetch())
       );
-      await Promise.all(
-        fetched.map((num) =>
-          client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl })
-        )
-      );
-      if (creds.messagingServiceSid) {
+      // Only update webhook URL if provided (for production)
+      if (webhookUrl) {
         await Promise.all(
           fetched.map((num) =>
-            client.messaging
-              .services(creds.messagingServiceSid as string)
-              .phoneNumbers.create({ phoneNumberSid: num.sid })
+            client.incomingPhoneNumbers(num.sid).update({ smsUrl: webhookUrl })
           )
         );
       }
+
+      // Add all phone numbers to messaging service
+      await Promise.all(
+        fetched.map((num) =>
+          client.messaging
+            .services(messagingServiceSid!)
+            .phoneNumbers.create({ phoneNumberSid: num.sid })
+        )
+      );
       const records = await biz.setPhoneNumbers(
         fetched.map((n) => ({
           phoneSid: n.sid,
@@ -482,32 +515,87 @@ export function registerTwilioRoutes(app: Express) {
   app.post(
     "/api/onboarding/reserve-number",
     requireAuth(),
+    requireTFVPreCheck,
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
-        const { phoneNumber } = reserveSchema.parse(req.body);
-        const creds = await biz.getTwilioCredentials();
-        if (!creds) {
-          return res.status(400).json({ message: "Twilio not connected" });
+        const { phoneNumber: rawPhoneNumber } = reserveSchema.parse(req.body);
+
+        // Normalize phone number to E.164 format (add +1 prefix if missing)
+        const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
+
+        // Check server-side Twilio configuration
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+        if (!accountSid || !authToken) {
+          return res
+            .status(500)
+            .json({ message: "Twilio not configured on server" });
         }
-        const webhookUrl = `${req.protocol}://${req.get(
-          "host"
-        )}/api/twilio/webhook`;
+
+        // Use environment variable for webhook URL, or skip in development
+        const webhookUrl =
+          process.env.TWILIO_WEBHOOK_URL ||
+          (process.env.NODE_ENV === "production"
+            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            : "");
 
         try {
+          // Get or create messaging service SID
+          let messagingServiceSid = await biz.getMessagingServiceSid();
+          const client = twilio(accountSid, authToken);
+
+          // Verify messaging service exists, create new one if not
+          if (messagingServiceSid) {
+            try {
+              await client.messaging.services(messagingServiceSid).fetch();
+              console.log(
+                `✅ Verified existing messaging service: ${messagingServiceSid}`
+              );
+            } catch (error: any) {
+              if (error.status === 404) {
+                console.log(
+                  `⚠️ Stored messaging service ${messagingServiceSid} not found, creating new one`
+                );
+                messagingServiceSid = undefined; // Reset to create a new one
+              } else {
+                throw error;
+              }
+            }
+          }
+
+          if (!messagingServiceSid) {
+            const service = await client.messaging.services.create({
+              friendlyName: `Business ${
+                (
+                  await biz.getBusiness()
+                ).id
+              } - Messaging Service`,
+            });
+            messagingServiceSid = service.sid;
+            await biz.setMessagingServiceSid(messagingServiceSid);
+            console.log(
+              `✅ Created new messaging service: ${messagingServiceSid}`
+            );
+          }
+
+          // Create a temporary creds object for compatibility with existing TwilioService
+          const tempCreds = {
+            businessId: (await biz.getBusiness()).id,
+            accountSid: accountSid,
+            messagingServiceSid: messagingServiceSid,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            id: 0, // temporary ID
+          };
+
           const { phoneSid, serviceSid } =
             await TwilioService.purchaseAndAssignNumber(
-              creds,
+              tempCreds,
               phoneNumber,
               webhookUrl
             );
-
-          if (!creds.messagingServiceSid) {
-            await biz.upsertTwilioCredentials({
-              accountSid: process.env.TWILIO_ACCOUNT_SID!,
-              messagingServiceSid: serviceSid,
-            });
-          }
 
           await biz.setPhoneNumbers([
             {
@@ -526,6 +614,17 @@ export function registerTwilioRoutes(app: Express) {
             assignmentStatus: "assigned",
           });
         } catch (err: any) {
+          // Add detailed logging to see what Twilio is actually returning
+          logError("Detailed onboarding number purchase error:", {
+            phoneNumber,
+            error: err.message,
+            code: err.code,
+            status: err.status,
+            moreInfo: err.moreInfo,
+            details: err.details,
+            stack: err.stack?.substring(0, 500), // Truncate stack trace
+          });
+
           if (err?.status === 400 || err?.status === 409) {
             return res.status(400).json({
               message: "Number is no longer available. Please choose another.",
@@ -550,65 +649,144 @@ export function registerTwilioRoutes(app: Express) {
 
   const tollFreeSchema = z.object({ phoneNumber: z.string() });
 
-  app.post("/api/twilio/tollfree", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const { phoneNumber } = tollFreeSchema.parse(req.body);
-      const creds = await biz.getTwilioCredentials();
-      if (!creds) {
-        return res.status(400).json({ message: "Twilio not connected" });
-      }
-
-      // Use environment variables for Twilio client
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-      if (!accountSid || !authToken) {
-        return res
-          .status(500)
-          .json({ message: "Twilio not configured on server" });
-      }
-
-      const client = twilio(accountSid, authToken);
-      const webhookUrl = `${req.protocol}://${req.get(
-        "host"
-      )}/api/twilio/webhook`;
-      const num = await client.incomingPhoneNumbers.create({
-        phoneNumber,
-        smsUrl: webhookUrl,
-      });
-      if (creds.messagingServiceSid) {
-        await client.messaging
-          .services(creds.messagingServiceSid)
-          .phoneNumbers.create({ phoneNumberSid: num.sid });
-      }
-
-      // Store phone number with phone SID for TFV
-      const [record] = await biz.setPhoneNumbers([
-        {
-          phoneNumber: num.phoneNumber,
-          phoneSid: num.sid,
-          isDefault: true,
-          verificationStatus: "pending",
-        },
-      ]);
-
-      // Automatically submit TFV if onboarding data exists
+  app.post(
+    "/api/twilio/tollfree",
+    requireAuth(),
+    requireTFVPreCheck,
+    async (req, res) => {
       try {
+        const { biz } = await getBizForRequest(req);
+        const { phoneNumber: rawPhoneNumber } = tollFreeSchema.parse(req.body);
+
+        // Normalize phone number to E.164 format (add +1 prefix if missing)
+        const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
+
+        // Debug logging
         const business = await biz.getBusiness();
-        const config = await biz.getTwilioA2PConfig();
+        logError("Toll-free purchase attempt", {
+          rawPhoneNumber,
+          normalizedPhoneNumber: phoneNumber,
+          businessId: business.id,
+        });
 
-        if (config && business) {
-          const baseUrl = `${req.protocol}://${req.get("host")}`;
+        // Check server-side Twilio configuration
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
 
-          // Get business email, address, and website from onboarding progress
-          let businessEmail: string | undefined;
-          let businessAddress: any;
-          let businessWebsiteUrl: string | undefined;
-          try {
-            const onboardingProgress = await biz.getOnboardingProgress();
+        if (!accountSid || !authToken) {
+          return res
+            .status(500)
+            .json({ message: "Twilio not configured on server" });
+        }
+
+        const client = twilio(accountSid, authToken);
+
+        // Check account type to see if it's a trial account
+        try {
+          const account = await client.api.accounts(accountSid).fetch();
+          logError("Twilio account info", {
+            accountType: account.type,
+            status: account.status,
+            sid: accountSid.slice(-4),
+          });
+        } catch (accountError) {
+          logError("Failed to fetch account info:", accountError);
+        }
+
+        // Use environment variable for webhook URL, or skip in development
+        const webhookUrl =
+          process.env.TWILIO_WEBHOOK_URL ||
+          (process.env.NODE_ENV === "production"
+            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            : "");
+
+        // Get or create messaging service SID
+        let messagingServiceSid = await biz.getMessagingServiceSid();
+        if (!messagingServiceSid) {
+          const service = await client.messaging.services.create({
+            friendlyName: `Business ${business.id} - Messaging Service`,
+          });
+          messagingServiceSid = service.sid;
+          await biz.setMessagingServiceSid(messagingServiceSid);
+        }
+
+        logError("About to purchase phone number", {
+          phoneNumber,
+          smsUrl: webhookUrl,
+          messagingServiceSid,
+        });
+
+        const createParams: any = {
+          phoneNumber,
+        };
+
+        // Only set smsUrl if webhookUrl is provided (for production)
+        if (webhookUrl) {
+          createParams.smsUrl = webhookUrl;
+        }
+
+        const num = await client.incomingPhoneNumbers.create(createParams);
+
+        // Add phone number to messaging service
+        await client.messaging
+          .services(messagingServiceSid)
+          .phoneNumbers.create({ phoneNumberSid: num.sid });
+
+        // Store phone number with phone SID for TFV
+        const [record] = await biz.setPhoneNumbers([
+          {
+            phoneNumber: num.phoneNumber,
+            phoneSid: num.sid,
+            isDefault: true,
+            verificationStatus: "PENDING_REVIEW", // ✅ CORRECT TWILIO STATUS
+          },
+        ]);
+
+        // Automatically submit TFV if onboarding data exists
+        try {
+          const business = await biz.getBusiness();
+          const onboardingProgress = await biz.getOnboardingProgress();
+
+          if (
+            business &&
+            onboardingProgress?.useCases &&
+            onboardingProgress?.monthlyVolume
+          ) {
+            logInfo(
+              "TFV submission conditions met - proceeding with submission",
+              {
+                businessId: business.id,
+                businessName: business.name,
+                phoneNumberSid: num.sid,
+                hasBusiness: !!business,
+                hasUseCases: !!onboardingProgress.useCases,
+                hasVolume: !!onboardingProgress.monthlyVolume,
+              }
+            );
+
+            const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+            // Get business email, address, and website from onboarding progress
+            let businessEmail: string | undefined;
+            let businessAddress: any;
+            let businessWebsiteUrl: string | undefined;
+            let businessContact: any; // ✅ ADD CONTACT INFO EXTRACTION
+
             businessEmail = onboardingProgress?.email || undefined;
             businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+            // Extract contact information from onboarding progress - ✅ NEW
+            if (onboardingProgress?.firstName && onboardingProgress?.lastName) {
+              businessContact = {
+                firstName: onboardingProgress.firstName,
+                lastName: onboardingProgress.lastName,
+                email:
+                  onboardingProgress.email ||
+                  businessEmail ||
+                  "support@notiflow.com",
+                phoneNumber: onboardingProgress.phoneNumber || "+14155551234",
+              };
+            }
 
             // Extract address data if available
             if (
@@ -626,60 +804,106 @@ export function registerTwilioRoutes(app: Express) {
                 country: onboardingProgress.country || "US",
               };
             }
-          } catch (e) {
-            // No onboarding progress, fallbacks will be used
+
+            logInfo("Onboarding progress data extracted for TFV", {
+              businessId: business.id,
+              hasBusinessEmail: !!businessEmail,
+              hasBusinessWebsite: !!businessWebsiteUrl,
+              hasBusinessAddress: !!businessAddress,
+              hasBusinessContact: !!businessContact, // ✅ LOG CONTACT INFO
+              businessEmail,
+              businessWebsiteUrl,
+              businessAddress,
+              businessContact, // ✅ LOG CONTACT DETAILS
+              useCases: onboardingProgress.useCases,
+              volume: onboardingProgress.monthlyVolume,
+            });
+
+            // Create a config object from onboarding progress for TFV
+            const tfvConfig = {
+              useCases: onboardingProgress.useCases,
+              volume: onboardingProgress.monthlyVolume,
+            } as any; // Type assertion since we only need useCases and volume
+
+            const tfvResult = await submitTollFreeVerification(
+              num.sid, // Use phone SID, not number
+              business,
+              tfvConfig,
+              business.id,
+              baseUrl,
+              businessEmail,
+              businessAddress,
+              businessWebsiteUrl,
+              businessContact // ✅ PASS CONTACT INFO
+            );
+
+            // Update phone number with TFV info
+            await biz.updatePhoneNumberTFV(
+              record.id,
+              tfvResult.tfvSid,
+              tfvResult.status
+            );
+
+            logInfo("TFV submission completed successfully", {
+              businessId: business.id,
+              phoneNumberId: record.id,
+              tfvSid: tfvResult.tfvSid,
+              status: tfvResult.status,
+            });
+
+            res.json({
+              ...record,
+              tfvSid: tfvResult.tfvSid,
+              verificationStatus: tfvResult.status,
+              message: "Phone number purchased and TFV submitted successfully",
+            });
+          } else {
+            logInfo(
+              "TFV submission skipped - missing required onboarding data",
+              {
+                businessId: business?.id,
+                hasBusiness: !!business,
+                hasOnboardingProgress: !!onboardingProgress,
+                hasUseCases: !!onboardingProgress?.useCases,
+                hasVolume: !!onboardingProgress?.monthlyVolume,
+                useCases: onboardingProgress?.useCases,
+                volume: onboardingProgress?.monthlyVolume,
+              }
+            );
+
+            res.json({
+              ...record,
+              message:
+                "Phone number purchased. Complete onboarding to submit TFV.",
+            });
           }
-
-          const tfvResult = await submitTollFreeVerification(
-            num.sid, // Use phone SID, not number
-            business,
-            config,
-            business.id,
-            baseUrl,
-            businessEmail,
-            businessAddress,
-            businessWebsiteUrl
-          );
-
-          // Update phone number with TFV info
-          await biz.updatePhoneNumberTFV(
-            record.id,
-            tfvResult.tfvSid,
-            tfvResult.status
-          );
-
-          res.json({
-            ...record,
-            tfvSid: tfvResult.tfvSid,
-            verificationStatus: tfvResult.status,
-            message: "Phone number purchased and TFV submitted successfully",
+        } catch (tfvError) {
+          // TFV failed but phone number was purchased successfully
+          logError("TFV submission failed after phone purchase", {
+            businessId: business?.id,
+            phoneNumberSid: num.sid,
+            error:
+              tfvError instanceof Error ? tfvError.message : String(tfvError),
           });
-        } else {
           res.json({
             ...record,
             message:
-              "Phone number purchased. Complete onboarding to submit TFV.",
+              "Phone number purchased successfully. TFV will be submitted later.",
           });
         }
-      } catch (tfvError) {
-        // TFV failed but phone number was purchased successfully
-        logError("TFV submission failed after phone purchase:", tfvError);
-        res.json({
-          ...record,
-          message:
-            "Phone number purchased successfully. TFV will be submitted later.",
-        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res
+            .status(400)
+            .json({ message: "Validation error", errors: error.errors });
+        }
+        logError("Error purchasing toll-free number:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to purchase toll-free number" });
       }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
-      logError("Error purchasing toll-free number:", error);
-      res.status(500).json({ message: "Failed to purchase toll-free number" });
     }
-  });
+  );
 
   // Onboarding Progress Endpoints
   app.get("/api/onboarding/progress", requireAuth(), async (req, res) => {
@@ -693,6 +917,7 @@ export function registerTwilioRoutes(app: Express) {
           businessInfo: null,
           monthlyVolume: null,
           useCases: null,
+          initialMessage: null,
         });
       }
 
@@ -719,6 +944,9 @@ export function registerTwilioRoutes(app: Express) {
         businessInfo,
         monthlyVolume: progress.monthlyVolume,
         useCases: progress.useCases,
+        initialMessage: progress.initialMessage
+          ? { initialMessage: progress.initialMessage }
+          : null,
       });
     } catch (error) {
       logError("Error fetching onboarding progress:", error);
@@ -764,6 +992,8 @@ export function registerTwilioRoutes(app: Express) {
         // A2P fields
         monthlyVolume: data.monthlyVolume || null,
         useCases: data.useCases || null,
+        // Step 4: Initial message
+        initialMessage: data.initialMessage?.initialMessage || null,
       });
 
       // Convert back to frontend format
@@ -789,6 +1019,9 @@ export function registerTwilioRoutes(app: Express) {
         businessInfo: responseBusinessInfo,
         monthlyVolume: progress.monthlyVolume,
         useCases: progress.useCases,
+        initialMessage: progress.initialMessage
+          ? { initialMessage: progress.initialMessage }
+          : null,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -846,13 +1079,12 @@ export function registerTwilioRoutes(app: Express) {
       }
 
       const numbers = await biz.getPhoneNumbers();
-      const creds = await biz.getTwilioCredentials();
+      const messagingServiceSid = await biz.getMessagingServiceSid();
       const defaultNum = numbers.find((n) => n.isDefault);
 
       res.json({
         phoneNumber: defaultNum?.phoneNumber || null,
-        serviceSid:
-          defaultNum?.serviceSid || creds?.messagingServiceSid || null,
+        serviceSid: defaultNum?.serviceSid || messagingServiceSid || null,
         initialMessage: finalMessage,
       });
     } catch (error) {
@@ -866,97 +1098,119 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.post("/api/twilio/tfv/submit", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const { phoneNumberSid } = z
-        .object({
-          phoneNumberSid: z.string(),
-        })
-        .parse(req.body);
-
-      const business = await biz.getBusiness();
-      const config = await biz.getTwilioA2PConfig();
-      const numbers = await biz.getPhoneNumbers();
-
-      if (!config) {
-        return res
-          .status(400)
-          .json({ message: "Missing A2P config - complete onboarding first" });
-      }
-
-      // Find the phone number record
-      const phoneRecord = numbers.find((n) => n.phoneSid === phoneNumberSid);
-      if (!phoneRecord) {
-        return res.status(400).json({ message: "Phone number not found" });
-      }
-
-      // Check if already submitted
-      if (phoneRecord.tfvSid) {
-        return res.json({
-          tfvSid: phoneRecord.tfvSid,
-          status: phoneRecord.verificationStatus || "pending",
-        });
-      }
-
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      // Get business email, address, and website from onboarding progress
-      let businessEmail: string | undefined;
-      let businessAddress: any;
-      let businessWebsiteUrl: string | undefined;
+  app.post(
+    "/api/twilio/tfv/submit",
+    requireAuth(),
+    tfvRateLimiter,
+    async (req, res) => {
       try {
-        const onboardingProgress = await biz.getOnboardingProgress();
-        businessEmail = onboardingProgress?.email || undefined;
-        businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+        const { biz } = await getBizForRequest(req);
+        const { phoneNumberSid } = z
+          .object({
+            phoneNumberSid: z.string(),
+          })
+          .parse(req.body);
 
-        // Extract address data if available
-        if (
-          onboardingProgress?.address1 &&
-          onboardingProgress?.city &&
-          onboardingProgress?.state &&
-          onboardingProgress?.postalCode
-        ) {
-          businessAddress = {
-            address1: onboardingProgress.address1,
-            address2: onboardingProgress.address2 || "",
-            city: onboardingProgress.city,
-            state: onboardingProgress.state,
-            postalCode: onboardingProgress.postalCode,
-            country: onboardingProgress.country || "US",
-          };
+        const business = await biz.getBusiness();
+        const config = await biz.getTwilioA2PConfig();
+        const numbers = await biz.getPhoneNumbers();
+
+        if (!config) {
+          return res
+            .status(400)
+            .json({
+              message: "Missing A2P config - complete onboarding first",
+            });
         }
-      } catch (e) {
-        // No onboarding progress, fallbacks will be used
+
+        // Find the phone number record
+        const phoneRecord = numbers.find((n) => n.phoneSid === phoneNumberSid);
+        if (!phoneRecord) {
+          return res.status(400).json({ message: "Phone number not found" });
+        }
+
+        // Check if already submitted
+        if (phoneRecord.tfvSid) {
+          return res.json({
+            tfvSid: phoneRecord.tfvSid,
+            status: phoneRecord.verificationStatus || "pending",
+          });
+        }
+
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+        // Get business email, address, and website from onboarding progress
+        let businessEmail: string | undefined;
+        let businessAddress: any;
+        let businessWebsiteUrl: string | undefined;
+        let businessContact: any; // ✅ ADD CONTACT INFO EXTRACTION
+        try {
+          const onboardingProgress = await biz.getOnboardingProgress();
+          businessEmail = onboardingProgress?.email || undefined;
+          businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+          // Extract contact information from onboarding progress - ✅ NEW
+          if (onboardingProgress?.firstName && onboardingProgress?.lastName) {
+            businessContact = {
+              firstName: onboardingProgress.firstName,
+              lastName: onboardingProgress.lastName,
+              email:
+                onboardingProgress.email ||
+                businessEmail ||
+                "support@notiflow.com",
+              phoneNumber: onboardingProgress.phoneNumber || "+14155551234",
+            };
+          }
+
+          // Extract address data if available
+          if (
+            onboardingProgress?.address1 &&
+            onboardingProgress?.city &&
+            onboardingProgress?.state &&
+            onboardingProgress?.postalCode
+          ) {
+            businessAddress = {
+              address1: onboardingProgress.address1,
+              address2: onboardingProgress.address2 || "",
+              city: onboardingProgress.city,
+              state: onboardingProgress.state,
+              postalCode: onboardingProgress.postalCode,
+              country: onboardingProgress.country || "US",
+            };
+          }
+        } catch (e) {
+          // No onboarding progress, fallbacks will be used
+        }
+
+        const result = await submitTollFreeVerification(
+          phoneNumberSid,
+          business,
+          config,
+          business.id,
+          baseUrl,
+          businessEmail,
+          businessAddress,
+          businessWebsiteUrl,
+          businessContact // ✅ PASS CONTACT INFO
+        );
+
+        // Update phone number with TFV info
+        await biz.updatePhoneNumberTFV(
+          phoneRecord.id,
+          result.tfvSid,
+          result.status
+        );
+
+        res.json({
+          tfvSid: result.tfvSid,
+          status: result.status,
+        });
+      } catch (error) {
+        logError("Error submitting TFV:", error);
+        res.status(500).json({ message: "Failed to submit TFV" });
       }
-
-      const result = await submitTollFreeVerification(
-        phoneNumberSid,
-        business,
-        config,
-        business.id,
-        baseUrl,
-        businessEmail,
-        businessAddress,
-        businessWebsiteUrl
-      );
-
-      // Update phone number with TFV info
-      await biz.updatePhoneNumberTFV(
-        phoneRecord.id,
-        result.tfvSid,
-        result.status
-      );
-
-      res.json({
-        tfvSid: result.tfvSid,
-        status: result.status,
-      });
-    } catch (error) {
-      logError("Error submitting TFV:", error);
-      res.status(500).json({ message: "Failed to submit TFV" });
     }
-  });
+  );
 
   // Phone number validation endpoint
   app.post("/api/twilio/validate-phone", requireAuth(), async (req, res) => {

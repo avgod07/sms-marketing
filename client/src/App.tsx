@@ -36,22 +36,48 @@ function Router() {
     location.startsWith("/sign-in") ||
     location.startsWith("/sign-up");
   const isPublicPage = location.startsWith("/join/");
+  const isOnboardingPage = location === "/onboarding";
 
   useEffect(() => {
-    // Only redirect if user is fully authenticated (has both Clerk user and local user)
-    if (!isLoading && !setupLoading && user && isAuthPage) {
-      // Check setup status to determine where to redirect
+    // Don't do anything while still loading
+    if (isLoading || setupLoading) return;
+
+    // If user is authenticated and on auth page, redirect appropriately
+    if (user && isClerkAuthenticated && isAuthPage) {
       if (setupStatus && !setupStatus.onboardingComplete) {
         navigate("/onboarding");
       } else {
         navigate("/dashboard");
       }
+      return;
     }
-    // Only redirect to login if user is not authenticated and not on auth/public pages
-    if (!isLoading && !isClerkAuthenticated && !isAuthPage && !isPublicPage) {
+
+    // If user is authenticated but on onboarding page and onboarding is complete, redirect to dashboard
+    if (user && isClerkAuthenticated && isOnboardingPage && setupStatus?.onboardingComplete) {
+      navigate("/dashboard");
+      return;
+    }
+
+    // If user is not authenticated and not on auth/public pages, redirect to login
+    if (!isClerkAuthenticated && !isAuthPage && !isPublicPage) {
       navigate("/login");
+      return;
     }
-  }, [isLoading, setupLoading, user, isClerkAuthenticated, isAuthPage, isPublicPage, setupStatus, navigate]);
+  }, [isLoading, setupLoading, user, isClerkAuthenticated, isAuthPage, isPublicPage, isOnboardingPage, setupStatus, navigate, location]);
+
+  // Show loading state while determining auth status
+  if (isLoading || setupLoading) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-2 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
