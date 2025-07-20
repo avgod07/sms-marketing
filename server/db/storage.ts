@@ -1340,13 +1340,15 @@ export class DatabaseStorage implements IStorage {
       };
     }
 
-    // Check if any phone number is verified
+    // Check if any phone number is verified - USE CORRECT TWILIO STATUS VALUES
     const verifiedNumbers = phoneNumbers.filter(
-      (phone) => phone.verificationStatus === "APPROVED"
+      (phone) => phone.verificationStatus === "TWILIO_APPROVED" // ✅ CORRECT
     );
 
     const pendingTFVs = phoneNumbers
-      .filter((phone) => phone.tfvSid && phone.verificationStatus === "pending")
+      .filter(
+        (phone) => phone.tfvSid && phone.verificationStatus === "PENDING_REVIEW"
+      ) // ✅ CORRECT
       .map((phone) => ({
         tfvSid: phone.tfvSid!,
         phoneNumber: phone.phoneNumber,
@@ -1355,15 +1357,17 @@ export class DatabaseStorage implements IStorage {
     // Business is considered verified if at least one phone number is verified
     const isVerified = verifiedNumbers.length > 0;
 
-    let status = "pending";
+    let status = "PENDING_REVIEW"; // ✅ CORRECT
     if (isVerified) {
-      status = "verified";
+      status = "TWILIO_APPROVED"; // ✅ CORRECT
     } else if (
-      phoneNumbers.some((phone) => phone.verificationStatus === "DENIED")
+      phoneNumbers.some(
+        (phone) => phone.verificationStatus === "TWILIO_REJECTED"
+      ) // ✅ CORRECT
     ) {
-      status = "denied";
+      status = "TWILIO_REJECTED"; // ✅ CORRECT
     } else if (phoneNumbers.some((phone) => phone.tfvSid)) {
-      status = "pending";
+      status = "PENDING_REVIEW"; // ✅ CORRECT
     } else {
       status = "not_submitted";
     }
@@ -1389,7 +1393,11 @@ export class DatabaseStorage implements IStorage {
     );
 
     for (const phoneNumber of phoneNumbers) {
-      if (phoneNumber.tfvSid && phoneNumber.verificationStatus === "pending") {
+      if (
+        phoneNumber.tfvSid &&
+        phoneNumber.verificationStatus === "PENDING_REVIEW"
+      ) {
+        // ✅ CORRECT
         try {
           const tfvStatus = await getTollFreeVerificationStatus(
             phoneNumber.tfvSid

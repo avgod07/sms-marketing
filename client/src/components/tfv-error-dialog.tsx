@@ -7,7 +7,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Phone, Settings, HelpCircle } from "lucide-react";
+import { AlertTriangle, Phone, Settings, HelpCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
 
 interface TFVErrorDialogProps {
@@ -116,6 +116,22 @@ export function TFVErrorDialog({ open, onOpenChange, error }: TFVErrorDialogProp
               variant: "default" as const,
               href: undefined,
             },
+            {
+              label: "Contact Support",
+              href: "/help",
+              variant: "outline" as const,
+            },
+          ],
+        };
+
+      case "TFV_RATE_LIMITED":  // ✅ NEW RATE LIMITING ERROR
+        return {
+          icon: Clock,
+          iconColor: "text-amber-600",
+          title: "Rate Limited",
+          description: error.message,
+          guidance: error.guidance || "Please wait before submitting another verification request.",
+          actions: [
             {
               label: "Contact Support",
               href: "/help",

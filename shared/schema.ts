@@ -261,7 +261,9 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   serviceSid: varchar("service_sid", { length: 64 }),
   assignmentStatus: text("assignment_status"),
   tfvSid: varchar("tfv_sid", { length: 64 }),
-  verificationStatus: text("verification_status").default("pending").notNull(),
+  verificationStatus: text("verification_status")
+    .default("PENDING_REVIEW")
+    .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

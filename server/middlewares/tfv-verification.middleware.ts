@@ -62,13 +62,13 @@ export async function requireTFVVerification(
           guidance =
             "Complete your business information and submit verification.";
           break;
-        case "pending":
+        case "PENDING_REVIEW": // ✅ CORRECT TWILIO STATUS
           message =
             "Toll-free verification is pending approval. Messaging is restricted until verification is complete.";
           guidance =
             "Verification typically takes 2-5 business days. You'll be notified when approved.";
           break;
-        case "denied":
+        case "TWILIO_REJECTED": // ✅ CORRECT TWILIO STATUS
           message =
             "Toll-free verification was denied. Please contact support to resolve verification issues.";
           guidance =

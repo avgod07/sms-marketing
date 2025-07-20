@@ -23,7 +23,7 @@ export function TFVStatusBanner() {
 
   const getStatusConfig = () => {
     switch (tfvStatus.status) {
-      case "pending":
+      case "PENDING_REVIEW":  // ✅ CORRECT TWILIO STATUS
         return {
           icon: Clock,
           bgColor: "bg-yellow-50",
@@ -34,7 +34,7 @@ export function TFVStatusBanner() {
           message: "Your toll-free verification is being reviewed by Twilio. This typically takes 2-5 business days.",
           action: "Messaging is restricted until verification is approved.",
         };
-      case "denied":
+      case "TWILIO_REJECTED":  // ✅ CORRECT TWILIO STATUS
         return {
           icon: XCircle,
           bgColor: "bg-red-50",
@@ -127,7 +127,7 @@ export function TFVStatusIndicator() {
     }
 
     switch (tfvStatus.status) {
-      case "pending":
+      case "PENDING_REVIEW":  // ✅ CORRECT TWILIO STATUS
         return {
           icon: Clock,
           color: "text-yellow-600",
@@ -135,7 +135,7 @@ export function TFVStatusIndicator() {
           text: "Pending",
           tooltip: "Verification pending - messaging restricted",
         };
-      case "denied":
+      case "TWILIO_REJECTED":  // ✅ CORRECT TWILIO STATUS
         return {
           icon: XCircle,
           color: "text-red-600",

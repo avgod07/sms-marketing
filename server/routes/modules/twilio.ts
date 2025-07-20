@@ -17,6 +17,10 @@ import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logInfo } from "../../utils/logger.util";
 import { requireTFVPreCheck } from "../../middlewares/tfv-purchase-check.middleware";
+import { createTFVRateLimiter } from "../../middlewares/rate-limit.middleware";
+
+// ✅ CREATE TFV RATE LIMITER INSTANCE
+const tfvRateLimiter = createTFVRateLimiter();
 
 export function registerTwilioRoutes(app: Express) {
   // Twilio status webhook endpoint (unauthenticated - external Twilio calls)
@@ -734,7 +738,7 @@ export function registerTwilioRoutes(app: Express) {
             phoneNumber: num.phoneNumber,
             phoneSid: num.sid,
             isDefault: true,
-            verificationStatus: "pending",
+            verificationStatus: "PENDING_REVIEW", // ✅ CORRECT TWILIO STATUS
           },
         ]);
 
@@ -766,9 +770,23 @@ export function registerTwilioRoutes(app: Express) {
             let businessEmail: string | undefined;
             let businessAddress: any;
             let businessWebsiteUrl: string | undefined;
+            let businessContact: any; // ✅ ADD CONTACT INFO EXTRACTION
 
             businessEmail = onboardingProgress?.email || undefined;
             businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+            // Extract contact information from onboarding progress - ✅ NEW
+            if (onboardingProgress?.firstName && onboardingProgress?.lastName) {
+              businessContact = {
+                firstName: onboardingProgress.firstName,
+                lastName: onboardingProgress.lastName,
+                email:
+                  onboardingProgress.email ||
+                  businessEmail ||
+                  "support@notiflow.com",
+                phoneNumber: onboardingProgress.phoneNumber || "+14155551234",
+              };
+            }
 
             // Extract address data if available
             if (
@@ -792,9 +810,11 @@ export function registerTwilioRoutes(app: Express) {
               hasBusinessEmail: !!businessEmail,
               hasBusinessWebsite: !!businessWebsiteUrl,
               hasBusinessAddress: !!businessAddress,
+              hasBusinessContact: !!businessContact, // ✅ LOG CONTACT INFO
               businessEmail,
               businessWebsiteUrl,
               businessAddress,
+              businessContact, // ✅ LOG CONTACT DETAILS
               useCases: onboardingProgress.useCases,
               volume: onboardingProgress.monthlyVolume,
             });
@@ -813,7 +833,8 @@ export function registerTwilioRoutes(app: Express) {
               baseUrl,
               businessEmail,
               businessAddress,
-              businessWebsiteUrl
+              businessWebsiteUrl,
+              businessContact // ✅ PASS CONTACT INFO
             );
 
             // Update phone number with TFV info
@@ -1077,97 +1098,119 @@ export function registerTwilioRoutes(app: Express) {
     }
   });
 
-  app.post("/api/twilio/tfv/submit", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const { phoneNumberSid } = z
-        .object({
-          phoneNumberSid: z.string(),
-        })
-        .parse(req.body);
-
-      const business = await biz.getBusiness();
-      const config = await biz.getTwilioA2PConfig();
-      const numbers = await biz.getPhoneNumbers();
-
-      if (!config) {
-        return res
-          .status(400)
-          .json({ message: "Missing A2P config - complete onboarding first" });
-      }
-
-      // Find the phone number record
-      const phoneRecord = numbers.find((n) => n.phoneSid === phoneNumberSid);
-      if (!phoneRecord) {
-        return res.status(400).json({ message: "Phone number not found" });
-      }
-
-      // Check if already submitted
-      if (phoneRecord.tfvSid) {
-        return res.json({
-          tfvSid: phoneRecord.tfvSid,
-          status: phoneRecord.verificationStatus || "pending",
-        });
-      }
-
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      // Get business email, address, and website from onboarding progress
-      let businessEmail: string | undefined;
-      let businessAddress: any;
-      let businessWebsiteUrl: string | undefined;
+  app.post(
+    "/api/twilio/tfv/submit",
+    requireAuth(),
+    tfvRateLimiter,
+    async (req, res) => {
       try {
-        const onboardingProgress = await biz.getOnboardingProgress();
-        businessEmail = onboardingProgress?.email || undefined;
-        businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+        const { biz } = await getBizForRequest(req);
+        const { phoneNumberSid } = z
+          .object({
+            phoneNumberSid: z.string(),
+          })
+          .parse(req.body);
 
-        // Extract address data if available
-        if (
-          onboardingProgress?.address1 &&
-          onboardingProgress?.city &&
-          onboardingProgress?.state &&
-          onboardingProgress?.postalCode
-        ) {
-          businessAddress = {
-            address1: onboardingProgress.address1,
-            address2: onboardingProgress.address2 || "",
-            city: onboardingProgress.city,
-            state: onboardingProgress.state,
-            postalCode: onboardingProgress.postalCode,
-            country: onboardingProgress.country || "US",
-          };
+        const business = await biz.getBusiness();
+        const config = await biz.getTwilioA2PConfig();
+        const numbers = await biz.getPhoneNumbers();
+
+        if (!config) {
+          return res
+            .status(400)
+            .json({
+              message: "Missing A2P config - complete onboarding first",
+            });
         }
-      } catch (e) {
-        // No onboarding progress, fallbacks will be used
+
+        // Find the phone number record
+        const phoneRecord = numbers.find((n) => n.phoneSid === phoneNumberSid);
+        if (!phoneRecord) {
+          return res.status(400).json({ message: "Phone number not found" });
+        }
+
+        // Check if already submitted
+        if (phoneRecord.tfvSid) {
+          return res.json({
+            tfvSid: phoneRecord.tfvSid,
+            status: phoneRecord.verificationStatus || "pending",
+          });
+        }
+
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+        // Get business email, address, and website from onboarding progress
+        let businessEmail: string | undefined;
+        let businessAddress: any;
+        let businessWebsiteUrl: string | undefined;
+        let businessContact: any; // ✅ ADD CONTACT INFO EXTRACTION
+        try {
+          const onboardingProgress = await biz.getOnboardingProgress();
+          businessEmail = onboardingProgress?.email || undefined;
+          businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
+
+          // Extract contact information from onboarding progress - ✅ NEW
+          if (onboardingProgress?.firstName && onboardingProgress?.lastName) {
+            businessContact = {
+              firstName: onboardingProgress.firstName,
+              lastName: onboardingProgress.lastName,
+              email:
+                onboardingProgress.email ||
+                businessEmail ||
+                "support@notiflow.com",
+              phoneNumber: onboardingProgress.phoneNumber || "+14155551234",
+            };
+          }
+
+          // Extract address data if available
+          if (
+            onboardingProgress?.address1 &&
+            onboardingProgress?.city &&
+            onboardingProgress?.state &&
+            onboardingProgress?.postalCode
+          ) {
+            businessAddress = {
+              address1: onboardingProgress.address1,
+              address2: onboardingProgress.address2 || "",
+              city: onboardingProgress.city,
+              state: onboardingProgress.state,
+              postalCode: onboardingProgress.postalCode,
+              country: onboardingProgress.country || "US",
+            };
+          }
+        } catch (e) {
+          // No onboarding progress, fallbacks will be used
+        }
+
+        const result = await submitTollFreeVerification(
+          phoneNumberSid,
+          business,
+          config,
+          business.id,
+          baseUrl,
+          businessEmail,
+          businessAddress,
+          businessWebsiteUrl,
+          businessContact // ✅ PASS CONTACT INFO
+        );
+
+        // Update phone number with TFV info
+        await biz.updatePhoneNumberTFV(
+          phoneRecord.id,
+          result.tfvSid,
+          result.status
+        );
+
+        res.json({
+          tfvSid: result.tfvSid,
+          status: result.status,
+        });
+      } catch (error) {
+        logError("Error submitting TFV:", error);
+        res.status(500).json({ message: "Failed to submit TFV" });
       }
-
-      const result = await submitTollFreeVerification(
-        phoneNumberSid,
-        business,
-        config,
-        business.id,
-        baseUrl,
-        businessEmail,
-        businessAddress,
-        businessWebsiteUrl
-      );
-
-      // Update phone number with TFV info
-      await biz.updatePhoneNumberTFV(
-        phoneRecord.id,
-        result.tfvSid,
-        result.status
-      );
-
-      res.json({
-        tfvSid: result.tfvSid,
-        status: result.status,
-      });
-    } catch (error) {
-      logError("Error submitting TFV:", error);
-      res.status(500).json({ message: "Failed to submit TFV" });
     }
-  });
+  );
 
   // Phone number validation endpoint
   app.post("/api/twilio/validate-phone", requireAuth(), async (req, res) => {

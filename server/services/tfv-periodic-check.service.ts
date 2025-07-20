@@ -47,7 +47,7 @@ export class TFVPeriodicCheckService {
         )
         .where(
           and(
-            eq(businessPhoneNumbers.verificationStatus, "pending"),
+            eq(businessPhoneNumbers.verificationStatus, "PENDING_REVIEW"), // ✅ CORRECT TWILIO STATUS
             // Only check businesses with TFV SIDs
             sql`${businessPhoneNumbers.tfvSid} IS NOT NULL`
           )

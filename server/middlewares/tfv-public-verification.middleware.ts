@@ -71,13 +71,13 @@ export async function requirePublicTFVVerification(
             "This business is not currently accepting new contacts. Setup is in progress.";
           guidance = "The business owner needs to complete verification setup.";
           break;
-        case "pending":
+        case "PENDING_REVIEW": // ✅ CORRECT TWILIO STATUS
           message =
             "This business is temporarily unable to accept new contacts while verification is being processed.";
           guidance =
             "Verification typically takes 2-5 business days. Please check back later.";
           break;
-        case "denied":
+        case "TWILIO_REJECTED": // ✅ CORRECT TWILIO STATUS
           message = "This business is currently unable to accept new contacts.";
           guidance = "Please contact the business directly for assistance.";
           break;
