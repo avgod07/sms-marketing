@@ -4,6 +4,20 @@ const { Pool } = pg;
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
 
+async function testConnection() {
+  try {
+    console.log("Testing database connection...");
+    const result = await pool.query("SELECT 1 as test");
+    console.log("✅ Database connection successful");
+    return true;
+  } catch (error) {
+    console.error("❌ Database connection failed:", error.message);
+    return false;
+  } finally {
+    await pool.end();
+  }
+}
+
 async function resetDatabase() {
   try {
     console.log("Dropping all tables...");
@@ -36,4 +50,11 @@ async function resetDatabase() {
   }
 }
 
-resetDatabase();
+// Check if this is a test-only run
+if (process.argv.includes("--test-only")) {
+  testConnection().then((success) => {
+    process.exit(success ? 0 : 1);
+  });
+} else {
+  resetDatabase();
+}
