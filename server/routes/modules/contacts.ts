@@ -10,6 +10,7 @@ import { getBizForRequest, logDetailedError } from "./utils";
 import { logError } from "../../utils/logger.util";
 import { logInfo } from "../../utils/logger.util";
 import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
+import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
 
 export function registerContactRoutes(app: Express) {
   app.get("/api/contacts", requireAuth(), async (req, res) => {
@@ -89,6 +90,7 @@ export function registerContactRoutes(app: Express) {
     "/api/contacts",
     requireAuth(),
     requireTFVVerification,
+    requireActiveSubscription,
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);

@@ -232,7 +232,7 @@ export interface IStorage {
     plan: string,
     stripeCustomerId?: string,
     stripeSubscriptionId?: string,
-    endTrial?: boolean
+    trialVoidedAt?: Date
   ): Promise<Business>;
   recordSubscriptionEvent(
     eventType: string,
@@ -1133,8 +1133,8 @@ export class DatabaseStorage implements IStorage {
   async createBusiness(business: InsertBusiness): Promise<Business> {
     const [row] = await db.insert(businesses).values(business).returning();
 
-    // Grant 50 free trial credits if the business is created with "trial" plan
-    if (row.plan === "trial") {
+    // Grant 50 free trial credits if the business is created with "free_trial" plan
+    if (row.plan === "free_trial") {
       try {
         const biz = this.forBusiness(row.id);
         await biz.adjustCredits(
@@ -1618,7 +1618,7 @@ export class DatabaseStorage implements IStorage {
     plan: string,
     stripeCustomerId?: string,
     stripeSubscriptionId?: string,
-    endTrial?: boolean
+    trialVoidedAt?: Date
   ): Promise<Business> {
     const businessId = this.requireBusinessId();
 
@@ -1628,9 +1628,11 @@ export class DatabaseStorage implements IStorage {
       stripeSubscriptionId,
     };
 
-    // End trial immediately if upgrading from trial to paid
-    if (endTrial) {
-      updateData.trialEndsAt = new Date();
+    // If voiding trial, mark it as used and set voided timestamp
+    if (trialVoidedAt) {
+      updateData.trialUsed = true;
+      updateData.trialVoidedAt = trialVoidedAt;
+      updateData.trialEndsAt = trialVoidedAt; // Also end the trial period
     }
 
     const [row] = await db

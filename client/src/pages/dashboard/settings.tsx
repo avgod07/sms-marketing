@@ -248,7 +248,7 @@ function BillingTab() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  const isTrialUser = subscription?.plan === "trial";
+  const isTrialUser = subscription?.plan === "free_trial";
   const trialEnd = subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
   const daysLeft = trialEnd ? differenceInCalendarDays(trialEnd, new Date()) : 0;
   

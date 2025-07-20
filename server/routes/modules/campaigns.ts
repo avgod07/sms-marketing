@@ -17,6 +17,7 @@ import { randomBytes } from "crypto";
 import { TwilioService } from "../../services/twilio.js";
 import { MessageCreditService } from "../../services/message-credits.js";
 import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
+import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -97,6 +98,7 @@ export function registerCampaignRoutes(app: Express) {
     "/api/campaigns",
     requireAuth(),
     requireTFVVerification,
+    requireActiveSubscription,
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
@@ -204,6 +206,7 @@ export function registerCampaignRoutes(app: Express) {
     "/api/campaigns/:id/send",
     requireAuth(),
     requireTFVVerification,
+    requireActiveSubscription,
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
@@ -268,6 +271,7 @@ export function registerCampaignRoutes(app: Express) {
     "/api/campaigns/test",
     requireAuth(),
     requireTFVVerification,
+    requireActiveSubscription,
     async (req, res) => {
       try {
         const { biz, user } = await getBizForRequest(req);

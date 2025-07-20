@@ -10,6 +10,7 @@ import { logError } from "../../utils/logger.util";
 import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
 import { logInfo } from "../../utils/logger.util";
 import { requirePublicTFVVerification } from "../../middlewares/tfv-public-verification.middleware";
+import { requirePublicSubscriptionVerification } from "../../middlewares/subscription-verification.middleware";
 
 export function registerPublicRoutes(app: Express) {
   const publicContactRateLimiter = createRateLimiter({
@@ -67,6 +68,7 @@ export function registerPublicRoutes(app: Express) {
     "/contacts",
     publicContactRateLimiter,
     requirePublicTFVVerification,
+    requirePublicSubscriptionVerification,
     async (req, res) => {
       try {
         const { businessId, ...contact } = publicContactSchema.parse(req.body);

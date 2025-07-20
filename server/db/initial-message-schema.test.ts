@@ -41,7 +41,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome to our service! Text STOP to unsubscribe",
         onboardingComplete: true,
         createdAt: new Date(),
@@ -66,7 +66,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: null,
         onboardingComplete: false,
         createdAt: new Date(),
@@ -83,7 +83,7 @@ describe("Initial Message Database Schema Tests", () => {
 
       const result = await db.insert(businesses).values({
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: null,
         onboardingComplete: false,
       });
@@ -96,7 +96,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: null,
         onboardingComplete: false,
         createdAt: new Date(),
@@ -113,7 +113,7 @@ describe("Initial Message Database Schema Tests", () => {
 
       const result = await db.insert(businesses).values({
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
       });
 
       expect(result).toBeDefined();
@@ -126,7 +126,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: longMessage,
         onboardingComplete: true,
         createdAt: new Date(),
@@ -157,7 +157,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome!",
         onboardingComplete: true,
         createdAt: new Date(),
@@ -197,7 +197,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome!",
         onboardingComplete: true,
         createdAt: new Date(),
@@ -228,7 +228,7 @@ describe("Initial Message Database Schema Tests", () => {
       const existingBusiness = {
         id: 1,
         name: "Existing Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: null,
         onboardingComplete: false,
         createdAt: new Date(),
@@ -277,7 +277,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: null,
         onboardingComplete: false, // Business-level onboarding not complete
         createdAt: new Date(),
@@ -307,7 +307,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness1 = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome!",
         onboardingComplete: true,
         createdAt: new Date(),
@@ -317,7 +317,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness2 = {
         id: 2,
         name: "Test Business", // Same name should be allowed
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome!",
         onboardingComplete: true,
         createdAt: new Date(),
@@ -335,7 +335,7 @@ describe("Initial Message Database Schema Tests", () => {
       // Business names don't need to be unique in this system
       const result = await db.insert(businesses).values({
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome!",
         onboardingComplete: true,
       });
@@ -351,7 +351,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: messageWithSpecialChars,
         onboardingComplete: true,
         createdAt: new Date(),
@@ -381,7 +381,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "",
         onboardingComplete: false,
         createdAt: new Date(),
@@ -414,7 +414,7 @@ describe("Initial Message Database Schema Tests", () => {
         {
           id: 1,
           name: "Complete Business",
-          plan: "trial",
+          plan: "free_trial",
           initialMessage: "Welcome!",
           onboardingComplete: true,
           createdAt: new Date(),
@@ -423,7 +423,7 @@ describe("Initial Message Database Schema Tests", () => {
         {
           id: 2,
           name: "Incomplete Business",
-          plan: "trial",
+          plan: "free_trial",
           initialMessage: null,
           onboardingComplete: false,
           createdAt: new Date(),
@@ -454,7 +454,7 @@ describe("Initial Message Database Schema Tests", () => {
         {
           id: 1,
           name: "Business with Message",
-          plan: "trial",
+          plan: "free_trial",
           initialMessage: "Welcome!",
           onboardingComplete: true,
           createdAt: new Date(),
@@ -482,7 +482,7 @@ describe("Initial Message Database Schema Tests", () => {
       const mockBusiness = {
         id: 1,
         name: "Test Business",
-        plan: "trial",
+        plan: "free_trial",
         initialMessage: "Welcome!",
         onboardingComplete: true,
         createdAt: new Date(),

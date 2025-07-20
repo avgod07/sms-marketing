@@ -17,8 +17,10 @@ import { z } from "zod";
 export const businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  plan: text("plan").notNull().default("trial"), // 'trial', 'starter'
+  plan: text("plan").notNull().default("free_trial"), // 'free_trial', 'starter', 'cancelled'
   trialEndsAt: timestamp("trial_ends_at"),
+  trialUsed: boolean("trial_used").default(false).notNull(),
+  trialVoidedAt: timestamp("trial_voided_at"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
   initialMessage: text("initial_message"),

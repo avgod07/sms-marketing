@@ -10,6 +10,7 @@ import {
 import { getBizForRequest } from "./utils";
 import { logError } from "../../utils/logger.util";
 import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
+import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
 
 export function registerMessageRoutes(app: Express) {
   app.get("/api/conversations", requireAuth(), async (req, res) => {
@@ -124,6 +125,7 @@ export function registerMessageRoutes(app: Express) {
     "/api/messages",
     requireAuth(),
     requireTFVVerification,
+    requireActiveSubscription,
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);

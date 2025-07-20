@@ -484,8 +484,10 @@ export const couponRecipients = pgTable(
 export const businesses = pgTable("businesses", {
   id: serial().primaryKey().notNull(),
   name: text().notNull(),
-  plan: text().default("trial").notNull(),
+  plan: text().default("free_trial").notNull(),
   trialEndsAt: timestamp("trial_ends_at", { mode: "string" }),
+  trialUsed: boolean("trial_used").default(false).notNull(),
+  trialVoidedAt: timestamp("trial_voided_at", { mode: "string" }),
   stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
   initialMessage: text("initial_message"),

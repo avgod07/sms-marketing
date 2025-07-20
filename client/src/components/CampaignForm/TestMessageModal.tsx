@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { handleApiError } from "@/lib/handleApiError";
+import { handleApiError, extractSubscriptionError } from "@/lib/handleApiError";
+import { SubscriptionErrorDialog } from "@/components/subscription-error-dialog";
 
 interface TestMessageModalProps {
   open: boolean;
@@ -37,6 +38,14 @@ export default function TestMessageModal({
   onSuccess,
 }: TestMessageModalProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [subscriptionError, setSubscriptionError] = useState<{
+    message: string;
+    code: string;
+    guidance?: string;
+    currentPlan?: string;
+    trialUsed?: boolean;
+    upgradeUrl?: string;
+  } | null>(null);
   const { toast } = useToast();
 
   const sendTestMessageMutation = useMutation({
@@ -58,6 +67,13 @@ export default function TestMessageModal({
       setPhoneNumber("");
     },
     onError: (error: any) => {
+      // Check for subscription errors first
+      const subscriptionErr = extractSubscriptionError(error);
+      if (subscriptionErr) {
+        setSubscriptionError(subscriptionErr);
+        return;
+      }
+
       toast({
         title: "Failed to Send Test Message",
         description: handleApiError(error),
@@ -110,60 +126,68 @@ export default function TestMessageModal({
   const messageType = mediaUrl ? "MMS" : "SMS";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Send Test Message</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="test-phone">Send test message to</Label>
-            <PhoneInput
-              id="test-phone"
-              value={phoneNumber}
-              onChange={setPhoneNumber}
-              placeholder="(555) 123-4567"
-              className="mt-1"
-            />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Test Message</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="test-phone">Send test message to</Label>
+              <PhoneInput
+                id="test-phone"
+                value={phoneNumber}
+                onChange={setPhoneNumber}
+                placeholder="(555) 123-4567"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Test Message Preview:</strong>
+              </p>
+              <p className="text-sm text-gray-700 mb-2">{message}</p>
+              {mediaUrl && (
+                <div className="mt-2">
+                  <img 
+                    src={mediaUrl} 
+                    alt="Test message media" 
+                    className="max-h-20 rounded border"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                This will send a {messageType} test message and deduct {creditsNeeded} credit{creditsNeeded > 1 ? 's' : ''}.
+              </p>
+            </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-sm text-gray-600 mb-2">
-              <strong>Test Message Preview:</strong>
-            </p>
-            <p className="text-sm text-gray-700 mb-2">{message}</p>
-            {mediaUrl && (
-              <div className="mt-2">
-                <img 
-                  src={mediaUrl} 
-                  alt="Test message media" 
-                  className="max-h-20 rounded border"
-                />
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-2">
-              This will send a {messageType} test message and deduct {creditsNeeded} credit{creditsNeeded > 1 ? 's' : ''}.
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={sendTestMessageMutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!isPhoneValid() || sendTestMessageMutation.isPending}
-          >
-            {sendTestMessageMutation.isPending ? "Sending..." : "Send Test"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              disabled={sendTestMessageMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!isPhoneValid() || sendTestMessageMutation.isPending}
+            >
+              {sendTestMessageMutation.isPending ? "Sending..." : "Send Test"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <SubscriptionErrorDialog
+        open={!!subscriptionError}
+        onOpenChange={(open) => !open && setSubscriptionError(null)}
+        error={subscriptionError || undefined}
+      />
+    </>
   );
 } 

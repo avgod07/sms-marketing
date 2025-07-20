@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { handleApiError } from "@/lib/handleApiError";
+import { handleApiError, extractSubscriptionError } from "@/lib/handleApiError";
 import { emitMessageSend } from "@/lib/socket";
+import { SubscriptionErrorDialog } from "@/components/subscription-error-dialog";
 import ContactPicker from "./contact-picker";
 import MessageCompose from "./message-compose";
 import type { Contact } from "@shared/schema";
@@ -23,6 +24,14 @@ export default function NewMessageModal({
 }: NewMessageModalProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(preSelectedContact || null);
   const [isLoading, setIsLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<{
+    message: string;
+    code: string;
+    guidance?: string;
+    currentPlan?: string;
+    trialUsed?: boolean;
+    upgradeUrl?: string;
+  } | null>(null);
   const { toast } = useToast();
 
   // Reset state when modal opens/closes
@@ -60,6 +69,15 @@ export default function NewMessageModal({
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Handle subscription errors with dialog
+        if (response.status === 403) {
+          const subscriptionErr = extractSubscriptionError(errorData);
+          if (subscriptionErr) {
+            setSubscriptionError(subscriptionErr);
+            return;
+          }
+        }
         
         // Handle insufficient credits error specifically
         if (response.status === 402 && errorData.code === "INSUFFICIENT_CREDITS") {
@@ -110,30 +128,38 @@ export default function NewMessageModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>
-            {selectedContact ? "Send Message" : "New Message"}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="py-4">
-          {!selectedContact ? (
-            <ContactPicker 
-              onSelect={handleContactSelect}
-              selectedContact={selectedContact}
-            />
-          ) : (
-            <MessageCompose
-              contact={selectedContact}
-              onSend={handleSendMessage}
-              onBack={handleBackToContacts}
-              isLoading={isLoading}
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedContact ? "Send Message" : "New Message"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {!selectedContact ? (
+              <ContactPicker 
+                onSelect={handleContactSelect}
+                selectedContact={selectedContact}
+              />
+            ) : (
+              <MessageCompose
+                contact={selectedContact}
+                onSend={handleSendMessage}
+                onBack={handleBackToContacts}
+                isLoading={isLoading}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <SubscriptionErrorDialog
+        open={!!subscriptionError}
+        onOpenChange={(open) => !open && setSubscriptionError(null)}
+        error={subscriptionError || undefined}
+      />
+    </>
   );
 } 

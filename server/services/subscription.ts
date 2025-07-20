@@ -146,22 +146,28 @@ async function handleSubscriptionChange(
 
   try {
     // Determine new plan based on subscription status
-    const newPlan = subscription.status === "active" ? "starter" : "trial";
+    let newPlan: string;
+    let trialVoidedAt: Date | undefined;
 
-    // Check if this is a trial-to-paid upgrade
-    const isTrialToPaidUpgrade =
-      currentBusiness.plan === "trial" &&
-      newPlan === "starter" &&
-      subscription.status === "active";
+    if (subscription.status === "active") {
+      newPlan = "starter";
+      // If upgrading from free trial, void it permanently
+      if (currentBusiness.plan === "free_trial" && !currentBusiness.trialUsed) {
+        trialVoidedAt = new Date();
+      }
+    } else {
+      // Any non-active status = cancelled (never back to trial)
+      newPlan = "cancelled";
+    }
 
     await biz.updateBusinessPlan(
       newPlan,
       subscription.customer as string,
       subscription.id,
-      isTrialToPaidUpgrade // End trial if upgrading from trial
+      trialVoidedAt // Pass voided timestamp if voiding trial
     );
 
-    // Record the subscription event with trial ending info
+    // Record the subscription event with trial voiding info
     await biz.recordSubscriptionEvent(
       `subscription_${subscription.status}`,
       subscription.id,
@@ -169,7 +175,8 @@ async function handleSubscriptionChange(
         status: subscription.status,
         planName: subscription.metadata?.planName,
         billingCycle: subscription.metadata?.billingCycle,
-        trialEnded: isTrialToPaidUpgrade,
+        trialVoided: !!trialVoidedAt,
+        previousPlan: currentBusiness.plan,
       }
     );
 
@@ -178,7 +185,8 @@ async function handleSubscriptionChange(
       subscriptionId: subscription.id,
       status: subscription.status,
       plan: newPlan,
-      trialEnded: isTrialToPaidUpgrade,
+      previousPlan: currentBusiness.plan,
+      trialVoided: !!trialVoidedAt,
     });
   } catch (err) {
     logError("Failed to update business subscription", err);
