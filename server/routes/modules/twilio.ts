@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { logInfo } from "../../utils/logger.util";
 import { requireTFVPreCheck } from "../../middlewares/tfv-purchase-check.middleware";
 import { createTFVRateLimiter } from "../../middlewares/rate-limit.middleware";
+import { MessageCreditService } from "../../services/message-credits";
 
 // ✅ CREATE TFV RATE LIMITER INSTANCE
 const tfvRateLimiter = createTFVRateLimiter();
@@ -211,7 +212,121 @@ export function registerTwilioRoutes(app: Express) {
           phoneNumber: normalizedFrom,
         });
       } else {
-        socketService?.broadcast("message:send", message, businessId);
+        // KEYWORD DETECTION AND AUTO-RESPONSE LOGIC
+        // Extract first word for keyword matching
+        const firstWord = bodyText.split(/\s+/)[0]?.toUpperCase();
+
+        if (firstWord) {
+          try {
+            // Check if this word matches any active keyword campaign (handles expiration & soft delete)
+            const keywordCampaign =
+              await bizStore.getActiveKeywordCampaignByKeyword(firstWord);
+
+            if (keywordCampaign) {
+              // Check if this contact has already responded to this keyword
+              const existingResponse = await bizStore.getKeywordResponse(
+                contact.id,
+                keywordCampaign.id
+              );
+
+              if (!existingResponse) {
+                // First time - send auto-response
+                const numbers = await bizStore.getPhoneNumbers();
+                const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+                const messagingServiceSid =
+                  await bizStore.getMessagingServiceSid();
+
+                // Create a minimal creds object for compatibility
+                const tempCreds = {
+                  businessId: businessId,
+                  accountSid: process.env.TWILIO_ACCOUNT_SID!,
+                  messagingServiceSid: messagingServiceSid || null,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  id: 0,
+                };
+
+                // Send auto-response using credit deduction service
+                const result =
+                  await MessageCreditService.sendWithCreditDeduction(
+                    bizStore,
+                    tempCreds,
+                    {
+                      to: normalizedFrom,
+                      message: keywordCampaign.message,
+                      from,
+                      messagingServiceSid: messagingServiceSid ?? undefined,
+                      contactId: contact.id,
+                      messageType: "regular",
+                    }
+                  );
+
+                // Log the keyword response for tracking
+                await bizStore.logKeywordResponse({
+                  keywordCampaignId: keywordCampaign.id,
+                  contactId: contact.id,
+                  phoneNumber: normalizedFrom,
+                  messageSent: keywordCampaign.message,
+                  messageSid: result.messageSid,
+                  status: result.success ? "sent" : "failed",
+                });
+
+                // Create message record for the auto-response
+                const autoResponseMessage = await bizStore.createMessage({
+                  phoneNumber: normalizedFrom,
+                  contactId: contact.id,
+                  content: keywordCampaign.message,
+                  status: result.success ? "sent" : "failed",
+                  messageType: "keyword_response",
+                  billingStatus: result.billingStatus,
+                  messageSid: result.messageSid,
+                });
+
+                // Update contact source if this is their first keyword interaction
+                if (contact.source === "manual") {
+                  await bizStore.updateContact(contact.id, {
+                    source: "keyword",
+                  });
+                }
+
+                // Broadcast both original message and auto-response to websocket
+                socketService?.broadcast("message:send", message, businessId);
+                socketService?.broadcast(
+                  "message:send",
+                  autoResponseMessage,
+                  businessId
+                );
+
+                logInfo("Keyword auto-response sent", {
+                  businessId,
+                  contactId: contact.id,
+                  keyword: firstWord,
+                  phoneNumber: normalizedFrom,
+                  success: result.success,
+                });
+              } else {
+                // Contact already responded to this keyword - just broadcast original message
+                socketService?.broadcast("message:send", message, businessId);
+                logInfo("Keyword detected but contact already responded", {
+                  businessId,
+                  contactId: contact.id,
+                  keyword: firstWord,
+                  phoneNumber: normalizedFrom,
+                });
+              }
+            } else {
+              // No matching keyword or inactive campaign - just broadcast original message
+              socketService?.broadcast("message:send", message, businessId);
+            }
+          } catch (keywordError) {
+            // If keyword processing fails, still broadcast the original message
+            logError("Error processing keyword response:", keywordError);
+            socketService?.broadcast("message:send", message, businessId);
+          }
+        } else {
+          // No first word to process - just broadcast original message
+          socketService?.broadcast("message:send", message, businessId);
+        }
       }
 
       res.status(200).send("OK");
@@ -1116,11 +1231,9 @@ export function registerTwilioRoutes(app: Express) {
         const numbers = await biz.getPhoneNumbers();
 
         if (!config) {
-          return res
-            .status(400)
-            .json({
-              message: "Missing A2P config - complete onboarding first",
-            });
+          return res.status(400).json({
+            message: "Missing A2P config - complete onboarding first",
+          });
         }
 
         // Find the phone number record

@@ -41,6 +41,7 @@ export const contacts = pgTable(
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     email: text("email"),
     active: boolean("active").default(true).notNull(),
+    source: text("source").default("manual").notNull(), // manual, keyword, signup_form, campaign
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -54,6 +55,8 @@ export const contacts = pgTable(
     businessPhoneLookup: index(
       "contacts_business_id_phone_number_lookup_idx"
     ).on(table.businessId, table.phoneNumber),
+    // Index for source filtering
+    sourceIdx: index("contacts_source_idx").on(table.source),
   })
 );
 
@@ -88,7 +91,7 @@ export const messages = pgTable(
     content: text("content").notNull(),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
-    messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received, test
+    messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received, test, keyword_response
     billingStatus: text("billing_status").notNull().default("success"), // success, failed
     messageSid: varchar("message_sid", { length: 64 }),
     errorCode: integer("error_code"),
@@ -167,6 +170,77 @@ export const couponRecipients = pgTable("coupon_recipients", {
     .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const keywordCampaigns = pgTable(
+  "keyword_campaigns",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    keyword: varchar("keyword", { length: 50 }).notNull(),
+    message: varchar("message", { length: 160 }).notNull(), // Standard SMS length to match campaigns
+    isActive: boolean("is_active").default(true).notNull(),
+    expiresAt: timestamp("expires_at"), // Optional expiration date
+    deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Business-scoped unique constraint: same keyword can exist across businesses
+    // but not within the same business
+    businessKeywordUnique: uniqueIndex(
+      "keyword_campaigns_business_id_keyword_idx"
+    ).on(table.businessId, table.keyword),
+    // Performance index for keyword lookups within a business
+    businessKeywordLookup: index(
+      "keyword_campaigns_business_id_keyword_lookup_idx"
+    ).on(table.businessId, table.keyword),
+    // Index for active status filtering
+    activeIdx: index("keyword_campaigns_is_active_idx").on(table.isActive),
+    // Index for expiration lookups
+    expiresAtIdx: index("keyword_campaigns_expires_at_idx").on(table.expiresAt),
+    // Index for soft delete filtering
+    deletedAtIdx: index("keyword_campaigns_deleted_at_idx").on(table.deletedAt),
+  })
+);
+
+export const keywordResponses = pgTable(
+  "keyword_responses",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    keywordCampaignId: integer("keyword_campaign_id")
+      .references(() => keywordCampaigns.id, { onDelete: "cascade" })
+      .notNull(),
+    contactId: integer("contact_id")
+      .references(() => contacts.id)
+      .notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    messageSent: text("message_sent").notNull(),
+    respondedAt: timestamp("responded_at").defaultNow().notNull(),
+    messageSid: varchar("message_sid", { length: 64 }),
+    status: text("status").notNull().default("sent"), // sent, delivered, failed
+  },
+  (table) => ({
+    // CRITICAL: Ensures one response per contact per keyword EVER
+    contactKeywordUnique: uniqueIndex(
+      "keyword_responses_contact_id_keyword_campaign_id_idx"
+    ).on(table.contactId, table.keywordCampaignId),
+    // Performance indexes
+    businessIdx: index("keyword_responses_business_id_idx").on(
+      table.businessId
+    ),
+    keywordCampaignIdx: index("keyword_responses_keyword_campaign_id_idx").on(
+      table.keywordCampaignId
+    ),
+    contactIdx: index("keyword_responses_contact_id_idx").on(table.contactId),
+    phoneIdx: index("keyword_responses_phone_number_idx").on(table.phoneNumber),
+    statusIdx: index("keyword_responses_status_idx").on(table.status),
+  })
+);
 
 export const analytics = pgTable("analytics", {
   id: serial("id").primaryKey(),
@@ -392,6 +466,8 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   coupons: many(coupons),
   couponRedemptions: many(couponRedemptions),
   couponRecipients: many(couponRecipients),
+  keywordCampaigns: many(keywordCampaigns),
+  keywordResponses: many(keywordResponses),
   analytics: many(analytics),
   businessProfiles: many(businessProfiles),
   twilioCredentials: many(twilioCredentials),
@@ -454,6 +530,57 @@ export const insertCouponRecipientSchema = createInsertSchema(
   id: true,
   businessId: true,
   createdAt: true,
+});
+
+export const insertKeywordCampaignSchema = createInsertSchema(keywordCampaigns)
+  .omit({
+    id: true,
+    businessId: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
+  })
+  .extend({
+    // Accept string from frontend, validate, and transform to Date for database
+    expiresAt: z.preprocess(
+      (val) => {
+        // Handle empty string or null/undefined as null
+        if (!val || (typeof val === "string" && val.trim() === "")) {
+          return null;
+        }
+        // If it's already a Date, return it
+        if (val instanceof Date) {
+          return val;
+        }
+        // Convert string to Date
+        if (typeof val === "string") {
+          return new Date(val);
+        }
+        return val;
+      },
+      z
+        .date()
+        .nullable()
+        .refine(
+          (date) => {
+            if (!date) return true; // null is allowed
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date >= today;
+          },
+          {
+            message: "Expiration date cannot be in the past",
+          }
+        )
+    ),
+  });
+
+export const insertKeywordResponseSchema = createInsertSchema(
+  keywordResponses
+).omit({
+  id: true,
+  businessId: true,
+  respondedAt: true,
 });
 
 export const insertBusinessSchema = createInsertSchema(businesses).omit({
@@ -571,6 +698,12 @@ export type InsertCouponRedemption = z.infer<
 
 export type CouponRecipient = typeof couponRecipients.$inferSelect;
 export type InsertCouponRecipient = z.infer<typeof insertCouponRecipientSchema>;
+
+export type KeywordCampaign = typeof keywordCampaigns.$inferSelect;
+export type InsertKeywordCampaign = z.infer<typeof insertKeywordCampaignSchema>;
+
+export type KeywordResponse = typeof keywordResponses.$inferSelect;
+export type InsertKeywordResponse = z.infer<typeof insertKeywordResponseSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

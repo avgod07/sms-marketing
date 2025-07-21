@@ -75,6 +75,7 @@ export default function Inbox() {
           phoneNumber: phoneNumber,
           email: null,
           active: true,
+          source: "manual",
           businessId: 0,
           createdAt: new Date(),
           updatedAt: new Date(),

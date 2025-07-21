@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard/dashboard";
 import Contacts from "@/pages/contacts";
 import Campaigns from "@/pages/Campaigns";
 import NewCampaignPage from "@/pages/Campaigns/New";
+import Keywords from "@/pages/keywords";
 import Analytics from "@/pages/dashboard/analytics";
 import Settings from "@/pages/dashboard/settings";
 import Help from "@/pages/help";
@@ -96,6 +97,7 @@ function Router() {
           <Route path="/contacts" component={Contacts} />
           <Route path="/campaigns/new" component={NewCampaignPage} />
           <Route path="/campaigns" component={Campaigns} />
+          <Route path="/keywords" component={Keywords} />
           <Route path="/coupons" component={Coupons} />
           <Route path="/inbox" component={Inbox} />
           <Route path="/analytics" component={Analytics} />

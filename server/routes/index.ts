@@ -11,6 +11,7 @@ import { registerCouponRoutes } from "./modules/coupons";
 import { registerMessageRoutes } from "./modules/messages";
 import { registerCreditsRoutes } from "./modules/credits";
 import { registerSubscriptionRoutes } from "./modules/subscriptions";
+import { registerKeywordRoutes } from "./modules/keywords";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   registerAuthRoutes(app);
@@ -21,6 +22,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerContactRoutes(app);
   registerCampaignRoutes(app);
   registerCouponRoutes(app);
+  registerKeywordRoutes(app);
   registerMessageRoutes(app);
   registerCreditsRoutes(app);
   registerSubscriptionRoutes(app);

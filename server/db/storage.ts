@@ -55,6 +55,12 @@ import {
   subscriptionEvents,
   type SubscriptionEvent,
   type InsertSubscriptionEvent,
+  keywordCampaigns,
+  type KeywordCampaign,
+  type InsertKeywordCampaign,
+  keywordResponses,
+  type KeywordResponse,
+  type InsertKeywordResponse,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -240,6 +246,41 @@ export interface IStorage {
     metadata?: Record<string, any>
   ): Promise<SubscriptionEvent>;
   getSubscriptionEvents(): Promise<SubscriptionEvent[]>;
+
+  // Keyword Campaigns
+  getKeywordCampaigns(): Promise<KeywordCampaign[]>;
+  getKeywordCampaign(id: number): Promise<KeywordCampaign | undefined>;
+  getKeywordCampaignByKeyword(
+    keyword: string
+  ): Promise<KeywordCampaign | undefined>;
+  keywordExistsForBusiness(keyword: string): Promise<boolean>;
+  getActiveKeywordCampaignByKeyword(
+    keyword: string
+  ): Promise<KeywordCampaign | undefined>;
+  createKeywordCampaign(
+    campaign: InsertKeywordCampaign
+  ): Promise<KeywordCampaign>;
+  updateKeywordCampaign(
+    id: number,
+    campaign: Partial<InsertKeywordCampaign>
+  ): Promise<KeywordCampaign>;
+  deleteKeywordCampaign(id: number): Promise<void>;
+
+  // Keyword Responses
+  getKeywordResponse(
+    contactId: number,
+    keywordCampaignId: number
+  ): Promise<KeywordResponse | undefined>;
+  getKeywordResponsesForContact(contactId: number): Promise<KeywordResponse[]>;
+  getKeywordResponsesForCampaign(
+    keywordCampaignId: number
+  ): Promise<KeywordResponse[]>;
+  logKeywordResponse(response: InsertKeywordResponse): Promise<KeywordResponse>;
+  getKeywordStats(): Promise<{
+    activeKeywords: number;
+    totalResponses: number;
+    newContactsThisMonth: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1668,6 +1709,207 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptionEvents)
       .where(eq(subscriptionEvents.businessId, businessId))
       .orderBy(desc(subscriptionEvents.createdAt));
+  }
+
+  // Keyword Campaigns
+  async getKeywordCampaigns(): Promise<KeywordCampaign[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(keywordCampaigns)
+      .where(
+        sql`${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+      )
+      .orderBy(desc(keywordCampaigns.createdAt));
+  }
+
+  async getKeywordCampaign(id: number): Promise<KeywordCampaign | undefined> {
+    const businessId = this.requireBusinessId();
+    const [campaign] = await db
+      .select()
+      .from(keywordCampaigns)
+      .where(
+        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+      );
+    return campaign || undefined;
+  }
+
+  async getKeywordCampaignByKeyword(
+    keyword: string
+  ): Promise<KeywordCampaign | undefined> {
+    const businessId = this.requireBusinessId();
+    const [campaign] = await db
+      .select()
+      .from(keywordCampaigns)
+      .where(
+        sql`${keywordCampaigns.keyword} = ${keyword} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+      );
+    return campaign || undefined;
+  }
+
+  // Check if keyword exists (including deleted ones) for uniqueness validation
+  async keywordExistsForBusiness(keyword: string): Promise<boolean> {
+    const businessId = this.requireBusinessId();
+    const [existing] = await db
+      .select({ id: keywordCampaigns.id })
+      .from(keywordCampaigns)
+      .where(
+        sql`${keywordCampaigns.keyword} = ${keyword} AND ${keywordCampaigns.businessId} = ${businessId}`
+      )
+      .limit(1);
+    return !!existing;
+  }
+
+  // Get active (non-expired, non-deleted) keyword for webhook processing
+  async getActiveKeywordCampaignByKeyword(
+    keyword: string
+  ): Promise<KeywordCampaign | undefined> {
+    const businessId = this.requireBusinessId();
+    const now = new Date();
+    const [campaign] = await db
+      .select()
+      .from(keywordCampaigns)
+      .where(
+        sql`${keywordCampaigns.keyword} = ${keyword} 
+            AND ${keywordCampaigns.businessId} = ${businessId} 
+            AND ${keywordCampaigns.isActive} = true 
+            AND ${keywordCampaigns.deletedAt} IS NULL
+            AND (${keywordCampaigns.expiresAt} IS NULL OR ${keywordCampaigns.expiresAt} > ${now})`
+      );
+    return campaign || undefined;
+  }
+
+  async createKeywordCampaign(
+    campaign: InsertKeywordCampaign
+  ): Promise<KeywordCampaign> {
+    const businessId = this.requireBusinessId();
+    const [newCampaign] = await db
+      .insert(keywordCampaigns)
+      .values({
+        ...campaign,
+        businessId,
+        updatedAt: new Date(),
+      })
+      .returning();
+    return newCampaign;
+  }
+
+  async updateKeywordCampaign(
+    id: number,
+    campaign: Partial<InsertKeywordCampaign>
+  ): Promise<KeywordCampaign> {
+    const businessId = this.requireBusinessId();
+    const [updatedCampaign] = await db
+      .update(keywordCampaigns)
+      .set({
+        ...campaign,
+        updatedAt: new Date(),
+      })
+      .where(
+        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+      )
+      .returning();
+    return updatedCampaign;
+  }
+
+  async deleteKeywordCampaign(id: number): Promise<void> {
+    const businessId = this.requireBusinessId();
+    // Soft delete by setting deletedAt timestamp
+    await db
+      .update(keywordCampaigns)
+      .set({
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+      );
+  }
+
+  // Keyword Responses
+  async getKeywordResponse(
+    contactId: number,
+    keywordCampaignId: number
+  ): Promise<KeywordResponse | undefined> {
+    const businessId = this.requireBusinessId();
+    const [response] = await db
+      .select()
+      .from(keywordResponses)
+      .where(
+        sql`${keywordResponses.contactId} = ${contactId} AND ${keywordResponses.keywordCampaignId} = ${keywordCampaignId} AND ${keywordResponses.businessId} = ${businessId}`
+      );
+    return response || undefined;
+  }
+
+  async getKeywordResponsesForContact(
+    contactId: number
+  ): Promise<KeywordResponse[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(keywordResponses)
+      .where(
+        sql`${keywordResponses.contactId} = ${contactId} AND ${keywordResponses.businessId} = ${businessId}`
+      )
+      .orderBy(desc(keywordResponses.respondedAt));
+  }
+
+  async getKeywordResponsesForCampaign(
+    keywordCampaignId: number
+  ): Promise<KeywordResponse[]> {
+    const businessId = this.requireBusinessId();
+    return await db
+      .select()
+      .from(keywordResponses)
+      .where(
+        sql`${keywordResponses.keywordCampaignId} = ${keywordCampaignId} AND ${keywordResponses.businessId} = ${businessId}`
+      )
+      .orderBy(desc(keywordResponses.respondedAt));
+  }
+
+  async logKeywordResponse(
+    response: InsertKeywordResponse
+  ): Promise<KeywordResponse> {
+    const businessId = this.requireBusinessId();
+    const [newResponse] = await db
+      .insert(keywordResponses)
+      .values({ ...response, businessId })
+      .returning();
+    return newResponse;
+  }
+
+  async getKeywordStats(): Promise<{
+    activeKeywords: number;
+    totalResponses: number;
+    newContactsThisMonth: number;
+  }> {
+    const businessId = this.requireBusinessId();
+    const [activeKeywords] = await db
+      .select({ count: count() })
+      .from(keywordCampaigns)
+      .where(
+        sql`${keywordCampaigns.isActive} = true AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+      );
+
+    const [totalResponses] = await db
+      .select({ count: count() })
+      .from(keywordResponses)
+      .where(sql`${keywordResponses.businessId} = ${businessId}`);
+
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [newContactsThisMonth] = await db
+      .select({ count: count() })
+      .from(contacts)
+      .where(
+        sql`${contacts.createdAt} >= ${firstDayOfMonth} AND ${contacts.businessId} = ${businessId}`
+      );
+
+    return {
+      activeKeywords: activeKeywords.count,
+      totalResponses: totalResponses.count,
+      newContactsThisMonth: newContactsThisMonth.count,
+    };
   }
 
   // Recent Activity
