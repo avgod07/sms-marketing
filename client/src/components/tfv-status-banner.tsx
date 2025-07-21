@@ -30,9 +30,9 @@ export function TFVStatusBanner() {
           borderColor: "border-yellow-200",
           textColor: "text-yellow-800",
           iconColor: "text-yellow-600",
-          title: "Toll-Free Verification Pending",
-          message: "Your toll-free verification is being reviewed by Twilio. This typically takes 2-5 business days.",
-          action: "Messaging is restricted until verification is approved.",
+          title: "Business Verification Pending",
+          message: "Your business verification is under review. This process typically takes 2-5 business days.",
+          action: "Messaging is temporarily restricted. Contact support if you have questions.",
         };
       case "TWILIO_REJECTED":  // ✅ CORRECT TWILIO STATUS
         return {
@@ -41,9 +41,9 @@ export function TFVStatusBanner() {
           borderColor: "border-red-200",
           textColor: "text-red-800",
           iconColor: "text-red-600",
-          title: "Toll-Free Verification Denied",
-          message: "Your toll-free verification was denied. Please contact support to resolve this issue.",
-          action: "Contact support@yourapp.com for assistance.",
+          title: "Business Verification Issue",
+          message: "Your business verification requires additional review. Our team will assist with resolving this.",
+          action: "Please contact support through the Help tab for immediate assistance.",
         };
       case "not_submitted":
         return {
@@ -52,9 +52,9 @@ export function TFVStatusBanner() {
           borderColor: "border-orange-200",
           textColor: "text-orange-800",
           iconColor: "text-orange-600",
-          title: "Toll-Free Verification Required",
-          message: "Complete your business information to submit verification and enable messaging.",
-          action: "Visit Settings → Business Profile to complete verification.",
+          title: "Business Verification Required",
+          message: "Business verification is needed to enable messaging features.",
+          action: "Please contact support at getnotiflow@gmail.com to initiate verification.",
         };
       case "no_phone_numbers":
         return {
@@ -178,4 +178,4 @@ export function TFVStatusIndicator() {
       </span>
     </div>
   );
-} 
+}

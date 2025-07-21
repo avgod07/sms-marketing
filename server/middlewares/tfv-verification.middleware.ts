@@ -52,30 +52,30 @@ export async function requireTFVVerification(
 
     if (!tfvStatus.isVerified) {
       // Determine appropriate error message based on status
-      let message = "Toll-free verification required for messaging.";
+      let message = "Business verification required for messaging.";
       let guidance = "";
 
       switch (tfvStatus.status) {
         case "not_submitted":
           message =
-            "Toll-free verification not submitted. Please complete your business verification.";
+            "Business verification required. Please contact support to initiate the verification process.";
           guidance =
-            "Complete your business information and submit verification.";
+            "Email getnotiflow@gmail.com to begin verification. Our team will guide you through the process.";
           break;
         case "PENDING_REVIEW": // ✅ CORRECT TWILIO STATUS
           message =
-            "Toll-free verification is pending approval. Messaging is restricted until verification is complete.";
+            "Your business verification is currently under review. Messaging features will be available once approved.";
           guidance =
-            "Verification typically takes 2-5 business days. You'll be notified when approved.";
+            "This process typically takes 2-5 business days. Contact support through the Help tab if you need assistance.";
           break;
         case "TWILIO_REJECTED": // ✅ CORRECT TWILIO STATUS
           message =
-            "Toll-free verification was denied. Please contact support to resolve verification issues.";
+            "Your business verification requires additional review. Please contact our support team for assistance.";
           guidance =
-            "Contact support at support@yourapp.com for assistance with verification.";
+            "Email getnotiflow@gmail.com or visit the Help tab to contact support. We'll help resolve this quickly.";
           break;
         default:
-          guidance = "Please ensure your business verification is complete.";
+          guidance = "Please contact support for assistance with verification.";
       }
 
       return res.status(403).json({
