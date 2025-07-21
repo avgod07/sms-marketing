@@ -66,7 +66,7 @@ export function useAuth() {
     userId,
     isLoaded,
     localUserLoading,
-    localUser,
+    localUser?.hasLocalAccount, // Use specific property instead of entire object
     setupMutation.isPending,
   ]);
 
