@@ -131,7 +131,7 @@ export default function KeywordTable({
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onSelect={() => onViewResponses(keyword)}>
-                      <MessageSquare className="mr-2 h-4 w-4" /> View Responses
+                      <MessageSquare className="mr-2 h-4 w-4" /> View Activity
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => onDelete(keyword)}
