@@ -58,12 +58,6 @@ function Router() {
       return;
     }
 
-    // NEW: If user is authenticated but hasn't completed onboarding, always redirect to onboarding
-    if (user && isClerkAuthenticated && setupStatus && !setupStatus.onboardingComplete && !isOnboardingPage) {
-      navigate("/onboarding");
-      return;
-    }
-
     // If user is not authenticated and not on auth/public pages, redirect to login
     if (!isClerkAuthenticated && !isAuthPage && !isPublicPage) {
       navigate("/login");
