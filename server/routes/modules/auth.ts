@@ -16,30 +16,71 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ message: "No Clerk user ID found" });
       }
 
+      // Check if user already exists first (race condition protection)
       let user = await storage.getUserByClerkId(clerkUserId);
       if (user) {
-        return res.json({ message: "User already exists", userId: user.id });
+        logInfo(`User already exists for Clerk user ${clerkUserId}`, {
+          userId: user.id,
+          businessId: user.businessId,
+        });
+        return res.json({
+          message: "User already exists",
+          userId: user.id,
+          businessId: user.businessId,
+          created: false,
+        });
       }
 
-      const business = await storage.createBusiness({
-        name: `Business for ${clerkUserId.slice(0, 8)}`,
-      });
+      try {
+        // Create business with default free_trial plan
+        const business = await storage.createBusiness({
+          name: `Business for ${clerkUserId.slice(0, 8)}`,
+        });
 
-      user = await storage.forBusiness(business.id).createUser({
-        username: `user_${clerkUserId.slice(0, 8)}`,
-        passwordHash: "",
-        clerkId: clerkUserId,
-      });
+        // Create user
+        user = await storage.forBusiness(business.id).createUser({
+          username: `user_${clerkUserId.slice(0, 8)}`,
+          passwordHash: "",
+          clerkId: clerkUserId,
+        });
 
-      logInfo(`Created local user for Clerk user ${clerkUserId}`, {
-        userId: user.id,
-        businessId: business.id,
-      });
-      res.json({
-        message: "User created successfully",
-        userId: user.id,
-        businessId: business.id,
-      });
+        logInfo(`Created local user for Clerk user ${clerkUserId}`, {
+          userId: user.id,
+          businessId: business.id,
+        });
+
+        res.json({
+          message: "User created successfully",
+          userId: user.id,
+          businessId: business.id,
+          created: true,
+        });
+      } catch (createError: any) {
+        // Handle race condition where user was created between our check and creation
+        if (
+          createError.code === "23505" &&
+          createError.constraint === "users_clerk_id_unique"
+        ) {
+          // Another request created the user, fetch and return it
+          const existingUser = await storage.getUserByClerkId(clerkUserId);
+          if (existingUser) {
+            logInfo(
+              `Race condition resolved: User created by concurrent request for Clerk user ${clerkUserId}`,
+              {
+                userId: existingUser.id,
+                businessId: existingUser.businessId,
+              }
+            );
+            return res.json({
+              message: "User already exists",
+              userId: existingUser.id,
+              businessId: existingUser.businessId,
+              created: false,
+            });
+          }
+        }
+        throw createError; // Re-throw if not the expected constraint error
+      }
     } catch (error) {
       logError("Error setting up user:", error);
       res.status(500).json({ message: "Failed to setup user" });

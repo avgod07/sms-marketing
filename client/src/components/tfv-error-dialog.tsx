@@ -35,18 +35,18 @@ export function TFVErrorDialog({ open, onOpenChange, error }: TFVErrorDialogProp
         return {
           icon: AlertTriangle,
           iconColor: "text-amber-600",
-          title: "Messaging Restricted",
+          title: "Messaging Temporarily Restricted",
           description: error.message,
-          guidance: error.guidance || "Complete toll-free verification to enable messaging.",
+          guidance: error.guidance || "Your business verification is in progress. Contact support if you need immediate assistance.",
           actions: [
             {
-              label: "View Verification Status",
-              href: "/settings",
+              label: "Contact Support",
+              href: "/help",
               variant: "default" as const,
             },
             {
-              label: "Learn More",
-              href: "/help",
+              label: "View Status",
+              href: "/settings",
               variant: "outline" as const,
             },
           ],

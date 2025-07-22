@@ -38,22 +38,8 @@ export async function getBizForRequest(req: any) {
   let user = await storage.getUserByClerkId(clerkUserId);
 
   if (!user) {
-    logInfo(`Creating local user for Clerk user ${clerkUserId}`);
-
-    const business = await storage.createBusiness({
-      name: `Business for ${clerkUserId.slice(0, 8)}`,
-    });
-
-    user = await storage.forBusiness(business.id).createUser({
-      username: `user_${clerkUserId.slice(0, 8)}`,
-      passwordHash: "",
-      clerkId: clerkUserId,
-    });
-
-    logInfo(`Created local user for Clerk user ${clerkUserId}`, {
-      userId: user.id,
-      businessId: business.id,
-    });
+    // User should be created through /api/auth/setup endpoint first
+    throw new Error("User not found. Please complete account setup first.");
   }
 
   return { biz: storage.forBusiness(user.businessId), user };
