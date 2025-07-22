@@ -10,10 +10,10 @@ vi.mock("stripe", () => {
           // Verify the pricing is correct
           const lineItem = params.line_items[0];
           if (params.metadata?.billingCycle === "monthly") {
-            expect(lineItem.price_data.unit_amount).toBe(2000); // $20.00
+            expect(lineItem.price_data.unit_amount).toBe(2500); // $25.00
             expect(lineItem.price_data.recurring.interval).toBe("month");
           } else if (params.metadata?.billingCycle === "yearly") {
-            expect(lineItem.price_data.unit_amount).toBe(18000); // $180.00
+            expect(lineItem.price_data.unit_amount).toBe(22800); // $228.00
             expect(lineItem.price_data.recurring.interval).toBe("year");
           }
 

@@ -24,13 +24,13 @@ export default function PricingPage() {
 
   const isCurrentPlan = subscription?.plan === "starter";
 
-  const annualPrice = 180;
-  const monthlyPrice = 20;
-  const effectiveMonthly = 15;
-  const annualSavings = 25; // percent
+  const annualPrice = 228;
+  const monthlyPrice = 25;
+  const effectiveMonthly = 19;
+  const annualSavings = 24; // percent
 
-  const price = billing === "monthly" ? 20 : 180;
-  const priceLabel = billing === "monthly" ? "$20/mo" : "$180/year ($15/mo)";
+  const price = billing === "monthly" ? 25 : 228;
+  const priceLabel = billing === "monthly" ? "$25/mo" : "$228/year ($19/mo)";
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
@@ -66,7 +66,7 @@ export default function PricingPage() {
 
         <h1 className="text-3xl font-bold mb-2 text-gray-900 text-center">Simple, affordable pricing</h1>
         <p className="text-gray-600 mb-6 text-center">
-          Pick your plan and unlock the world's best messaging rates ($0.01 per SMS) with zero hidden fees.
+        Get started today and access unbeatable SMS rates at just $0.01 per message — 100% transparent, zero hidden fees.
         </p>
 
         <div className="flex items-center justify-center space-x-2 mb-8">
@@ -91,13 +91,13 @@ export default function PricingPage() {
                 <CreditCard className="w-5 h-5 mr-2 text-primary" /> Starter
               </CardTitle>
               <div className="mt-2 text-3xl font-extrabold text-gray-900">
-                {billing === "monthly" ? "$20" : "$180"}
+                {billing === "monthly" ? "$25" : "$228"}
                 <span className="text-lg font-medium text-gray-500 ml-1">
                   {billing === "monthly" ? "/mo" : "/year"}
                 </span>
               </div>
               {billing === "yearly" && (
-                <div className="text-green-600 text-sm font-semibold mt-1">$15/mo billed annually</div>
+                <div className="text-green-600 text-sm font-semibold mt-1">$19/mo billed annually</div>
               )}
             </CardHeader>
             <CardContent>
