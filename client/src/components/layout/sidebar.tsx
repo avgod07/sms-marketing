@@ -77,7 +77,7 @@ export default function Sidebar() {
   return (
     <aside className="w-72 bg-white border-r border-gray-200 flex flex-col sidebar-transition">
       {/* Logo Section */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <MessageSquare className="w-6 h-6 text-white" />
