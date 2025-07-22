@@ -277,7 +277,7 @@ export default function Contacts() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center space-x-2">
-                <span>Contact Management</span>
+                <span>All Contacts</span>
               </CardTitle>
               <div className="flex items-center space-x-2">
                 <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
