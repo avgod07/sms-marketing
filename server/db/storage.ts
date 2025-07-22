@@ -1717,9 +1717,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(keywordCampaigns)
-      .where(
-        sql`${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
-      )
+      .where(sql`${keywordCampaigns.businessId} = ${businessId}`)
       .orderBy(desc(keywordCampaigns.createdAt));
   }
 
@@ -1729,7 +1727,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(keywordCampaigns)
       .where(
-        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId}`
       );
     return campaign || undefined;
   }
@@ -1742,12 +1740,12 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(keywordCampaigns)
       .where(
-        sql`${keywordCampaigns.keyword} = ${keyword} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+        sql`${keywordCampaigns.keyword} = ${keyword} AND ${keywordCampaigns.businessId} = ${businessId}`
       );
     return campaign || undefined;
   }
 
-  // Check if keyword exists (including deleted ones) for uniqueness validation
+  // Check if keyword exists for uniqueness validation
   async keywordExistsForBusiness(keyword: string): Promise<boolean> {
     const businessId = this.requireBusinessId();
     const [existing] = await db
@@ -1760,7 +1758,7 @@ export class DatabaseStorage implements IStorage {
     return !!existing;
   }
 
-  // Get active (non-expired, non-deleted) keyword for webhook processing
+  // Get active (non-expired) keyword for webhook processing
   async getActiveKeywordCampaignByKeyword(
     keyword: string
   ): Promise<KeywordCampaign | undefined> {
@@ -1773,7 +1771,6 @@ export class DatabaseStorage implements IStorage {
         sql`${keywordCampaigns.keyword} = ${keyword} 
             AND ${keywordCampaigns.businessId} = ${businessId} 
             AND ${keywordCampaigns.isActive} = true 
-            AND ${keywordCampaigns.deletedAt} IS NULL
             AND (${keywordCampaigns.expiresAt} IS NULL OR ${keywordCampaigns.expiresAt} > ${now})`
       );
     return campaign || undefined;
@@ -1806,7 +1803,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(
-        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId}`
       )
       .returning();
     return updatedCampaign;
@@ -1814,15 +1811,11 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKeywordCampaign(id: number): Promise<void> {
     const businessId = this.requireBusinessId();
-    // Soft delete by setting deletedAt timestamp
+    // Hard delete - removes the record completely
     await db
-      .update(keywordCampaigns)
-      .set({
-        deletedAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .delete(keywordCampaigns)
       .where(
-        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId} AND ${keywordCampaigns.deletedAt} IS NULL`
+        sql`${keywordCampaigns.id} = ${id} AND ${keywordCampaigns.businessId} = ${businessId}`
       );
   }
 
