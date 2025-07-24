@@ -32,16 +32,7 @@ export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEs
 
   const contactCount = contactStats?.allContacts || 0;
   
-  // Don't show credit estimate for empty messages
-  if (!message.trim()) {
-    return null;
-  }
-  
-  // Use accurate Twilio segmentation
-  const messageInfo = calculateTwilioSegmentation(message, hasImage);
-  const creditsPerMessage = messageInfo.credits;
-  const totalCredits = contactCount * creditsPerMessage;
-
+  // Always show contact warning when no contacts exist
   if (contactCount === 0) {
     return (
       <Alert className="border-yellow-200 bg-yellow-50">
@@ -52,6 +43,16 @@ export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEs
       </Alert>
     );
   }
+  
+  // Don't show credit estimate for empty messages (but contacts warning was already handled above)
+  if (!message.trim()) {
+    return null;
+  }
+  
+  // Use accurate Twilio segmentation
+  const messageInfo = calculateTwilioSegmentation(message, hasImage);
+  const creditsPerMessage = messageInfo.credits;
+  const totalCredits = contactCount * creditsPerMessage;
 
   // Simple message type display
   const getMessageTypeDisplay = () => {

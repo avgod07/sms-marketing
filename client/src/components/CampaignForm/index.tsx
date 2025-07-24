@@ -186,7 +186,7 @@ export default function CampaignForm({
           <Textarea
             id="message"
             {...form.register("message")}
-            placeholder="Enter your message (SMS ≤160 chars, MMS ≤1600 chars)"
+            placeholder="Enter your message"
             className="resize-none"
             rows={3}
           />

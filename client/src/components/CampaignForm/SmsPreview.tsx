@@ -43,39 +43,41 @@ export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
         </div>
       </div>
       
-      {/* Simplified status indicator */}
-      <div className="mt-2 text-center">
-        <div className="flex items-center justify-center space-x-2">
-          <div className={`w-2 h-2 rounded-full ${
-            messageInfo.type === 'MMS' ? 'bg-purple-500' : 
-            messageInfo.segments > 1 ? 'bg-orange-500' : 'bg-green-500'
-          }`} />
-          <span className="text-xs font-medium text-gray-700">
-            {messageInfo.type === 'MMS' ? `MMS • ${message.length} chars` :
-             messageInfo.segments === 1 ? `SMS • ${message.length} chars` :
-             `${messageInfo.segments} SMS parts • ${message.length} chars`}
-          </span>
+      {/* Simplified status indicator - only show when there's message content */}
+      {message.trim() && (
+        <div className="mt-2 text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              messageInfo.type === 'MMS' ? 'bg-purple-500' : 
+              messageInfo.segments > 1 ? 'bg-orange-500' : 'bg-green-500'
+            }`} />
+            <span className="text-xs font-medium text-gray-700">
+              {messageInfo.type === 'MMS' ? `MMS • ${message.length} chars` :
+               messageInfo.segments === 1 ? `SMS • ${message.length} chars` :
+               `${messageInfo.segments} SMS parts • ${message.length} chars`}
+            </span>
+          </div>
+          
+          {/* Cost explanation */}
+          {messageInfo.type === 'MMS' && (
+            <p className="text-xs text-purple-600 mt-1">
+              3 credits (includes image)
+            </p>
+          )}
+          
+          {messageInfo.type === 'SMS' && messageInfo.segments === 1 && (
+            <p className="text-xs text-green-600 mt-1">
+              1 credit
+            </p>
+          )}
+          
+          {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
+            <p className="text-xs text-orange-600 mt-1">
+              {messageInfo.credits} credits ({messageInfo.segments} parts)
+            </p>
+          )}
         </div>
-        
-        {/* Cost explanation */}
-        {messageInfo.type === 'MMS' && (
-          <p className="text-xs text-purple-600 mt-1">
-            3 credits (includes image)
-          </p>
-        )}
-        
-        {messageInfo.type === 'SMS' && messageInfo.segments === 1 && (
-          <p className="text-xs text-green-600 mt-1">
-            1 credit
-          </p>
-        )}
-        
-        {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
-          <p className="text-xs text-orange-600 mt-1">
-            {messageInfo.credits} credits ({messageInfo.segments} parts)
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
