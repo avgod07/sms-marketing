@@ -14,7 +14,7 @@ export const campaignSchema = z
     message: z
       .string()
       .min(1, "Message is required")
-      .max(160, "Message must be 160 characters or less"),
+      .max(1600, "Message must be 1600 characters or less"),
   });
 
 export type CampaignFormValues = z.infer<typeof campaignSchema> & { mediaUrl?: string };
@@ -150,7 +150,7 @@ export default function CampaignForm({
           <Textarea
             id="message"
             {...form.register("message")}
-            placeholder="Enter your SMS message (max 160 characters)"
+            placeholder="Enter your message (SMS ≤160 chars, MMS ≤1600 chars)"
             className="resize-none"
             rows={3}
           />
@@ -159,7 +159,7 @@ export default function CampaignForm({
               <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
             )}
             <p className="text-sm text-gray-500 ml-auto">
-              {form.watch("message")?.length || 0}/160
+              {form.watch("message")?.length || 0}/{(form.watch("message")?.length || 0) > 160 ? "1600" : "160"}
             </p>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function CampaignForm({
           <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF only. Max 5MB. Sending an MMS costs 3 credits.</p>
         </div>
 
-        <CreditUsageEstimate hasImage={!!imageUrl || !!imagePreview} />
+        <CreditUsageEstimate hasImage={!!imageUrl || !!imagePreview} message={form.watch("message") || ""} />
 
         <div className="flex space-x-2">
           <Button 

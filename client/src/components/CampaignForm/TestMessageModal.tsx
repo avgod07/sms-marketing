@@ -122,8 +122,9 @@ export default function TestMessageModal({
     return digits.length >= 10 && digits.length <= 11;
   };
 
-  const creditsNeeded = mediaUrl ? 3 : 1;
-  const messageType = mediaUrl ? "MMS" : "SMS";
+  const isLongMessage = message.length > 160;
+  const creditsNeeded = (mediaUrl || isLongMessage) ? 3 : 1;
+  const messageType = (mediaUrl || isLongMessage) ? "MMS" : "SMS";
 
   return (
     <>

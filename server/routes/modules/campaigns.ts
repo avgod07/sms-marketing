@@ -113,7 +113,8 @@ export function registerCampaignRoutes(app: Express) {
         }
 
         const validatedData = simpleCampaignSchema.parse(req.body);
-        const isMMS = !!validatedData.mediaUrl;
+        const isMMS =
+          !!validatedData.mediaUrl || validatedData.message.length > 160;
         const creditCost = isMMS ? 3 : 1;
         const totalCreditsNeeded = contacts.length * creditCost;
 
@@ -227,7 +228,7 @@ export function registerCampaignRoutes(app: Express) {
           });
         }
 
-        const isMMS = !!campaign.mediaUrl;
+        const isMMS = !!campaign.mediaUrl || campaign.message.length > 160;
         const creditCost = isMMS ? 3 : 1;
         const totalCreditsNeeded = contacts.length * creditCost;
 

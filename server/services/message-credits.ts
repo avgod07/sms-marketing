@@ -48,7 +48,7 @@ export class MessageCreditService {
     options: MessageCreditOptions
   ): Promise<MessageCreditResult> {
     // Determine credit cost based on message type
-    const isMMS = !!options.mediaUrl;
+    const isMMS = !!options.mediaUrl || options.message.length > 160;
     const creditCost = isMMS ? 3 : 1;
 
     // Get current credit balance for validation

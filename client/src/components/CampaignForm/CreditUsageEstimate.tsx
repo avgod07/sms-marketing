@@ -6,9 +6,10 @@ import type { ContactStats } from "@shared/api-types";
 
 interface CreditUsageEstimateProps {
   hasImage: boolean;
+  message: string;
 }
 
-export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimateProps) {
+export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEstimateProps) {
   const { data: contactStats, isLoading } = useQuery<ContactStats>({
     queryKey: ["/api/contacts/stats"],
   });
@@ -27,9 +28,10 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
   }
 
   const contactCount = contactStats?.allContacts || 0;
-  const creditsPerMessage = hasImage ? 3 : 1;
+  const isLongMessage = message.length > 160;
+  const creditsPerMessage = (hasImage || isLongMessage) ? 3 : 1;
   const totalCredits = contactCount * creditsPerMessage;
-  const messageType = hasImage ? "MMS" : "SMS";
+  const messageType = (hasImage || isLongMessage) ? "MMS" : "SMS";
 
   if (contactCount === 0) {
     return (
@@ -61,7 +63,7 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
           
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {hasImage ? (
+              {hasImage || isLongMessage ? (
                 <Image className="w-4 h-4 text-blue-600" />
               ) : (
                 <MessageSquare className="w-4 h-4 text-blue-600" />
@@ -87,8 +89,14 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
           </div>
         </div>
         
-        <p className="text-xs text-blue-600 mt-3">
-          This is an estimate based on your current contact count. Credits are only deducted for successfully sent messages.
+        <p className="text-xs text-blue-700 mt-3">
+          {messageType === "MMS" ? (
+            isLongMessage && hasImage ? "MMS due to image and message length >160 characters" :
+            isLongMessage ? "MMS due to message length >160 characters" :
+            "MMS due to attached image"
+          ) : (
+            "SMS message ≤160 characters"
+          )}
         </p>
       </CardContent>
     </Card>

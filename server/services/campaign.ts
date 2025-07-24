@@ -32,7 +32,7 @@ export async function executeCampaign(
   }
 
   // Determine credit cost per message
-  const isMMS = !!campaign.mediaUrl;
+  const isMMS = !!campaign.mediaUrl || campaign.message.length > 160;
   const creditCost = isMMS ? 3 : 1;
 
   // --- CREDIT CHECK ONLY (no deduction yet) ---
