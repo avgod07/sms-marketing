@@ -293,7 +293,8 @@ export function registerCampaignRoutes(app: Express) {
           .object({
             message: z
               .string()
-              .min(1, "Message is required")
+              .trim()
+              .min(1, "Message cannot be empty")
               .max(1600, "Message must be 1600 characters or less"),
             mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
             phoneNumber: z.string().min(1, "Phone number is required"),

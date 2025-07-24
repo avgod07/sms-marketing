@@ -32,6 +32,11 @@ export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEs
 
   const contactCount = contactStats?.allContacts || 0;
   
+  // Don't show credit estimate for empty messages
+  if (!message.trim()) {
+    return null;
+  }
+  
   // Use accurate Twilio segmentation
   const messageInfo = calculateTwilioSegmentation(message, hasImage);
   const creditsPerMessage = messageInfo.credits;

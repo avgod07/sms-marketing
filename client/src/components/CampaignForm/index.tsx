@@ -24,7 +24,8 @@ export const campaignSchema = z
     name: z.string().min(1, "Campaign name is required"),
     message: z
       .string()
-      .min(1, "Message is required"),
+      .trim()
+      .min(1, "Message cannot be empty"),
   });
 
 export type CampaignFormValues = z.infer<typeof campaignSchema> & { mediaUrl?: string };
@@ -137,11 +138,22 @@ export default function CampaignForm({
     onImageChange?.(undefined);
   };
 
-  // Custom validation for message length
+  // Custom validation for message length and content
   const validateAndSubmit = (data: CampaignFormValues) => {
     const finalData = { ...data, mediaUrl: imageUrl || undefined };
+    
+    // Check for empty or whitespace-only messages
+    const trimmedMessage = finalData.message.trim();
+    if (!trimmedMessage) {
+      form.setError("message", {
+        type: "manual",
+        message: "Message cannot be empty or contain only spaces"
+      });
+      return;
+    }
+    
     const hasImage = !!finalData.mediaUrl;
-    const validation = validateMessageLength(finalData.message, hasImage);
+    const validation = validateMessageLength(trimmedMessage, hasImage);
     
     if (!validation.isValid) {
       form.setError("message", {
@@ -151,6 +163,8 @@ export default function CampaignForm({
       return;
     }
     
+    // Update finalData with trimmed message
+    finalData.message = trimmedMessage;
     onSubmit(finalData);
   };
 
@@ -220,7 +234,7 @@ export default function CampaignForm({
                   );
                 }
                 
-                if (messageInfo.segments === 1) {
+                if (messageInfo.segments === 1 && currentMessage.length > 0) {
                   return (
                     <div className="text-right">
                       <p className="text-gray-500">
@@ -231,6 +245,11 @@ export default function CampaignForm({
                       </p>
                     </div>
                   );
+                }
+                
+                // Empty message - show nothing
+                if (currentMessage.length === 0) {
+                  return null;
                 }
                 
                 // Multi-segment SMS
