@@ -52,9 +52,9 @@ export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
               messageInfo.segments > 1 ? 'bg-orange-500' : 'bg-green-500'
             }`} />
             <span className="text-xs font-medium text-gray-700">
-              {messageInfo.type === 'MMS' ? `MMS • ${message.length} chars` :
-               messageInfo.segments === 1 ? `SMS • ${message.length} chars` :
-               `${messageInfo.segments} SMS parts • ${message.length} chars`}
+              {messageInfo.type === 'MMS' ? `MMS • ${message.length} characters` :
+               messageInfo.segments === 1 ? `SMS • ${message.length} characters` :
+               `${messageInfo.segments} SMS parts • ${message.length} characters`}
             </span>
           </div>
           
