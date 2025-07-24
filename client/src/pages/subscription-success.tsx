@@ -41,7 +41,7 @@ export default function SubscriptionSuccess() {
               You can now purchase additional credits and access all Starter Plan features.
             </p>
             <p className="text-xs text-gray-400 mt-2">
-              Starter Plan: $20/month or $180/year
+              Starter Plan: $25/month or $228/year
             </p>
           </div>
 

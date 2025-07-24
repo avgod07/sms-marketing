@@ -23,6 +23,7 @@ import {
   ListChecks,
   CreditCard,
   Hash,
+  Key,
 } from "lucide-react";
 
 const navigation = [
@@ -30,7 +31,7 @@ const navigation = [
   { name: "Create Campaign", href: "/campaigns/new", icon: Plus },
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Campaigns", href: "/campaigns", icon: Send },
-  { name: "Keywords", href: "/keywords", icon: Hash },
+  { name: "Keywords", href: "/keywords", icon: Key },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Coupons", href: "/coupons", icon: Tag },
   { name: "Inbox", href: "/inbox", icon: MessageSquareText },

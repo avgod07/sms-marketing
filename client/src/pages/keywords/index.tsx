@@ -193,30 +193,7 @@ export default function Keywords() {
       </header>
 
       <div className="p-8">
-        {/* Simple Stats - Only Essential Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatsCard
-            title="Active Keywords"
-            value={keywordStats?.activeKeywords || 0}
-            icon={Hash}
-            iconColor="text-blue-600"
-            iconBgColor="bg-blue-50"
-          />
-          <StatsCard
-            title="Total Responses"
-            value={keywordStats?.totalResponses || 0}
-            icon={MessageSquare}
-            iconColor="text-green-600"
-            iconBgColor="bg-green-50"
-          />
-          <StatsCard
-            title="New Contacts This Month"
-            value={keywordStats?.newContactsThisMonth || 0}
-            icon={Users}
-            iconColor="text-purple-600"
-            iconBgColor="bg-purple-50"
-          />
-        </div>
+
 
         {/* Main Table Card */}
         <Card>

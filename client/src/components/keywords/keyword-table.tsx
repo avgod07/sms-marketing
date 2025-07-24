@@ -75,9 +75,6 @@ export default function KeywordTable({
             <tr key={keyword.id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Hash className="w-5 h-5 text-blue-600" />
-                  </div>
                   <div>
                     <p className="font-medium text-gray-900 uppercase">{keyword.keyword}</p>
                   </div>
