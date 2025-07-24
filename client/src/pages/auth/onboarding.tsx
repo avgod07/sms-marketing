@@ -13,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const steps = [
   "Business Info",
-  "Twilio Setup",
+  "Monthly Volume",
   "SMS Use Cases",
   "Auto-Welcome Message",
   "Toll-Free Number",

@@ -7,12 +7,12 @@ export default function Help() {
     {
       question: "How do I complete the onboarding process?",
       answer:
-        "The onboarding process includes 5 steps: Business Information, Twilio Setup, SMS Use Cases, Toll-Free Number selection, and setting your Welcome Message. You'll need to complete all steps before you can send campaigns or add contacts.",
+        "The onboarding process includes 5 steps: Business Information, Monthly Volume, SMS Use Cases, Auto-Welcome Message, and Toll-Free Number selection. You'll need to complete all steps before you can send campaigns or add contacts. After purchasing your toll-free number, TFV (Toll-Free Verification) approval typically takes approximately 48 hours. You'll receive a text message to your business phone number once complete.",
     },
     {
       question: "How do I add contacts to my list?",
       answer:
-        "You can add contacts individually through the Contacts page by clicking 'Add Contact'. Each new contact will automatically receive your welcome message.",
+        "You can add contacts individually through the Contacts page by clicking 'Add Contact', or use the QR code feature to let customers join automatically. Display the QR code on your website, posters, business cards, or at your physical location. When customers scan the QR code, they'll be added to your contact list and automatically receive your welcome message.",
     },
     {
       question: "What's the difference between SMS and MMS?",
