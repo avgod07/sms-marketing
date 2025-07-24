@@ -12,7 +12,7 @@ interface RecentContactsCardProps {
 export function RecentContactsCard({ contacts, isLoading }: RecentContactsCardProps) {
   if (isLoading) {
     return (
-      <Card>
+      <Card className="card-hover">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Contacts</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -33,7 +33,7 @@ export function RecentContactsCard({ contacts, isLoading }: RecentContactsCardPr
 
   if (contacts.length === 0) {
     return (
-      <Card>
+      <Card className="card-hover">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Contacts</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -61,7 +61,7 @@ export function RecentContactsCard({ contacts, isLoading }: RecentContactsCardPr
   }
 
   return (
-    <Card>
+    <Card className="card-hover">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Contacts</CardTitle>
         <Users className="h-4 w-4 text-muted-foreground" />
