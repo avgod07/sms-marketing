@@ -125,7 +125,10 @@ export default function Sidebar() {
                   item.name === "Create Campaign" && "border-b-2 border-blue-600"
                 )}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className={cn(
+                  "w-5 h-5",
+                  item.name === "Coupons" && "rotate-90"
+                )} />
                 <span>{item.name}</span>
               </Link>
             );
