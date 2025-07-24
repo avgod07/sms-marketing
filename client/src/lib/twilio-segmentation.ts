@@ -12,6 +12,42 @@ export interface TwilioMessageInfo {
   characterLimit: number;
 }
 
+export interface MessageValidationResult {
+  isValid: boolean;
+  error?: string;
+  warningThreshold?: number;
+}
+
+/**
+ * Validates message length against Twilio practical limits
+ */
+export function validateMessageLength(
+  message: string,
+  hasMedia: boolean = false
+): MessageValidationResult {
+  const length = message.length;
+
+  // Hard limit for both SMS and MMS
+  if (length > 1600) {
+    return {
+      isValid: false,
+      error: hasMedia
+        ? "MMS messages cannot exceed 1600 characters"
+        : "SMS messages cannot exceed 1600 characters (practical limit)",
+    };
+  }
+
+  // Warning threshold
+  if (length > 1500) {
+    return {
+      isValid: true,
+      warningThreshold: 1500,
+    };
+  }
+
+  return { isValid: true };
+}
+
 /**
  * Detects if message contains characters that require UCS-2 encoding
  * Based on GSM 03.38 character set limitations

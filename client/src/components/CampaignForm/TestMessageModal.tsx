@@ -7,7 +7,7 @@ import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
-import { calculateTwilioSegmentation, formatMessageTypeDisplay } from "@/lib/twilio-segmentation";
+import { calculateTwilioSegmentation } from "@/lib/twilio-segmentation";
 
 interface TestMessageModalProps {
   open: boolean;
@@ -100,6 +100,13 @@ export default function TestMessageModal({
   const messageInfo = calculateTwilioSegmentation(message, !!mediaUrl);
   const creditsNeeded = messageInfo.credits;
 
+  // Simple message type display
+  const getMessageTypeDisplay = () => {
+    if (messageInfo.type === 'MMS') return 'MMS';
+    if (messageInfo.segments === 1) return 'SMS';
+    return `${messageInfo.segments} SMS parts`;
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,15 +145,9 @@ export default function TestMessageModal({
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Message type:</span>
                   <span className="font-medium text-gray-800">
-                    {formatMessageTypeDisplay(messageInfo)}
+                    {getMessageTypeDisplay()}
                   </span>
                 </div>
-                {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
-                  <div className="flex items-center justify-between text-sm mt-1">
-                    <span className="text-gray-600">Encoding:</span>
-                    <span className="text-gray-700">{messageInfo.encoding}</span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-600">Credits needed:</span>
                   <span className="font-medium text-gray-800">{creditsNeeded}</span>

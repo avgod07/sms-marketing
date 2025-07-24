@@ -13,8 +13,6 @@ interface SmsPreviewProps {
 export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
   const messageInfo = calculateTwilioSegmentation(message, !!imageUrl);
   
-  // For SMS: show full message (Twilio handles segmentation automatically)
-  // For MMS: also show full message since MMS supports up to 1600 chars
   const displayMessage = message || "This is how your message will appear to customers.";
   
   return (
@@ -22,7 +20,7 @@ export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
       <div className="bg-gray-200 p-4 rounded-3xl">
         <div className="relative h-[500px] bg-white rounded-2xl flex flex-col justify-between">
           <span className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gray-300 rounded-full" />
-          <div className="flex-1 pt-6 pb-2 pl-2 pr-4 flex flex-col items-start">
+          <div className="flex-1 pt-6 pb-2 pl-2 pr-4 flex flex-col items-start overflow-y-auto">
             {messageInfo.type === 'MMS' && imageUrl && (
               <img
                 src={imageUrl}
@@ -31,6 +29,8 @@ export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
                 style={{ maxWidth: '100%' }}
               />
             )}
+            
+            {/* Always show as one message - how recipients actually see it */}
             <ChatBubble
               incoming
               message={displayMessage}
@@ -43,7 +43,7 @@ export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
         </div>
       </div>
       
-      {/* Status indicator */}
+      {/* Simplified status indicator */}
       <div className="mt-2 text-center">
         <div className="flex items-center justify-center space-x-2">
           <div className={`w-2 h-2 rounded-full ${
@@ -51,40 +51,29 @@ export default function SmsPreview({ message, imageUrl }: SmsPreviewProps) {
             messageInfo.segments > 1 ? 'bg-orange-500' : 'bg-green-500'
           }`} />
           <span className="text-xs font-medium text-gray-700">
-            {formatMessageTypeDisplay(messageInfo)} • {message.length} chars
+            {messageInfo.type === 'MMS' ? `MMS • ${message.length} chars` :
+             messageInfo.segments === 1 ? `SMS • ${message.length} chars` :
+             `${messageInfo.segments} SMS parts • ${message.length} chars`}
           </span>
         </div>
         
-        {/* Encoding indicator for multi-segment SMS */}
-        {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
-          <p className="text-xs text-orange-600 mt-1">
-            {messageInfo.encoding} encoding • ~{messageInfo.charactersPerSegment} chars/segment
-          </p>
-        )}
-        
-        {/* MMS indicator */}
+        {/* Cost explanation */}
         {messageInfo.type === 'MMS' && (
           <p className="text-xs text-purple-600 mt-1">
-            {getCostExplanation(messageInfo, !!imageUrl)}
+            3 credits (includes image)
           </p>
         )}
         
-        {/* Single SMS indicator */}
         {messageInfo.type === 'SMS' && messageInfo.segments === 1 && (
           <p className="text-xs text-green-600 mt-1">
-            Single SMS • {messageInfo.encoding} encoding
+            1 credit
           </p>
         )}
         
-        {/* Character limit warning for SMS */}
-        {messageInfo.type === 'SMS' && !imageUrl && (
-          <div className="mt-1">
-            {message.length > messageInfo.characterLimit - 20 && (
-              <p className="text-xs text-yellow-600">
-                {messageInfo.characterLimit - message.length} chars remaining in segment
-              </p>
-            )}
-          </div>
+        {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
+          <p className="text-xs text-orange-600 mt-1">
+            {messageInfo.credits} credits ({messageInfo.segments} parts)
+          </p>
         )}
       </div>
     </div>

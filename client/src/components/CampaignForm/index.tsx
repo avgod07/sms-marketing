@@ -15,7 +15,8 @@ import TestMessageModal from "./TestMessageModal";
 import { 
   calculateTwilioSegmentation, 
   formatMessageTypeDisplay,
-  getCharacterCounterLimit 
+  getCharacterCounterLimit,
+  validateMessageLength
 } from "@/lib/twilio-segmentation";
 
 export const campaignSchema = z
@@ -23,8 +24,7 @@ export const campaignSchema = z
     name: z.string().min(1, "Campaign name is required"),
     message: z
       .string()
-      .min(1, "Message is required")
-      .max(1600, "Message must be 1600 characters or less"),
+      .min(1, "Message is required"),
   });
 
 export type CampaignFormValues = z.infer<typeof campaignSchema> & { mediaUrl?: string };
@@ -54,11 +54,10 @@ export default function CampaignForm({
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
-    mode: "onChange",
-    defaultValues: {
+    defaultValues: initialValues || {
       name: "",
       message: "",
-      ...initialValues,
+      mediaUrl: "",
     },
   });
 
@@ -138,8 +137,21 @@ export default function CampaignForm({
     onImageChange?.(undefined);
   };
 
-  const handleFormSubmit = (values: CampaignFormValues) => {
-    onSubmit({ ...values, mediaUrl: imageUrl || undefined });
+  // Custom validation for message length
+  const validateAndSubmit = (data: CampaignFormValues) => {
+    const finalData = { ...data, mediaUrl: imageUrl || undefined };
+    const hasImage = !!finalData.mediaUrl;
+    const validation = validateMessageLength(finalData.message, hasImage);
+    
+    if (!validation.isValid) {
+      form.setError("message", {
+        type: "manual",
+        message: validation.error || "Message exceeds maximum length"
+      });
+      return;
+    }
+    
+    onSubmit(finalData);
   };
 
   const handleSendTest = () => {
@@ -147,7 +159,7 @@ export default function CampaignForm({
   };
 
   return (
-    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(validateAndSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="name">Campaign Name</Label>
           <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
@@ -172,23 +184,64 @@ export default function CampaignForm({
               {(() => {
                 const currentMessage = form.watch("message") || "";
                 const hasImage = !!imageUrl || !!imagePreview;
+                const validation = validateMessageLength(currentMessage, hasImage);
                 const messageInfo = calculateTwilioSegmentation(currentMessage, hasImage);
-                const charLimit = getCharacterCounterLimit(currentMessage, hasImage);
+                const isOverLimit = !validation.isValid;
+                const isNearLimit = validation.warningThreshold !== undefined;
                 
+                if (isOverLimit) {
+                  return (
+                    <div className="text-right">
+                      <p className="text-red-600 font-medium">
+                        {currentMessage.length}/1600
+                      </p>
+                      <p className="text-xs text-red-600">
+                        Exceeds maximum limit
+                      </p>
+                    </div>
+                  );
+                }
+                
+                if (hasImage) {
+                  return (
+                    <div className="text-right">
+                      <p className={isNearLimit ? "text-yellow-600" : "text-purple-600"}>
+                        {currentMessage.length}/1600
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        MMS (3 credits)
+                      </p>
+                      {isNearLimit && (
+                        <p className="text-xs text-yellow-600">
+                          Approaching limit
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
+                
+                if (messageInfo.segments === 1) {
+                  return (
+                    <div className="text-right">
+                      <p className="text-gray-500">
+                        {currentMessage.length}/{messageInfo.characterLimit}
+                      </p>
+                      <p className="text-xs text-green-600">
+                        Single SMS (1 credit)
+                      </p>
+                    </div>
+                  );
+                }
+                
+                // Multi-segment SMS
                 return (
                   <div className="text-right">
-                    <p className={`${
-                      messageInfo.type === 'MMS' ? 'text-purple-600' : 
-                      messageInfo.segments > 1 ? 'text-orange-600' : 'text-gray-500'
-                    }`}>
-                      {currentMessage.length}/{hasImage ? '1600' : charLimit}
+                    <p className={isNearLimit ? "text-yellow-600" : "text-orange-600"}>
+                      {currentMessage.length} chars
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {formatMessageTypeDisplay(messageInfo)}
-                    </p>
-                    {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
-                      <p className="text-xs text-orange-600">
-                        {messageInfo.encoding} • ~{messageInfo.charactersPerSegment}/segment
+                    {isNearLimit && (
+                      <p className="text-xs text-yellow-600">
+                        Approaching limit
                       </p>
                     )}
                   </div>

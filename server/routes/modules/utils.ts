@@ -12,7 +12,9 @@ export const simpleCampaignSchema = z.object({
   message: z
     .string()
     .min(1, { message: "Message is required" })
-    .max(1600, { message: "Message must be 1600 characters or less" }),
+    .max(1600, {
+      message: "Message exceeds maximum length of 1600 characters",
+    }),
   mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
 });
 

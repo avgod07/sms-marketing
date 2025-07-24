@@ -4,9 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calculator, Users, MessageSquare, Image } from "lucide-react";
 import type { ContactStats } from "@shared/api-types";
 import { 
-  calculateTwilioSegmentation, 
-  formatMessageTypeDisplay, 
-  getCostExplanation 
+  calculateTwilioSegmentation
 } from "@/lib/twilio-segmentation";
 
 interface CreditUsageEstimateProps {
@@ -50,6 +48,23 @@ export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEs
     );
   }
 
+  // Simple message type display
+  const getMessageTypeDisplay = () => {
+    if (messageInfo.type === 'MMS') return 'MMS';
+    if (messageInfo.segments === 1) return 'SMS';
+    return `${messageInfo.segments} SMS parts`;
+  };
+
+  const getExplanation = () => {
+    if (messageInfo.type === 'MMS') {
+      return 'MMS messages include images and cost 3 credits each';
+    }
+    if (messageInfo.segments === 1) {
+      return 'Standard SMS message';
+    }
+    return `Long message split into ${messageInfo.segments} parts`;
+  };
+
   return (
     <Card className="border-blue-200 bg-blue-50">
       <CardContent className="p-4">
@@ -77,21 +92,9 @@ export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEs
               <span className="text-blue-700">Message type:</span>
             </div>
             <span className="font-medium text-blue-900">
-              {formatMessageTypeDisplay(messageInfo)}
+              {getMessageTypeDisplay()}
             </span>
           </div>
-          
-          {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Calculator className="w-4 h-4 text-blue-600" />
-                <span className="text-blue-700">Segments:</span>
-              </div>
-              <span className="font-medium text-blue-900">
-                {messageInfo.segments} × {messageInfo.encoding}
-              </span>
-            </div>
-          )}
           
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -110,7 +113,7 @@ export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEs
         </div>
         
         <p className="text-xs text-blue-700 mt-3">
-          {getCostExplanation(messageInfo, hasImage)}
+          {getExplanation()}
         </p>
       </CardContent>
     </Card>
