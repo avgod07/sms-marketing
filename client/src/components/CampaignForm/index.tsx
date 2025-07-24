@@ -216,47 +216,20 @@ export default function CampaignForm({
                   );
                 }
                 
-                if (hasImage) {
-                  return (
-                    <div className="text-right">
-                      <p className={isNearLimit ? "text-yellow-600" : "text-purple-600"}>
-                        {currentMessage.length}/1600
-                      </p>
-                      <p className="text-xs text-purple-600">
-                        MMS (3 credits)
-                      </p>
-                      {isNearLimit && (
-                        <p className="text-xs text-yellow-600">
-                          Approaching limit
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-                
-                if (messageInfo.segments === 1 && currentMessage.length > 0) {
-                  return (
-                    <div className="text-right">
-                      <p className="text-gray-500">
-                        {currentMessage.length}/{messageInfo.characterLimit}
-                      </p>
-                      <p className="text-xs text-green-600">
-                        Single SMS (1 credit)
-                      </p>
-                    </div>
-                  );
-                }
+
                 
                 // Empty message - show nothing
                 if (currentMessage.length === 0) {
                   return null;
                 }
                 
-                // Multi-segment SMS
+                // Show character count for any message with content
                 return (
                   <div className="text-right">
-                    <p className={isNearLimit ? "text-yellow-600" : "text-orange-600"}>
-                      {currentMessage.length} chars
+                    <p className={isNearLimit ? "text-yellow-600" : 
+                                 hasImage ? "text-purple-600" :
+                                 messageInfo.segments === 1 ? "text-gray-500" : "text-orange-600"}>
+                      {currentMessage.length} characters
                     </p>
                     {isNearLimit && (
                       <p className="text-xs text-yellow-600">
