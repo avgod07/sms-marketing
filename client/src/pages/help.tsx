@@ -27,7 +27,7 @@ export default function Help() {
     {
       question: "What's included in the Starter Plan?",
       answer:
-        "The Starter Plan ($20/month or $180/year) includes unlimited SMS campaigns, contact management, coupons, direct messaging, basic analytics, and priority support.",
+        "The Starter Plan ($25/month or $228/year) includes unlimited SMS campaigns, contact management, coupons, direct messaging, basic analytics, and priority support.",
     },
     {
       question: "Can I send a test message before launching a campaign?",
