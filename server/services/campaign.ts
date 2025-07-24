@@ -1,5 +1,6 @@
 import type { IStorage } from "../db/storage";
 import { TwilioService } from "./twilio.js";
+import { MessageCreditService } from "./message-credits.js";
 import { logError } from "../utils/logger.util";
 import { logInfo } from "../utils/logger.util";
 
@@ -31,9 +32,11 @@ export async function executeCampaign(
     return { sentCount: 0, failedCount: 0, totalContacts: 0 };
   }
 
-  // Determine credit cost per message
-  const isMMS = !!campaign.mediaUrl || campaign.message.length > 160;
-  const creditCost = isMMS ? 3 : 1;
+  // Determine credit cost per message using accurate Twilio segmentation
+  const creditCost = MessageCreditService.calculateCreditCost(
+    campaign.message,
+    !!campaign.mediaUrl
+  );
 
   // --- CREDIT CHECK ONLY (no deduction yet) ---
   const credits = await bizStorage.getCredits();
@@ -101,11 +104,12 @@ export async function executeCampaign(
     // Only deduct credits for successfully sent messages
     if (sentCount > 0) {
       try {
+        const isMediaMessage = !!campaign.mediaUrl;
         await bizStorage.adjustCredits(
           -sentCount * creditCost,
-          isMMS ? "send_mms" : "send_sms",
+          isMediaMessage ? "send_mms" : "send_sms",
           `Sent ${sentCount} ${
-            isMMS ? "MMS" : "SMS"
+            isMediaMessage ? "MMS" : "SMS"
           } for campaign ${campaignId}`,
           { campaignId, totalContacts: contacts.length, failedCount }
         );

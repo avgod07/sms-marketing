@@ -503,50 +503,21 @@ describe("Multi-tenant isolation", () => {
 
   it("returns only coupons for the authenticated business", async () => {
     // Mock different users for different businesses
-    const businessMocks2: Record<number, any> = {};
-    mockStorage.forBusiness.mockImplementation((businessId: number) => {
-      if (!businessMocks2[businessId]) {
-        businessMocks2[businessId] = {
-          getCoupons: vi
-            .fn()
-            .mockResolvedValue([{ id: businessId, code: `X${businessId}` }]),
-          searchCoupons: vi
-            .fn()
-            .mockResolvedValue([{ id: businessId, code: `X${businessId}` }]),
-          getContacts: vi.fn(),
-          getCampaigns: vi.fn(),
-          getDashboardStats: vi.fn(),
-          getCredits: vi.fn(),
-          adjustCredits: vi.fn(),
-          createUser: vi
-            .fn()
-            .mockImplementation(() =>
-              Promise.resolve({ id: businessId, businessId })
-            ),
-          createContact: vi.fn(),
-        };
-      }
-      return businessMocks2[businessId];
-    });
+    mockStorage.getUserByClerkId
+      .mockResolvedValueOnce({ id: 1, businessId: 1 })
+      .mockResolvedValueOnce({ id: 2, businessId: 2 });
 
-    // Reset and set up mocks specifically for this test
-    mockStorage.getUserByClerkId.mockReset();
-    mockStorage.createBusiness.mockReset();
-
-    // Map userId to businessId
-    const userMap = {
-      user1: { id: 1, businessId: 1 },
-      user2: { id: 2, businessId: 2 },
+    const biz1 = {
+      searchCoupons: vi.fn().mockResolvedValue([{ id: 1, code: "X1" }]),
     };
-    mockStorage.getUserByClerkId.mockImplementation((clerkId) => {
-      return Promise.resolve(userMap[clerkId]);
-    });
-    mockStorage.createBusiness
-      .mockResolvedValueOnce({ id: 1 })
-      .mockResolvedValueOnce({ id: 2 });
+    const biz2 = {
+      searchCoupons: vi.fn().mockResolvedValue([{ id: 2, code: "X2" }]),
+    };
 
-    const app1 = await setupApp({ userId: "user1", businessId: 1 });
-    const app2 = await setupApp({ userId: "user2", businessId: 2 });
+    mockStorage.forBusiness.mockReturnValueOnce(biz1).mockReturnValueOnce(biz2);
+
+    const app1 = await setupApp({ businessId: 1 });
+    const app2 = await setupApp({ businessId: 2 });
 
     const res1 = await request(app1).get("/api/coupons");
     const res2 = await request(app2).get("/api/coupons");

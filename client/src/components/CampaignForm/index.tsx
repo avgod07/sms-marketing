@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { ImageIcon, FileText, Send, TestTube2 } from "lucide-react";
 import CreditUsageEstimate from "./CreditUsageEstimate";
+import SmsPreview from "./SmsPreview";
+import TestMessageModal from "./TestMessageModal";
+import { 
+  calculateTwilioSegmentation, 
+  formatMessageTypeDisplay,
+  getCharacterCounterLimit 
+} from "@/lib/twilio-segmentation";
 
 export const campaignSchema = z
   .object({
@@ -158,9 +168,33 @@ export default function CampaignForm({
             {form.formState.errors.message && (
               <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
             )}
-            <p className="text-sm text-gray-500 ml-auto">
-              {form.watch("message")?.length || 0}/{(form.watch("message")?.length || 0) > 160 ? "1600" : "160"}
-            </p>
+            <div className="ml-auto text-sm space-y-1">
+              {(() => {
+                const currentMessage = form.watch("message") || "";
+                const hasImage = !!imageUrl || !!imagePreview;
+                const messageInfo = calculateTwilioSegmentation(currentMessage, hasImage);
+                const charLimit = getCharacterCounterLimit(currentMessage, hasImage);
+                
+                return (
+                  <div className="text-right">
+                    <p className={`${
+                      messageInfo.type === 'MMS' ? 'text-purple-600' : 
+                      messageInfo.segments > 1 ? 'text-orange-600' : 'text-gray-500'
+                    }`}>
+                      {currentMessage.length}/{hasImage ? '1600' : charLimit}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatMessageTypeDisplay(messageInfo)}
+                    </p>
+                    {messageInfo.type === 'SMS' && messageInfo.segments > 1 && (
+                      <p className="text-xs text-orange-600">
+                        {messageInfo.encoding} • ~{messageInfo.charactersPerSegment}/segment
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
         <div>
