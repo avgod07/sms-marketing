@@ -194,7 +194,7 @@ export default function Coupons() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center space-x-2">
-                <Tag className="w-6 h-6" />
+                <Tag className="w-6 h-6 rotate-90" />
                 <span>All Coupons</span>
               </CardTitle>
               <Button onClick={() => setIsCreateOpen(true)}>
