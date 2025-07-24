@@ -452,8 +452,8 @@ function BillingTab() {
           ) : (
             <>
               <p className="text-gray-700 font-semibold">Starter Plan</p>
-              <p className="text-lg font-bold">$20/month <span className="text-gray-400 font-normal">or</span> $180/year <span className="text-xs text-gray-500">(billed annually)</span></p>
-              <p className="text-xs text-gray-500">Just $15/mo, billed annually</p>
+              <p className="text-lg font-bold">$25/month <span className="text-gray-400 font-normal">or</span> $228/year <span className="text-xs text-gray-500">(billed annually)</span></p>
+              <p className="text-xs text-gray-500">Just $19/mo, billed annually</p>
               <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
             </>
           )}

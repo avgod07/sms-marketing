@@ -35,8 +35,8 @@ export async function createSubscriptionCheckout({
   // Define plan pricing
   const planPricing = {
     starter: {
-      monthly: 2000, // $20.00 in cents
-      yearly: 18000, // $180.00 in cents (billed annually)
+      monthly: 2500, // $25.00 in cents
+      yearly: 22800, // $228.00 in cents (billed annually)
     },
   };
 
