@@ -42,7 +42,7 @@ export function RecentCampaignsCard({ campaigns, isLoading }: RecentCampaignsCar
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="card-hover">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Campaigns</CardTitle>
           <Send className="h-4 w-4 text-muted-foreground" />
@@ -63,7 +63,7 @@ export function RecentCampaignsCard({ campaigns, isLoading }: RecentCampaignsCar
 
   if (campaigns.length === 0) {
     return (
-      <Card>
+      <Card className="card-hover">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Campaigns</CardTitle>
           <Send className="h-4 w-4 text-muted-foreground" />
@@ -91,7 +91,7 @@ export function RecentCampaignsCard({ campaigns, isLoading }: RecentCampaignsCar
   }
 
   return (
-    <Card>
+    <Card className="card-hover">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Campaigns</CardTitle>
         <Send className="h-4 w-4 text-muted-foreground" />
