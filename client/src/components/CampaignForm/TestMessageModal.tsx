@@ -1,20 +1,13 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { handleApiError, extractSubscriptionError } from "@/lib/handleApiError";
-import { SubscriptionErrorDialog } from "@/components/subscription-error-dialog";
+import { handleApiError } from "@/lib/handleApiError";
+import { calculateTwilioSegmentation } from "@/lib/twilio-segmentation";
 
 interface TestMessageModalProps {
   open: boolean;
@@ -22,12 +15,6 @@ interface TestMessageModalProps {
   message: string;
   mediaUrl?: string;
   onSuccess?: () => void;
-}
-
-interface TestMessageData {
-  message: string;
-  mediaUrl?: string;
-  phoneNumber: string;
 }
 
 export default function TestMessageModal({
@@ -38,44 +25,31 @@ export default function TestMessageModal({
   onSuccess,
 }: TestMessageModalProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [subscriptionError, setSubscriptionError] = useState<{
-    message: string;
-    code: string;
-    guidance?: string;
-    currentPlan?: string;
-    trialUsed?: boolean;
-    upgradeUrl?: string;
-  } | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const sendTestMessageMutation = useMutation({
-    mutationFn: async (data: TestMessageData) => {
-      const res = await apiRequest({
+    mutationFn: async (data: { message: string; mediaUrl?: string; phoneNumber: string }) =>
+      apiRequest({
         method: "POST",
         url: "/api/campaigns/test",
         data,
-      });
-      return res.json();
-    },
+      }),
     onSuccess: (data) => {
       toast({
-        title: "Test Message Sent",
-        description: `${data.messageType} test message sent successfully! Credits deducted: ${data.creditsDeducted}`,
+        title: "Test message sent!",
+        description: `Message sent successfully. Credits used: ${creditsNeeded}`,
       });
       onSuccess?.();
+      // Refresh user data to update credits display
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       onOpenChange(false);
       setPhoneNumber("");
     },
     onError: (error: any) => {
-      // Check for subscription errors first
-      const subscriptionErr = extractSubscriptionError(error);
-      if (subscriptionErr) {
-        setSubscriptionError(subscriptionErr);
-        return;
-      }
-
       toast({
-        title: "Failed to Send Test Message",
+        title: "Failed to send test message",
         description: handleApiError(error),
         variant: "destructive",
       });
@@ -122,8 +96,16 @@ export default function TestMessageModal({
     return digits.length >= 10 && digits.length <= 11;
   };
 
-  const creditsNeeded = mediaUrl ? 3 : 1;
-  const messageType = mediaUrl ? "MMS" : "SMS";
+  // Use accurate Twilio segmentation
+  const messageInfo = calculateTwilioSegmentation(message, !!mediaUrl);
+  const creditsNeeded = messageInfo.credits;
+
+  // Simple message type display
+  const getMessageTypeDisplay = () => {
+    if (messageInfo.type === 'MMS') return 'MMS';
+    if (messageInfo.segments === 1) return 'SMS';
+    return `${messageInfo.segments} SMS parts`;
+  };
 
   return (
     <>
@@ -159,8 +141,20 @@ export default function TestMessageModal({
                   />
                 </div>
               )}
+              <div className="mt-3 pt-2 border-t border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Message type:</span>
+                  <span className="font-medium text-gray-800">
+                    {getMessageTypeDisplay()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-600">Credits needed:</span>
+                  <span className="font-medium text-gray-800">{creditsNeeded}</span>
+                </div>
+              </div>
               <p className="text-xs text-gray-500 mt-2">
-                This will send a {messageType} test message and deduct {creditsNeeded} credit{creditsNeeded > 1 ? 's' : ''}.
+                This will send a test message and deduct {creditsNeeded} credit{creditsNeeded > 1 ? 's' : ''} from your balance.
               </p>
             </div>
           </div>
@@ -182,12 +176,6 @@ export default function TestMessageModal({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      <SubscriptionErrorDialog
-        open={!!subscriptionError}
-        onOpenChange={(open) => !open && setSubscriptionError(null)}
-        error={subscriptionError || undefined}
-      />
     </>
   );
 } 

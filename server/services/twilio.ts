@@ -31,6 +31,7 @@ export interface SMSMessage {
   messagingServiceSid?: string;
   campaignId?: number;
   contactId?: number;
+  mediaUrl?: string; // For MMS support
 }
 
 export interface SMSResult {
@@ -63,6 +64,11 @@ export class TwilioService {
       if (smsData.messagingServiceSid)
         params.messagingServiceSid = smsData.messagingServiceSid;
       else params.from = smsData.from || TWILIO_PHONE_NUMBER;
+
+      // Add media URL for MMS if provided
+      if (smsData.mediaUrl) {
+        params.mediaUrl = [smsData.mediaUrl];
+      }
 
       const message = await client.messages.create(params);
 

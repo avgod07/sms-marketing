@@ -1,20 +1,31 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { ImageIcon, FileText, Send, TestTube2 } from "lucide-react";
 import CreditUsageEstimate from "./CreditUsageEstimate";
+import SmsPreview from "./SmsPreview";
+import TestMessageModal from "./TestMessageModal";
+import { 
+  calculateTwilioSegmentation, 
+  formatMessageTypeDisplay,
+  getCharacterCounterLimit,
+  validateMessageLength
+} from "@/lib/twilio-segmentation";
 
 export const campaignSchema = z
   .object({
     name: z.string().min(1, "Campaign name is required"),
     message: z
       .string()
-      .min(1, "Message is required")
-      .max(160, "Message must be 160 characters or less"),
+      .trim()
+      .min(1, "Message cannot be empty"),
   });
 
 export type CampaignFormValues = z.infer<typeof campaignSchema> & { mediaUrl?: string };
@@ -44,11 +55,10 @@ export default function CampaignForm({
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
-    mode: "onChange",
-    defaultValues: {
+    defaultValues: initialValues || {
       name: "",
       message: "",
-      ...initialValues,
+      mediaUrl: "",
     },
   });
 
@@ -128,8 +138,34 @@ export default function CampaignForm({
     onImageChange?.(undefined);
   };
 
-  const handleFormSubmit = (values: CampaignFormValues) => {
-    onSubmit({ ...values, mediaUrl: imageUrl || undefined });
+  // Custom validation for message length and content
+  const validateAndSubmit = (data: CampaignFormValues) => {
+    const finalData = { ...data, mediaUrl: imageUrl || undefined };
+    
+    // Check for empty or whitespace-only messages
+    const trimmedMessage = finalData.message.trim();
+    if (!trimmedMessage) {
+      form.setError("message", {
+        type: "manual",
+        message: "Message cannot be empty or contain only spaces"
+      });
+      return;
+    }
+    
+    const hasImage = !!finalData.mediaUrl;
+    const validation = validateMessageLength(trimmedMessage, hasImage);
+    
+    if (!validation.isValid) {
+      form.setError("message", {
+        type: "manual",
+        message: validation.error || "Message exceeds maximum length"
+      });
+      return;
+    }
+    
+    // Update finalData with trimmed message
+    finalData.message = trimmedMessage;
+    onSubmit(finalData);
   };
 
   const handleSendTest = () => {
@@ -137,7 +173,7 @@ export default function CampaignForm({
   };
 
   return (
-    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(validateAndSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="name">Campaign Name</Label>
           <Input id="name" {...form.register("name")} placeholder="Enter campaign name" />
@@ -150,7 +186,7 @@ export default function CampaignForm({
           <Textarea
             id="message"
             {...form.register("message")}
-            placeholder="Enter your SMS message (max 160 characters)"
+            placeholder="Enter your message"
             className="resize-none"
             rows={3}
           />
@@ -158,9 +194,52 @@ export default function CampaignForm({
             {form.formState.errors.message && (
               <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
             )}
-            <p className="text-sm text-gray-500 ml-auto">
-              {form.watch("message")?.length || 0}/160
-            </p>
+            <div className="ml-auto text-sm space-y-1">
+              {(() => {
+                const currentMessage = form.watch("message") || "";
+                const hasImage = !!imageUrl || !!imagePreview;
+                const validation = validateMessageLength(currentMessage, hasImage);
+                const messageInfo = calculateTwilioSegmentation(currentMessage, hasImage);
+                const isOverLimit = !validation.isValid;
+                const isNearLimit = validation.warningThreshold !== undefined;
+                
+                if (isOverLimit) {
+                  return (
+                    <div className="text-right">
+                      <p className="text-red-600 font-medium">
+                        {currentMessage.length}/1600
+                      </p>
+                      <p className="text-xs text-red-600">
+                        Exceeds maximum limit
+                      </p>
+                    </div>
+                  );
+                }
+                
+
+                
+                // Empty message - show nothing
+                if (currentMessage.length === 0) {
+                  return null;
+                }
+                
+                // Show character count for any message with content
+                return (
+                  <div className="text-right">
+                    <p className={isNearLimit ? "text-yellow-600" : 
+                                 hasImage ? "text-purple-600" :
+                                 messageInfo.segments === 1 ? "text-gray-500" : "text-orange-600"}>
+                      {currentMessage.length} characters
+                    </p>
+                    {isNearLimit && (
+                      <p className="text-xs text-yellow-600">
+                        Approaching limit
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
         <div>
@@ -181,7 +260,7 @@ export default function CampaignForm({
           <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF only. Max 5MB. Sending an MMS costs 3 credits.</p>
         </div>
 
-        <CreditUsageEstimate hasImage={!!imageUrl || !!imagePreview} />
+        <CreditUsageEstimate hasImage={!!imageUrl || !!imagePreview} message={form.watch("message") || ""} />
 
         <div className="flex space-x-2">
           <Button 

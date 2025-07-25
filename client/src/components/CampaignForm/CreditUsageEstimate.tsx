@@ -3,12 +3,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calculator, Users, MessageSquare, Image } from "lucide-react";
 import type { ContactStats } from "@shared/api-types";
+import { 
+  calculateTwilioSegmentation
+} from "@/lib/twilio-segmentation";
 
 interface CreditUsageEstimateProps {
   hasImage: boolean;
+  message: string;
 }
 
-export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimateProps) {
+export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEstimateProps) {
   const { data: contactStats, isLoading } = useQuery<ContactStats>({
     queryKey: ["/api/contacts/stats"],
   });
@@ -27,10 +31,8 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
   }
 
   const contactCount = contactStats?.allContacts || 0;
-  const creditsPerMessage = hasImage ? 3 : 1;
-  const totalCredits = contactCount * creditsPerMessage;
-  const messageType = hasImage ? "MMS" : "SMS";
-
+  
+  // Always show contact warning when no contacts exist
   if (contactCount === 0) {
     return (
       <Alert className="border-yellow-200 bg-yellow-50">
@@ -41,6 +43,33 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
       </Alert>
     );
   }
+  
+  // Don't show credit estimate for empty messages (but contacts warning was already handled above)
+  if (!message.trim()) {
+    return null;
+  }
+  
+  // Use accurate Twilio segmentation
+  const messageInfo = calculateTwilioSegmentation(message, hasImage);
+  const creditsPerMessage = messageInfo.credits;
+  const totalCredits = contactCount * creditsPerMessage;
+
+  // Simple message type display
+  const getMessageTypeDisplay = () => {
+    if (messageInfo.type === 'MMS') return 'MMS';
+    if (messageInfo.segments === 1) return 'SMS';
+    return `${messageInfo.segments} SMS parts`;
+  };
+
+  const getExplanation = () => {
+    if (messageInfo.type === 'MMS') {
+      return 'MMS messages include images and cost 3 credits each';
+    }
+    if (messageInfo.segments === 1) {
+      return 'Standard SMS message';
+    }
+    return `Long message split into ${messageInfo.segments} parts`;
+  };
 
   return (
     <Card className="border-blue-200 bg-blue-50">
@@ -61,14 +90,16 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
           
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {hasImage ? (
+              {messageInfo.type === 'MMS' ? (
                 <Image className="w-4 h-4 text-blue-600" />
               ) : (
                 <MessageSquare className="w-4 h-4 text-blue-600" />
               )}
               <span className="text-blue-700">Message type:</span>
             </div>
-            <span className="font-medium text-blue-900">{messageType}</span>
+            <span className="font-medium text-blue-900">
+              {getMessageTypeDisplay()}
+            </span>
           </div>
           
           <div className="flex items-center justify-between">
@@ -87,8 +118,8 @@ export default function CreditUsageEstimate({ hasImage }: CreditUsageEstimatePro
           </div>
         </div>
         
-        <p className="text-xs text-blue-600 mt-3">
-          This is an estimate based on your current contact count. Credits are only deducted for successfully sent messages.
+        <p className="text-xs text-blue-700 mt-3">
+          {getExplanation()}
         </p>
       </CardContent>
     </Card>

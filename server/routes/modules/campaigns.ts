@@ -113,20 +113,27 @@ export function registerCampaignRoutes(app: Express) {
         }
 
         const validatedData = simpleCampaignSchema.parse(req.body);
-        const isMMS = !!validatedData.mediaUrl;
-        const creditCost = isMMS ? 3 : 1;
+        const creditCost = MessageCreditService.calculateCreditCost(
+          validatedData.message,
+          !!validatedData.mediaUrl
+        );
         const totalCreditsNeeded = contacts.length * creditCost;
 
         const credits = await biz.getCredits();
         const balance = credits?.balance || 0;
 
         if (balance < totalCreditsNeeded) {
+          const messageType = validatedData.mediaUrl
+            ? "MMS"
+            : creditCost > 1
+            ? `${creditCost} SMS segments`
+            : "SMS";
           return res.status(400).json({
             message: `Insufficient credits. Need ${totalCreditsNeeded} credit${
               totalCreditsNeeded > 1 ? "s" : ""
             } for ${contacts.length} contact${
               contacts.length > 1 ? "s" : ""
-            } (${isMMS ? "MMS" : "SMS"} costs ${creditCost} credit${
+            } (${messageType} costs ${creditCost} credit${
               creditCost > 1 ? "s" : ""
             } each).`,
           });
@@ -227,20 +234,27 @@ export function registerCampaignRoutes(app: Express) {
           });
         }
 
-        const isMMS = !!campaign.mediaUrl;
-        const creditCost = isMMS ? 3 : 1;
+        const creditCost = MessageCreditService.calculateCreditCost(
+          campaign.message,
+          !!campaign.mediaUrl
+        );
         const totalCreditsNeeded = contacts.length * creditCost;
 
         const credits = await biz.getCredits();
         const balance = credits?.balance || 0;
 
         if (balance < totalCreditsNeeded) {
+          const messageType = campaign.mediaUrl
+            ? "MMS"
+            : creditCost > 1
+            ? `${creditCost} SMS segments`
+            : "SMS";
           return res.status(400).json({
             message: `Insufficient credits. Need ${totalCreditsNeeded} credit${
               totalCreditsNeeded > 1 ? "s" : ""
             } for ${contacts.length} contact${
               contacts.length > 1 ? "s" : ""
-            } (${isMMS ? "MMS" : "SMS"} costs ${creditCost} credit${
+            } (${messageType} costs ${creditCost} credit${
               creditCost > 1 ? "s" : ""
             } each).`,
           });
@@ -279,8 +293,9 @@ export function registerCampaignRoutes(app: Express) {
           .object({
             message: z
               .string()
-              .min(1, "Message is required")
-              .max(160, "Message must be 160 characters or less"),
+              .trim()
+              .min(1, "Message cannot be empty")
+              .max(1600, "Message must be 1600 characters or less"),
             mediaUrl: z.string().url().optional().or(z.literal("")).optional(),
             phoneNumber: z.string().min(1, "Phone number is required"),
           })
