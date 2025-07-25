@@ -156,6 +156,16 @@ export function registerTwilioRoutes(app: Express) {
 
       const bizStore = storage.forBusiness(businessId);
       const normalizedFrom = normalizePhoneNumber(From);
+
+      // 🚨 NEW: Check SMS command authorization FIRST - before any command scanning
+      const { SMSCommandAuth } = await import(
+        "../../services/sms-command-auth.js"
+      );
+      const isAuthorizedSender = await SMSCommandAuth.isAuthorizedSender(
+        businessId,
+        normalizedFrom
+      );
+
       let contact = await bizStore.getContactByPhoneNumber(normalizedFrom);
       if (!contact) {
         contact = await bizStore.createContact({
@@ -167,6 +177,49 @@ export function registerTwilioRoutes(app: Express) {
 
       const bodyText = (Body || "").trim();
 
+      // 🚨 NEW: Only scan for commands if sender is authorized
+      if (isAuthorizedSender) {
+        const { SMSCommandParser } = await import(
+          "../../services/sms-command-parser.js"
+        );
+        const commandResult = SMSCommandParser.parseCommand(bodyText);
+
+        if (commandResult.isValidCommand && commandResult.message) {
+          // Handle SMS command flow
+          logInfo("Processing SMS command", {
+            businessId,
+            senderPhone: normalizedFrom,
+            messageLength: commandResult.message.length,
+          });
+
+          const { SMSCommandExecutor } = await import(
+            "../../services/sms-command-executor.js"
+          );
+          await SMSCommandExecutor.executeCommand(
+            businessId,
+            bizStore,
+            normalizedFrom,
+            commandResult.message,
+            contact
+          );
+
+          // Command processed, return early (no need to create regular message)
+          return res.status(200).send("OK");
+        } else if (commandResult.error) {
+          // Invalid command format from authorized sender
+          const { SMSCommandResponses } = await import(
+            "../../services/sms-command-responses.js"
+          );
+          await SMSCommandResponses.sendInvalidFormatResponse(
+            bizStore,
+            normalizedFrom,
+            commandResult.error
+          );
+          return res.status(200).send("OK");
+        }
+      }
+
+      // Handle as normal message (existing logic)
       const message = await bizStore.createMessage({
         phoneNumber: normalizedFrom,
         contactId: contact.id,
@@ -1116,11 +1169,9 @@ export function registerTwilioRoutes(app: Express) {
         const numbers = await biz.getPhoneNumbers();
 
         if (!config) {
-          return res
-            .status(400)
-            .json({
-              message: "Missing A2P config - complete onboarding first",
-            });
+          return res.status(400).json({
+            message: "Missing A2P config - complete onboarding first",
+          });
         }
 
         // Find the phone number record

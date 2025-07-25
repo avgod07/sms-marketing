@@ -70,6 +70,8 @@ export const campaigns = pgTable("campaigns", {
   deliveredCount: integer("delivered_count").default(0),
   clickCount: integer("click_count").default(0),
   scheduledAt: timestamp("scheduled_at"),
+  campaignSource: text("campaign_source").notNull().default("manual"), // manual, sms_command
+  commandSenderPhone: varchar("command_sender_phone", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -266,6 +268,38 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   verificationStatus: text("verification_status")
     .default("PENDING_REVIEW")
     .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const smsCommandSenders = pgTable(
+  "sms_command_senders",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    addedByUserId: integer("added_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    businessPhoneUnique: uniqueIndex(
+      "sms_command_senders_business_phone_idx"
+    ).on(table.businessId, table.phoneNumber),
+  })
+);
+
+export const smsCommandRateLimits = pgTable("sms_command_rate_limits", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  lastCommandAt: timestamp("last_command_at"),
+  nextAvailableAt: timestamp("next_available_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -500,6 +534,24 @@ export const insertMessagingConfigSchema = createInsertSchema(
 // Legacy alias for backward compatibility
 export const insertTwilioA2pConfigSchema = insertMessagingConfigSchema;
 
+export const insertSmsCommandSenderSchema = createInsertSchema(
+  smsCommandSenders
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsCommandRateLimitSchema = createInsertSchema(
+  smsCommandRateLimits
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users)
   .omit({
     id: true,
@@ -618,3 +670,13 @@ export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
 
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type InsertSubscriptionEvent = typeof subscriptionEvents.$inferInsert;
+
+export type SmsCommandSender = typeof smsCommandSenders.$inferSelect;
+export type InsertSmsCommandSender = z.infer<
+  typeof insertSmsCommandSenderSchema
+>;
+
+export type SmsCommandRateLimit = typeof smsCommandRateLimits.$inferSelect;
+export type InsertSmsCommandRateLimit = z.infer<
+  typeof insertSmsCommandRateLimitSchema
+>;
