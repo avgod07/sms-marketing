@@ -304,6 +304,20 @@ export const smsCommandRateLimits = pgTable("sms_command_rate_limits", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const smsCommandPending = pgTable("sms_command_pending", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  senderPhone: varchar("sender_phone", { length: 20 }).notNull(),
+  messageContent: text("message_content").notNull(),
+  contactCount: integer("contact_count").notNull(),
+  creditCost: integer("credit_cost").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const messagingConfigs = pgTable("messaging_config", {
   id: serial("id").primaryKey(),
   businessId: integer("business_id")
@@ -552,6 +566,14 @@ export const insertSmsCommandRateLimitSchema = createInsertSchema(
   updatedAt: true,
 });
 
+export const insertSmsCommandPendingSchema = createInsertSchema(
+  smsCommandPending
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users)
   .omit({
     id: true,
@@ -679,4 +701,9 @@ export type InsertSmsCommandSender = z.infer<
 export type SmsCommandRateLimit = typeof smsCommandRateLimits.$inferSelect;
 export type InsertSmsCommandRateLimit = z.infer<
   typeof insertSmsCommandRateLimitSchema
+>;
+
+export type SmsCommandPending = typeof smsCommandPending.$inferSelect;
+export type InsertSmsCommandPending = z.infer<
+  typeof insertSmsCommandPendingSchema
 >;

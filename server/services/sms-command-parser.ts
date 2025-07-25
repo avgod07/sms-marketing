@@ -32,12 +32,11 @@ export class SMSCommandParser {
       };
     }
 
-    // Basic validation
-    if (message.length > 1600) {
-      // Twilio's SMS limit
+    // Basic validation - MVP 160 character limit
+    if (message.length > 160) {
       return {
         isValidCommand: false,
-        error: "Message too long. Maximum 1600 characters.",
+        error: "Message too long. Maximum 160 characters for MVP.",
       };
     }
 
@@ -45,6 +44,33 @@ export class SMSCommandParser {
       isValidCommand: true,
       message,
     };
+  }
+
+  /**
+   * Parse confirmation response from message body
+   * Expected formats: YES, Y, CONFIRM, SEND, NO, N, CANCEL, STOP
+   */
+  static parseConfirmationResponse(messageBody: string): {
+    isConfirmation: boolean;
+    isYes?: boolean;
+    isNo?: boolean;
+  } {
+    if (!messageBody || typeof messageBody !== "string") {
+      return { isConfirmation: false };
+    }
+
+    const trimmed = messageBody.trim().toLowerCase();
+
+    // Accept various confirmation formats
+    if (["yes", "y", "confirm", "send"].includes(trimmed)) {
+      return { isConfirmation: true, isYes: true };
+    }
+
+    if (["no", "n", "cancel", "stop"].includes(trimmed)) {
+      return { isConfirmation: true, isNo: true };
+    }
+
+    return { isConfirmation: false };
   }
 
   /**

@@ -95,6 +95,15 @@ app.use((req, res, next) => {
     },
     () => {
       logInfo(`Production server listening on port ${port}`);
+
+      // Start SMS command cleanup service after server is ready
+      (async () => {
+        const { SMSCommandTimeoutService } = await import(
+          "./services/sms-command-timeout.js"
+        );
+        SMSCommandTimeoutService.startPeriodicCleanup(30 * 1000); // Every 30 seconds
+        logInfo("SMS command cleanup service started");
+      })();
     }
   );
 })();

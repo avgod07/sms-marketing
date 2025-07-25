@@ -128,6 +128,95 @@ export class SMSCommandResponses {
   }
 
   /**
+   * Send preview response with confirmation request
+   */
+  static async sendPreviewResponse(
+    bizStore: IStorage,
+    phoneNumber: string,
+    message: string,
+    contactCount: number,
+    creditCost: number
+  ): Promise<void> {
+    const credits = await bizStore.getCredits();
+    const balance = credits?.balance || 0;
+
+    const preview = `🔍 PREVIEW:
+"${message}"
+
+📊 DETAILS:
+• Recipients: ${contactCount} active contact${contactCount > 1 ? "s" : ""}
+• Credit cost: ${creditCost} credit${
+      creditCost > 1 ? "s" : ""
+    } (current balance: ${balance})
+• Message length: ${message.length}/160 characters
+
+Reply YES to send or NO to cancel.
+⏱️ Expires in 2 minutes.`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, preview);
+  }
+
+  /**
+   * Send confirmation response after successful send
+   */
+  static async sendConfirmationResponse(
+    bizStore: IStorage,
+    phoneNumber: string,
+    sentCount: number,
+    creditsUsed: number,
+    nextAvailable: Date
+  ): Promise<void> {
+    const timeStr = nextAvailable.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    const credits = await bizStore.getCredits();
+    const remainingBalance = credits?.balance || 0;
+
+    const message = `✅ Campaign sent to ${sentCount} contact${
+      sentCount > 1 ? "s" : ""
+    }. ${creditsUsed} credit${creditsUsed > 1 ? "s" : ""} used.
+Remaining balance: ${remainingBalance} credits.
+Next send available: ${timeStr}`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, message);
+  }
+
+  /**
+   * Send cancellation response
+   */
+  static async sendCancellationResponse(
+    bizStore: IStorage,
+    phoneNumber: string,
+    originalMessage: string
+  ): Promise<void> {
+    const truncatedMessage =
+      originalMessage.length > 50
+        ? originalMessage.substring(0, 50) + "..."
+        : originalMessage;
+
+    const message = `❌ Campaign canceled. No credits used.
+Your message was: "${truncatedMessage}"`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, message);
+  }
+
+  /**
+   * Send timeout/expiration response
+   */
+  static async sendTimeoutResponse(
+    bizStore: IStorage,
+    phoneNumber: string
+  ): Promise<void> {
+    const message = `⏱️ Campaign expired. No action taken.
+Send a new SEND: command to try again.`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, message);
+  }
+
+  /**
    * Helper function to send response message via Twilio
    * These are operational messages and should not deduct credits
    */

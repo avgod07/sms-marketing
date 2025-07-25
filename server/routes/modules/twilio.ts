@@ -182,11 +182,75 @@ export function registerTwilioRoutes(app: Express) {
         const { SMSCommandParser } = await import(
           "../../services/sms-command-parser.js"
         );
+        const { SMSCommandPending } = await import(
+          "../../services/sms-command-pending.js"
+        );
+
+        // Check for pending command first
+        const pendingCommand = await SMSCommandPending.getPendingCommand(
+          businessId
+        );
+
+        if (pendingCommand) {
+          // Handle YES/NO responses
+          const confirmationResult =
+            SMSCommandParser.parseConfirmationResponse(bodyText);
+
+          if (confirmationResult.isConfirmation) {
+            const { SMSCommandExecutor } = await import(
+              "../../services/sms-command-executor.js"
+            );
+            const { SMSCommandResponses } = await import(
+              "../../services/sms-command-responses.js"
+            );
+
+            if (confirmationResult.isYes) {
+              // Execute the pending command
+              logInfo("Executing confirmed SMS command", {
+                businessId,
+                pendingId: pendingCommand.id,
+                senderPhone: normalizedFrom,
+              });
+
+              await SMSCommandExecutor.executePendingCommand(
+                businessId,
+                bizStore,
+                pendingCommand
+              );
+            } else {
+              // Cancel the pending command
+              logInfo("Canceling SMS command", {
+                businessId,
+                pendingId: pendingCommand.id,
+                senderPhone: normalizedFrom,
+              });
+
+              await SMSCommandResponses.sendCancellationResponse(
+                bizStore,
+                normalizedFrom,
+                pendingCommand.messageContent
+              );
+            }
+
+            // Clear the pending command either way
+            await SMSCommandPending.clearPendingCommand(businessId);
+            return res.status(200).send("OK");
+          }
+
+          // If not a confirmation, treat as new command (replaces pending)
+          logInfo("Replacing pending command with new command", {
+            businessId,
+            oldPendingId: pendingCommand.id,
+            senderPhone: normalizedFrom,
+          });
+        }
+
+        // Parse new SEND: commands
         const commandResult = SMSCommandParser.parseCommand(bodyText);
 
         if (commandResult.isValidCommand && commandResult.message) {
-          // Handle SMS command flow
-          logInfo("Processing SMS command", {
+          // Handle SMS command flow - CREATE PENDING instead of immediate execution
+          logInfo("Processing SMS command for pending creation", {
             businessId,
             senderPhone: normalizedFrom,
             messageLength: commandResult.message.length,
@@ -195,7 +259,7 @@ export function registerTwilioRoutes(app: Express) {
           const { SMSCommandExecutor } = await import(
             "../../services/sms-command-executor.js"
           );
-          await SMSCommandExecutor.executeCommand(
+          await SMSCommandExecutor.createPendingCommand(
             businessId,
             bizStore,
             normalizedFrom,
