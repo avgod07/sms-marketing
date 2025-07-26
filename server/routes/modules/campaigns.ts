@@ -150,6 +150,7 @@ export function registerCampaignRoutes(app: Express) {
         res.status(201).json({
           campaign,
           sentCount: results.sentCount,
+          queuedCount: results.queuedCount,
           failedCount: results.failedCount,
           totalContacts: results.totalContacts,
         });
@@ -265,6 +266,7 @@ export function registerCampaignRoutes(app: Express) {
         res.json({
           message: "Campaign sent successfully",
           sentCount: results.sentCount,
+          queuedCount: results.queuedCount,
           failedCount: results.failedCount,
           totalContacts: results.totalContacts,
         });

@@ -212,14 +212,27 @@ export class SMSCommandExecutor {
         businessId
       );
 
-      // Send confirmation response (enhanced with remaining balance)
-      await SMSCommandResponses.sendConfirmationResponse(
-        bizStore,
-        pendingCommand.senderPhone,
-        results.sentCount,
-        totalCreditsNeeded,
-        nextAvailable
-      );
+      // Send confirmation response (enhanced with remaining balance and queue info)
+      if (results.queuedCount > 0) {
+        // Some messages were queued due to quiet hours
+        await SMSCommandResponses.sendConfirmationWithQueueResponse(
+          bizStore,
+          pendingCommand.senderPhone,
+          results.sentCount,
+          results.queuedCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      } else {
+        // All messages sent immediately
+        await SMSCommandResponses.sendConfirmationResponse(
+          bizStore,
+          pendingCommand.senderPhone,
+          results.sentCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      }
 
       logInfo("SMS command executed successfully from pending", {
         businessId,
@@ -352,14 +365,27 @@ export class SMSCommandExecutor {
         businessId
       );
 
-      // 7. Send success response
-      await SMSCommandResponses.sendSuccessResponse(
-        bizStore,
-        senderPhone,
-        results.sentCount,
-        totalCreditsNeeded,
-        nextAvailable
-      );
+      // 7. Send success response (with queue info if applicable)
+      if (results.queuedCount > 0) {
+        // Some messages were queued due to quiet hours
+        await SMSCommandResponses.sendSuccessWithQueueResponse(
+          bizStore,
+          senderPhone,
+          results.sentCount,
+          results.queuedCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      } else {
+        // All messages sent immediately
+        await SMSCommandResponses.sendSuccessResponse(
+          bizStore,
+          senderPhone,
+          results.sentCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      }
 
       logInfo("SMS command executed successfully", {
         businessId,

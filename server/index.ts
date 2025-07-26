@@ -104,6 +104,15 @@ app.use((req, res, next) => {
         SMSCommandTimeoutService.startPeriodicCleanup(30 * 1000); // Every 30 seconds
         logInfo("SMS command cleanup service started");
       })();
+
+      // Start background jobs for TCPA queue processing
+      (async () => {
+        const { BackgroundJobs } = await import(
+          "./services/background-jobs.js"
+        );
+        BackgroundJobs.start();
+        logInfo("Background jobs started - TCPA queue processing active");
+      })();
     }
   );
 })();

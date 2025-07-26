@@ -26,6 +26,9 @@ export const businesses = pgTable("businesses", {
   initialMessage: text("initial_message"),
   messagingServiceSid: varchar("messaging_service_sid", { length: 64 }),
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
+  timezone: varchar("timezone", { length: 50 })
+    .notNull()
+    .default("America/New_York"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -97,6 +100,7 @@ export const messages = pgTable(
     messageType: text("message_type").notNull().default("regular"), // initial, campaign, regular, received, test
     billingStatus: text("billing_status").notNull().default("success"), // success, failed
     messageSid: varchar("message_sid", { length: 64 }),
+    queueId: integer("queue_id").references(() => messageQueue.id),
     errorCode: integer("error_code"),
     sentAt: timestamp("sent_at", { mode: "string" }),
     deliveredAt: timestamp("delivered_at", { mode: "string" }),
@@ -114,6 +118,7 @@ export const messages = pgTable(
     index("messages_campaign_id_idx").using("btree", table.campaignId),
     index("messages_message_type_idx").using("btree", table.messageType),
     index("messages_billing_status_idx").using("btree", table.billingStatus),
+    index("messages_queue_id_idx").using("btree", table.queueId),
   ]
 );
 
@@ -416,6 +421,35 @@ export const subscriptionEvents = pgTable("subscription_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const messageQueue = pgTable(
+  "message_queue",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id, { onDelete: "cascade" })
+      .notNull(),
+    contactId: integer("contact_id").references(() => contacts.id, {
+      onDelete: "cascade",
+    }),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    messageContent: text("message_content").notNull(),
+    messageType: varchar("message_type", { length: 50 }).notNull(), // 'welcome', 'individual', 'test', 'sms_command_response', etc.
+    scheduledFor: timestamp("scheduled_for").notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'sent', 'failed'
+    attempts: integer("attempts").notNull().default(0),
+    metadata: text("metadata"), // JSON string for additional context
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    sentAt: timestamp("sent_at"),
+    errorMessage: text("error_message"),
+  },
+  (table) => [
+    // Critical indexes for performance at scale
+    index("message_queue_processing_idx").on(table.status, table.scheduledFor),
+    index("message_queue_business_id_idx").on(table.businessId),
+    index("message_queue_scheduled_for_idx").on(table.scheduledFor),
+  ]
+);
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -630,6 +664,12 @@ export const insertSubscriptionEventSchema = createInsertSchema(
   createdAt: true,
 });
 
+export const insertMessageQueueSchema = createInsertSchema(messageQueue).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+});
+
 // Types
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
@@ -708,6 +748,9 @@ export type SmsCommandRateLimit = typeof smsCommandRateLimits.$inferSelect;
 export type InsertSmsCommandRateLimit = z.infer<
   typeof insertSmsCommandRateLimitSchema
 >;
+
+export type MessageQueue = typeof messageQueue.$inferSelect;
+export type InsertMessageQueue = z.infer<typeof insertMessageQueueSchema>;
 
 export type SmsCommandPending = typeof smsCommandPending.$inferSelect;
 export type InsertSmsCommandPending = z.infer<

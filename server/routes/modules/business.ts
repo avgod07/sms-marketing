@@ -232,4 +232,117 @@ export function registerBusinessRoutes(app: Express) {
       res.status(500).json({ message: "Failed to save business profile" });
     }
   });
+
+  // Timezone management endpoints for TCPA compliance
+
+  /**
+   * Get current business timezone
+   */
+  app.get("/api/business/timezone", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const business = await biz.getBusiness();
+
+      res.json({
+        timezone: business.timezone,
+        currentTime: new Date().toLocaleString("en-US", {
+          timeZone: business.timezone,
+          timeZoneName: "short",
+        }),
+      });
+    } catch (error) {
+      logError("Error fetching business timezone:", error);
+      res.status(500).json({ message: "Failed to fetch business timezone" });
+    }
+  });
+
+  /**
+   * Update business timezone
+   */
+  app.put("/api/business/timezone", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const timezoneSchema = z.object({
+        timezone: z.string().min(1, "Timezone is required"),
+      });
+
+      const { timezone } = timezoneSchema.parse(req.body);
+
+      // Validate timezone by checking if it's a valid timezone
+      try {
+        new Date().toLocaleString("en-US", { timeZone: timezone });
+      } catch (timezoneError) {
+        return res.status(400).json({
+          message: "Invalid timezone format",
+          timezone: timezone,
+        });
+      }
+
+      await biz.updateBusiness({ timezone });
+
+      const business = await biz.getBusiness();
+
+      res.json({
+        success: true,
+        timezone: business.timezone,
+        currentTime: new Date().toLocaleString("en-US", {
+          timeZone: business.timezone,
+          timeZoneName: "short",
+        }),
+        message: "Business timezone updated successfully",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors,
+        });
+      }
+      logError("Error updating business timezone:", error);
+      res.status(500).json({ message: "Failed to update business timezone" });
+    }
+  });
+
+  /**
+   * Get timezone suggestions based on address
+   */
+  app.post(
+    "/api/business/timezone/suggest",
+    requireAuth(),
+    async (req, res) => {
+      try {
+        const addressSchema = z.object({
+          state: z.string().min(1, "State is required"),
+          postalCode: z.string().min(1, "Postal code is required"),
+          country: z.string().optional().default("United States"),
+        });
+
+        const address = addressSchema.parse(req.body);
+
+        const { TimezoneService } = await import(
+          "../../services/timezone-lookup.js"
+        );
+        const suggestedTimezone =
+          TimezoneService.getTimezoneFromAddress(address);
+
+        res.json({
+          suggestedTimezone,
+          currentTime: new Date().toLocaleString("en-US", {
+            timeZone: suggestedTimezone,
+            timeZoneName: "short",
+          }),
+          address,
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            message: "Validation error",
+            errors: error.errors,
+          });
+        }
+        logError("Error getting timezone suggestion:", error);
+        res.status(500).json({ message: "Failed to get timezone suggestion" });
+      }
+    }
+  );
 }

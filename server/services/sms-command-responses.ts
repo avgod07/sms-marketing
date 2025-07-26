@@ -1,4 +1,4 @@
-import { TwilioService } from "./twilio.js";
+import { UniversalMessageService } from "./universal-message.js";
 import type { IStorage } from "../db/storage.js";
 import { logInfo, logError } from "../utils/logger.util.js";
 
@@ -185,6 +185,66 @@ Next send available: ${timeStr}`;
   }
 
   /**
+   * Send confirmation response with queue information
+   */
+  static async sendConfirmationWithQueueResponse(
+    bizStore: IStorage,
+    phoneNumber: string,
+    sentCount: number,
+    queuedCount: number,
+    creditsUsed: number,
+    nextAvailable: Date
+  ): Promise<void> {
+    const timeStr = nextAvailable.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    const credits = await bizStore.getCredits();
+    const remainingBalance = credits?.balance || 0;
+
+    const message = `✅ Campaign processed for ${
+      sentCount + queuedCount
+    } contact${sentCount + queuedCount > 1 ? "s" : ""}.
+📤 Sent immediately: ${sentCount}
+⏰ Queued for business hours: ${queuedCount}
+${creditsUsed} credit${creditsUsed > 1 ? "s" : ""} will be used.
+Remaining balance: ${remainingBalance} credits.
+Next send available: ${timeStr}`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, message);
+  }
+
+  /**
+   * Send success response with queue information
+   */
+  static async sendSuccessWithQueueResponse(
+    bizStore: IStorage,
+    phoneNumber: string,
+    sentCount: number,
+    queuedCount: number,
+    creditsUsed: number,
+    nextAvailable: Date
+  ): Promise<void> {
+    const timeStr = nextAvailable.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    const message = `✅ Campaign processed for ${
+      sentCount + queuedCount
+    } contact${sentCount + queuedCount > 1 ? "s" : ""}.
+📤 Sent immediately: ${sentCount}
+⏰ Queued for business hours: ${queuedCount}
+${creditsUsed} credit${creditsUsed > 1 ? "s" : ""} will be used.
+Next available: ${timeStr}`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, message);
+  }
+
+  /**
    * Send cancellation response
    */
   static async sendCancellationResponse(
@@ -217,8 +277,9 @@ Send a new SEND: command to try again.`;
   }
 
   /**
-   * Helper function to send response message via Twilio
+   * Helper function to send response message via UniversalMessageService
    * These are operational messages and should not deduct credits
+   * Respects TCPA quiet hours compliance
    */
   private static async sendResponseMessage(
     bizStore: IStorage,
@@ -241,36 +302,31 @@ Send a new SEND: command to try again.`;
         return;
       }
 
-      // Create a minimal creds object for compatibility
-      const tempCreds = {
+      // Send response via UniversalMessageService with TCPA compliance
+      // SMS command responses are operational and should respect quiet hours
+      const result = await UniversalMessageService.sendMessage(bizStore, {
         businessId: business.id,
-        accountSid: process.env.TWILIO_ACCOUNT_SID!,
-        messagingServiceSid: messagingServiceSid || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        id: 0,
-      };
-
-      // Send response message - these are operational and don't consume credits
-      const result = await TwilioService.sendSMS(tempCreds, {
-        to: phoneNumber,
-        message,
+        phoneNumber,
+        messageContent: message,
+        messageType: "sms_command_response",
         from,
         messagingServiceSid: messagingServiceSid ?? undefined,
       });
 
-      if (result.success) {
-        logInfo("SMS command response sent", {
+      if (result.status === "sent") {
+        logInfo("SMS command response sent immediately", {
           businessId: business.id,
           phoneNumber,
           messageLength: message.length,
-          messageSid: result.messageSid,
+          messageSid: result.messageId,
         });
-      } else {
-        logError("Failed to send SMS command response", {
+      } else if (result.status === "queued") {
+        logInfo("SMS command response queued for quiet hours", {
           businessId: business.id,
           phoneNumber,
-          error: result.error,
+          messageLength: message.length,
+          queueId: result.queueId,
+          scheduledFor: result.scheduledFor,
         });
       }
     } catch (error) {

@@ -12,6 +12,7 @@ import { registerMessageRoutes } from "./modules/messages";
 import { registerCreditsRoutes } from "./modules/credits";
 import { registerSubscriptionRoutes } from "./modules/subscriptions";
 import { registerSMSCommandRoutes } from "./modules/sms-commands";
+import { registerAdminRoutes } from "./modules/admin";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   registerAuthRoutes(app);
@@ -26,6 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCreditsRoutes(app);
   registerSubscriptionRoutes(app);
   registerSMSCommandRoutes(app);
+  registerAdminRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
