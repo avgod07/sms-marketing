@@ -55,6 +55,15 @@ import {
   subscriptionEvents,
   type SubscriptionEvent,
   type InsertSubscriptionEvent,
+  smsCommandSenders,
+  type SmsCommandSender,
+  type InsertSmsCommandSender,
+  smsCommandRateLimits,
+  type SmsCommandRateLimit,
+  type InsertSmsCommandRateLimit,
+  smsCommandPending,
+  type SmsCommandPending,
+  type InsertSmsCommandPending,
 } from "@shared/schema";
 import type { ContactRedemption } from "@shared/api-types";
 import { db } from "../config/db.config";
@@ -105,7 +114,9 @@ export interface IStorage {
   getContacts(): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
   getContactByPhoneNumber(phoneNumber: string): Promise<Contact | undefined>;
-  createContact(contact: InsertContact): Promise<Contact>;
+  createContact(
+    contact: InsertContact & { consentDate?: Date; consentMethod?: string }
+  ): Promise<Contact>;
   updateContact(
     id: number,
     contact: Partial<InsertContact> & { active?: boolean }
@@ -240,6 +251,14 @@ export interface IStorage {
     metadata?: Record<string, any>
   ): Promise<SubscriptionEvent>;
   getSubscriptionEvents(): Promise<SubscriptionEvent[]>;
+
+  // SMS Command Pending Management
+  storePendingSMSCommand(
+    data: InsertSmsCommandPending
+  ): Promise<SmsCommandPending>;
+  getPendingSMSCommand(businessId: number): Promise<SmsCommandPending | null>;
+  clearPendingSMSCommand(businessId: number): Promise<void>;
+  cleanupExpiredSMSCommands(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -293,7 +312,9 @@ export class DatabaseStorage implements IStorage {
     return contact || undefined;
   }
 
-  async createContact(contact: InsertContact): Promise<Contact> {
+  async createContact(
+    contact: InsertContact & { consentDate?: Date; consentMethod?: string }
+  ): Promise<Contact> {
     const businessId = this.requireBusinessId();
     const [newContact] = await db
       .insert(contacts)
@@ -1718,6 +1739,62 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt));
 
     return limit ? recentInboxMessages.slice(0, limit) : recentInboxMessages;
+  }
+
+  // SMS Command Pending Management Implementation
+  async storePendingSMSCommand(
+    data: InsertSmsCommandPending
+  ): Promise<SmsCommandPending> {
+    const businessId = this.requireBusinessId();
+
+    // Use UPSERT to ensure only one pending command per business
+    const [pending] = await db
+      .insert(smsCommandPending)
+      .values({
+        businessId,
+        ...data,
+      })
+      .onConflictDoUpdate({
+        target: smsCommandPending.businessId,
+        set: {
+          senderPhone: data.senderPhone,
+          messageContent: data.messageContent,
+          contactCount: data.contactCount,
+          creditCost: data.creditCost,
+          expiresAt: data.expiresAt,
+          createdAt: new Date(),
+        },
+      })
+      .returning();
+
+    return pending;
+  }
+
+  async getPendingSMSCommand(
+    businessId: number
+  ): Promise<SmsCommandPending | null> {
+    const [pending] = await db
+      .select()
+      .from(smsCommandPending)
+      .where(eq(smsCommandPending.businessId, businessId));
+
+    return pending || null;
+  }
+
+  async clearPendingSMSCommand(businessId: number): Promise<void> {
+    await db
+      .delete(smsCommandPending)
+      .where(eq(smsCommandPending.businessId, businessId));
+  }
+
+  async cleanupExpiredSMSCommands(): Promise<number> {
+    const now = new Date();
+    const deleted = await db
+      .delete(smsCommandPending)
+      .where(sql`${smsCommandPending.expiresAt} < ${now}`)
+      .returning({ id: smsCommandPending.id });
+
+    return deleted.length;
   }
 }
 

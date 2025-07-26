@@ -41,6 +41,10 @@ export const contacts = pgTable(
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     email: text("email"),
     active: boolean("active").default(true).notNull(),
+    consentDate: timestamp("consent_date").defaultNow().notNull(),
+    consentMethod: varchar("consent_method", { length: 20 })
+      .default("admin_added")
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -70,6 +74,8 @@ export const campaigns = pgTable("campaigns", {
   deliveredCount: integer("delivered_count").default(0),
   clickCount: integer("click_count").default(0),
   scheduledAt: timestamp("scheduled_at"),
+  campaignSource: text("campaign_source").notNull().default("manual"), // manual, sms_command
+  commandSenderPhone: varchar("command_sender_phone", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -270,6 +276,52 @@ export const businessPhoneNumbers = pgTable("business_phone_numbers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const smsCommandSenders = pgTable(
+  "sms_command_senders",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id)
+      .notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    addedByUserId: integer("added_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    businessPhoneUnique: uniqueIndex(
+      "sms_command_senders_business_phone_idx"
+    ).on(table.businessId, table.phoneNumber),
+  })
+);
+
+export const smsCommandRateLimits = pgTable("sms_command_rate_limits", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  lastCommandAt: timestamp("last_command_at"),
+  nextAvailableAt: timestamp("next_available_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const smsCommandPending = pgTable("sms_command_pending", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id")
+    .references(() => businesses.id)
+    .notNull()
+    .unique(),
+  senderPhone: varchar("sender_phone", { length: 20 }).notNull(),
+  messageContent: text("message_content").notNull(),
+  contactCount: integer("contact_count").notNull(),
+  creditCost: integer("credit_cost").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const messagingConfigs = pgTable("messaging_config", {
   id: serial("id").primaryKey(),
   businessId: integer("business_id")
@@ -410,6 +462,8 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   createdAt: true,
   updatedAt: true,
   active: true,
+  consentDate: true,
+  consentMethod: true,
 });
 
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({
@@ -499,6 +553,32 @@ export const insertMessagingConfigSchema = createInsertSchema(
 
 // Legacy alias for backward compatibility
 export const insertTwilioA2pConfigSchema = insertMessagingConfigSchema;
+
+export const insertSmsCommandSenderSchema = createInsertSchema(
+  smsCommandSenders
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsCommandRateLimitSchema = createInsertSchema(
+  smsCommandRateLimits
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsCommandPendingSchema = createInsertSchema(
+  smsCommandPending
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+});
 
 export const insertUserSchema = createInsertSchema(users)
   .omit({
@@ -618,3 +698,18 @@ export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
 
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type InsertSubscriptionEvent = typeof subscriptionEvents.$inferInsert;
+
+export type SmsCommandSender = typeof smsCommandSenders.$inferSelect;
+export type InsertSmsCommandSender = z.infer<
+  typeof insertSmsCommandSenderSchema
+>;
+
+export type SmsCommandRateLimit = typeof smsCommandRateLimits.$inferSelect;
+export type InsertSmsCommandRateLimit = z.infer<
+  typeof insertSmsCommandRateLimitSchema
+>;
+
+export type SmsCommandPending = typeof smsCommandPending.$inferSelect;
+export type InsertSmsCommandPending = z.infer<
+  typeof insertSmsCommandPendingSchema
+>;

@@ -38,6 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSetupStatus } from "@/hooks/use-setup-status";
 import type { TwilioSettings } from "@shared/api-types";
 import InitialMessageSettings from "@/components/InitialMessageSettings";
+import SMSCommandSettings from "@/components/SMSCommandSettings";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -196,6 +197,19 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent>
                   <InitialMessageSettings />
+                </CardContent>
+              </Card>
+
+              {/* SMS Command Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <MessageSquareText className="w-5 h-5" />
+                    <span>SMS Command Senders</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SMSCommandSettings />
                 </CardContent>
               </Card>
 

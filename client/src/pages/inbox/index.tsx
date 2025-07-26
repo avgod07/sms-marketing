@@ -76,6 +76,8 @@ export default function Inbox() {
           email: null,
           active: true,
           businessId: 0,
+          consentDate: new Date(),
+          consentMethod: "unknown",
           createdAt: new Date(),
           updatedAt: new Date(),
         };

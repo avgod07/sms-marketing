@@ -108,7 +108,11 @@ export function registerContactRoutes(app: Express) {
         const validatedData = insertContactSchema.parse(req.body);
 
         // No need to check credits upfront - send-first-then-deduct will handle it
-        const contact = await biz.createContact(validatedData);
+        const contact = await biz.createContact({
+          ...validatedData,
+          consentDate: new Date(),
+          consentMethod: "admin_added",
+        });
 
         // Send initial message to the new contact with credit deduction
         try {
@@ -214,6 +218,30 @@ export function registerContactRoutes(app: Express) {
     } catch (error) {
       logError("Error deleting contact:", error);
       res.status(500).json({ message: "Failed to delete contact" });
+    }
+  });
+
+  // Get consent record for legal compliance
+  app.get("/api/contacts/:id/consent", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const id = parseInt(req.params.id);
+
+      const contact = await biz.getContact(id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      res.json({
+        contactId: contact.id,
+        phoneNumber: contact.phoneNumber,
+        consentDate: contact.consentDate,
+        consentMethod: contact.consentMethod,
+        isActive: contact.active,
+      });
+    } catch (error) {
+      logError("Error fetching consent record:", error);
+      res.status(500).json({ message: "Failed to fetch consent record" });
     }
   });
 }
