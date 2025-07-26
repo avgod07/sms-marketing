@@ -114,7 +114,9 @@ export interface IStorage {
   getContacts(): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
   getContactByPhoneNumber(phoneNumber: string): Promise<Contact | undefined>;
-  createContact(contact: InsertContact): Promise<Contact>;
+  createContact(
+    contact: InsertContact & { consentDate?: Date; consentMethod?: string }
+  ): Promise<Contact>;
   updateContact(
     id: number,
     contact: Partial<InsertContact> & { active?: boolean }
@@ -310,7 +312,9 @@ export class DatabaseStorage implements IStorage {
     return contact || undefined;
   }
 
-  async createContact(contact: InsertContact): Promise<Contact> {
+  async createContact(
+    contact: InsertContact & { consentDate?: Date; consentMethod?: string }
+  ): Promise<Contact> {
     const businessId = this.requireBusinessId();
     const [newContact] = await db
       .insert(contacts)

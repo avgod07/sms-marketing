@@ -41,6 +41,10 @@ export const contacts = pgTable(
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     email: text("email"),
     active: boolean("active").default(true).notNull(),
+    consentDate: timestamp("consent_date").defaultNow().notNull(),
+    consentMethod: varchar("consent_method", { length: 20 })
+      .default("admin_added")
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -458,6 +462,8 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   createdAt: true,
   updatedAt: true,
   active: true,
+  consentDate: true,
+  consentMethod: true,
 });
 
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({

@@ -101,7 +101,11 @@ export function registerPublicRoutes(app: Express) {
             .json({ message: "Contact with this phone number already exists" });
         }
 
-        const newContact = await contactStore.createContact(contact);
+        const newContact = await contactStore.createContact({
+          ...contact,
+          consentDate: new Date(),
+          consentMethod: "web_form",
+        });
 
         // Send initial message to the new contact with credit deduction
         try {
