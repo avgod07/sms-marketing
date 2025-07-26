@@ -154,6 +154,38 @@ export class SMSCommandExecutor {
         creditCost: pendingCommand.creditCost,
       });
 
+      // CHECK BUSINESS HOURS FIRST - SMS commands fail outside hours
+      const business = await bizStore.getBusiness();
+      const { QuietHoursCompliance } = await import(
+        "./quiet-hours-compliance.js"
+      );
+
+      const canSendNow = QuietHoursCompliance.canSendImmediately(
+        business.timezone,
+        "campaign" // SMS commands create campaigns
+      );
+
+      if (!canSendNow) {
+        // FAIL the command immediately with business hours error
+        await SMSCommandResponses.sendBusinessHoursErrorResponse(
+          bizStore,
+          pendingCommand.senderPhone,
+          business.timezone
+        );
+
+        logInfo("SMS command failed - outside business hours", {
+          businessId,
+          pendingId: pendingCommand.id,
+          timezone: business.timezone,
+          senderPhone: pendingCommand.senderPhone,
+        });
+
+        return {
+          success: false,
+          error: "Cannot send campaigns outside business hours (8 AM - 8 PM)",
+        };
+      }
+
       // Revalidate everything (contacts might have changed)
       const contacts = (await bizStore.getContacts()).filter((c) => c.active);
 

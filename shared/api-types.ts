@@ -41,9 +41,20 @@ export interface TwilioSettings {
 }
 
 export interface CampaignSendSummary {
-  sentCount: number;
-  failedCount: number;
+  // Original fields (for compatibility)
+  sentCount: number; // NOW: Total processed successfully (sentCount + queuedCount)
+  failedCount: number; // Processing failures
   totalContacts: number;
+
+  // NEW: Queue awareness fields
+  queuedCount?: number; // How many queued
+  hasQueuedMessages?: boolean;
+  nextSendTime?: string; // ISO string for next send
+  queueInfo?: {
+    scheduledFor: string;
+    businessTimezone: string;
+    businessHours: string; // "8 AM - 8 PM"
+  };
 }
 
 // Recent Activity Types

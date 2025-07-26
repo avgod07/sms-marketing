@@ -103,10 +103,28 @@ export default function NewMessageModal({
         onMessageSent(savedMessage);
       }
 
-      toast({
-        title: "Message sent successfully",
-        description: `Your message was sent to ${selectedContact.firstName} ${selectedContact.lastName}. Credits used: ${result.creditCost || 1}`,
-      });
+      // Smart success messaging based on message status
+      if (result.scheduledFor && result.message?.includes("queued")) {
+        // Message was queued for business hours
+        const scheduledTime = new Date(result.scheduledFor);
+        const timeStr = scheduledTime.toLocaleString("en-US", {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit", 
+          hour12: true
+        });
+        
+        toast({
+          title: "Message Scheduled",
+          description: `Message queued for business hours. Will send at ${timeStr}.`,
+        });
+      } else {
+        // Message sent immediately
+        toast({
+          title: "Message sent successfully",
+          description: `Your message was sent to ${selectedContact.firstName} ${selectedContact.lastName} immediately.`,
+        });
+      }
 
       // Close modal after successful send
       onClose();

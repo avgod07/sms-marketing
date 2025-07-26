@@ -18,6 +18,7 @@ import { TwilioService } from "../../services/twilio.js";
 import { MessageCreditService } from "../../services/message-credits.js";
 import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
 import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
+import { CampaignSendSummary } from "@shared/api-types";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -147,13 +148,25 @@ export function registerCampaignRoutes(app: Express) {
 
         const results = await executeCampaign(biz, campaign.id);
 
-        res.status(201).json({
+        // Map execution result to API response format
+        const response: CampaignSendSummary & { campaign: any } = {
           campaign,
-          sentCount: results.sentCount,
-          queuedCount: results.queuedCount,
+          sentCount: results.totalProcessed, // Total successfully processed (for compatibility)
           failedCount: results.failedCount,
           totalContacts: results.totalContacts,
-        });
+          queuedCount: results.queuedCount,
+          hasQueuedMessages: results.hasQueuedMessages,
+          nextSendTime: results.nextSendTime?.toISOString(),
+          queueInfo: results.hasQueuedMessages
+            ? {
+                scheduledFor: results.nextSendTime?.toISOString() || "",
+                businessTimezone: (await biz.getBusiness()).timezone,
+                businessHours: "8 AM - 8 PM",
+              }
+            : undefined,
+        };
+
+        res.status(201).json(response);
       } catch (error) {
         if (error instanceof z.ZodError) {
           return res
@@ -263,12 +276,28 @@ export function registerCampaignRoutes(app: Express) {
 
         const results = await executeCampaign(biz, id);
 
-        res.json({
-          message: "Campaign sent successfully",
-          sentCount: results.sentCount,
-          queuedCount: results.queuedCount,
+        // Map execution result to API response format
+        const response: CampaignSendSummary = {
+          sentCount: results.totalProcessed, // Total successfully processed (for compatibility)
           failedCount: results.failedCount,
           totalContacts: results.totalContacts,
+          queuedCount: results.queuedCount,
+          hasQueuedMessages: results.hasQueuedMessages,
+          nextSendTime: results.nextSendTime?.toISOString(),
+          queueInfo: results.hasQueuedMessages
+            ? {
+                scheduledFor: results.nextSendTime?.toISOString() || "",
+                businessTimezone: (await biz.getBusiness()).timezone,
+                businessHours: "8 AM - 8 PM",
+              }
+            : undefined,
+        };
+
+        res.json({
+          message: results.hasQueuedMessages
+            ? "Campaign scheduled for business hours"
+            : "Campaign sent successfully",
+          ...response,
         });
       } catch (error) {
         if (error instanceof InsufficientCreditsError) {

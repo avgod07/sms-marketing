@@ -345,4 +345,58 @@ export function registerBusinessRoutes(app: Express) {
       }
     }
   );
+
+  /**
+   * Check current business hours status
+   */
+  app.get("/api/business/hours-check", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const business = await biz.getBusiness();
+
+      const { QuietHoursCompliance } = await import(
+        "../../services/quiet-hours-compliance.js"
+      );
+
+      const isBusinessHours = QuietHoursCompliance.canSendImmediately(
+        business.timezone,
+        "campaign"
+      );
+
+      const currentTime = new Date();
+      const businessTime = currentTime.toLocaleString("en-US", {
+        timeZone: business.timezone,
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZoneName: "short",
+      });
+
+      const nextBusinessHour = isBusinessHours
+        ? null
+        : QuietHoursCompliance.getNextSendTime(business.timezone);
+
+      const nextBusinessHourStr = nextBusinessHour
+        ? nextBusinessHour.toLocaleString("en-US", {
+            timeZone: business.timezone,
+            weekday: "short",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })
+        : null;
+
+      res.json({
+        isBusinessHours,
+        currentTime: businessTime,
+        nextBusinessHour: nextBusinessHourStr,
+        willBeQueued: !isBusinessHours,
+        businessTimezone: business.timezone,
+        businessHours: "8 AM - 8 PM",
+      });
+    } catch (error) {
+      logError("Error checking business hours:", error);
+      res.status(500).json({ message: "Failed to check business hours" });
+    }
+  });
 }

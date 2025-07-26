@@ -277,6 +277,34 @@ Send a new SEND: command to try again.`;
   }
 
   /**
+   * Send business hours error response for SMS commands
+   */
+  static async sendBusinessHoursErrorResponse(
+    bizStore: IStorage,
+    phoneNumber: string,
+    businessTimezone: string
+  ): Promise<void> {
+    const { QuietHoursCompliance } = await import(
+      "./quiet-hours-compliance.js"
+    );
+    const nextSendTime = QuietHoursCompliance.getNextSendTime(businessTimezone);
+
+    const nextSendFormatted = nextSendTime.toLocaleString("en-US", {
+      timeZone: businessTimezone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      weekday:
+        nextSendTime.getDate() !== new Date().getDate() ? "short" : undefined,
+    });
+
+    const message = `❌ Cannot send campaigns outside business hours (8 AM - 8 PM).
+Try again after ${nextSendFormatted}.`;
+
+    await this.sendResponseMessage(bizStore, phoneNumber, message);
+  }
+
+  /**
    * Helper function to send response message via UniversalMessageService
    * These are operational messages and should not deduct credits
    * Respects TCPA quiet hours compliance

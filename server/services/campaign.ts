@@ -1,14 +1,23 @@
 import type { IStorage } from "../db/storage";
 import { UniversalMessageService } from "./universal-message.js";
 import { MessageCreditService } from "./message-credits.js";
+import { QuietHoursCompliance } from "./quiet-hours-compliance.js";
 import { logError } from "../utils/logger.util";
 import { logInfo } from "../utils/logger.util";
 
 export interface CampaignExecutionResult {
-  sentCount: number;
-  queuedCount: number;
-  failedCount: number;
-  totalContacts: number;
+  // Processing stats (immediate)
+  sentCount: number; // Sent immediately
+  queuedCount: number; // Queued for later
+  failedCount: number; // Failed to process
+  totalContacts: number; // Total attempted
+
+  // Queue info (for UX)
+  hasQueuedMessages: boolean;
+  nextSendTime?: Date; // When queued messages will send
+
+  // Traditional delivery stats (for compatibility)
+  totalProcessed: number; // sentCount + queuedCount (successful processing)
 }
 
 export class InsufficientCreditsError extends Error {
@@ -30,7 +39,14 @@ export async function executeCampaign(
   const contacts = (await bizStorage.getContacts()).filter((c) => c.active);
 
   if (contacts.length === 0) {
-    return { sentCount: 0, queuedCount: 0, failedCount: 0, totalContacts: 0 };
+    return {
+      sentCount: 0,
+      queuedCount: 0,
+      failedCount: 0,
+      totalContacts: 0,
+      hasQueuedMessages: false,
+      totalProcessed: 0,
+    };
   }
 
   // Determine credit cost per message using accurate Twilio segmentation
@@ -127,6 +143,12 @@ export async function executeCampaign(
       queuedCount,
       failedCount,
       totalContacts: contacts.length,
+      hasQueuedMessages: queuedCount > 0,
+      nextSendTime:
+        queuedCount > 0
+          ? QuietHoursCompliance.getNextSendTime(business.timezone)
+          : undefined,
+      totalProcessed: sentCount + queuedCount,
     };
   } catch (error) {
     logError("Campaign execution failed", {
