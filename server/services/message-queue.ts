@@ -205,7 +205,71 @@ export class MessageQueueService {
           (failed[0]?.count || 0),
       };
     } catch (error) {
-      logError("Failed to get queue stats", { error });
+      logError("Failed to get queue statistics", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get queue statistics for a specific business
+   */
+  static async getBusinessQueueStats(businessId: number) {
+    try {
+      const [pending, processing, sent, failed] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(messageQueue)
+          .where(
+            and(
+              eq(messageQueue.businessId, businessId),
+              eq(messageQueue.status, "pending")
+            )
+          ),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(messageQueue)
+          .where(
+            and(
+              eq(messageQueue.businessId, businessId),
+              eq(messageQueue.status, "processing")
+            )
+          ),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(messageQueue)
+          .where(
+            and(
+              eq(messageQueue.businessId, businessId),
+              eq(messageQueue.status, "sent")
+            )
+          ),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(messageQueue)
+          .where(
+            and(
+              eq(messageQueue.businessId, businessId),
+              eq(messageQueue.status, "failed")
+            )
+          ),
+      ]);
+
+      return {
+        pending: pending[0]?.count || 0,
+        processing: processing[0]?.count || 0,
+        sent: sent[0]?.count || 0,
+        failed: failed[0]?.count || 0,
+        total:
+          (pending[0]?.count || 0) +
+          (processing[0]?.count || 0) +
+          (sent[0]?.count || 0) +
+          (failed[0]?.count || 0),
+      };
+    } catch (error) {
+      logError("Failed to get business queue statistics", {
+        error,
+        businessId,
+      });
       throw error;
     }
   }

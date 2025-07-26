@@ -25,6 +25,7 @@ import {
   AlertCircle,
   ExternalLink,
   MessageSquareText,
+  Building2,
 } from "lucide-react";
 import { useCredits } from "@/hooks/use-credits";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -39,20 +40,13 @@ import { useSetupStatus } from "@/hooks/use-setup-status";
 import type { TwilioSettings } from "@shared/api-types";
 import InitialMessageSettings from "@/components/InitialMessageSettings";
 import SMSCommandSettings from "@/components/SMSCommandSettings";
+import BusinessSettingsTab from "@/components/settings/BusinessSettingsTab";
+import { useUser } from "@clerk/clerk-react";
 
 export default function Settings() {
   const { toast } = useToast();
   const [location] = useLocation();
   const [activeTab, setActiveTab] = useState("account");
-
-  // Parse tab from URL query parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1]);
-    const tab = urlParams.get('tab');
-    if (tab && ['account', 'billing'].includes(tab)) {
-      setActiveTab(tab);
-    }
-  }, [location]);
 
   // Query to get current account info (company name and email)
   const { data: accountInfo, isLoading, error } = useQuery({
@@ -66,6 +60,21 @@ export default function Settings() {
   // Query onboarding status
   const { data: setupStatus, isLoading: setupLoading } = useSetupStatus();
   const onboardingComplete = setupStatus?.onboardingComplete;
+
+  // Parse tab from URL query parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.split('?')[1]);
+    const tab = urlParams.get('tab');
+    
+    const allowedTabs = ['account', 'billing'];
+    if (setupStatus?.onboardingComplete) {
+      allowedTabs.push('business');
+    }
+    
+    if (tab && allowedTabs.includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location, setupStatus?.onboardingComplete]);
 
   const [companyName, setCompanyName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -122,6 +131,9 @@ export default function Settings() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
           <TabsList className="mb-4">
             <TabsTrigger value="account">Account</TabsTrigger>
+            {setupStatus?.onboardingComplete && (
+              <TabsTrigger value="business">Business</TabsTrigger>
+            )}
             <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
 
@@ -238,6 +250,10 @@ export default function Settings() {
               </Card>
 
             </div>
+          </TabsContent>
+
+          <TabsContent value="business">
+            <BusinessSettingsTab />
           </TabsContent>
 
           <TabsContent value="billing">

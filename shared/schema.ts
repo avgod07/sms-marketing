@@ -29,6 +29,7 @@ export const businesses = pgTable("businesses", {
   timezone: varchar("timezone", { length: 50 })
     .notNull()
     .default("America/New_York"),
+  timezoneUpdatedAt: timestamp("timezone_updated_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

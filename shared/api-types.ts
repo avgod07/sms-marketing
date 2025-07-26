@@ -57,6 +57,45 @@ export interface CampaignSendSummary {
   };
 }
 
+// Timezone Management Types
+export interface BusinessTimezoneInfo {
+  current: {
+    timezone: string;
+    displayName: string;
+    currentTime: string;
+    businessHours: string;
+    isBusinessHours: boolean;
+  };
+  detection: {
+    method: "auto" | "manual";
+    lastUpdated: string;
+    suggestedTimezone?: string;
+    addressMatch: boolean;
+  };
+  queueInfo?: {
+    pendingMessages: number;
+    nextSendTime?: string;
+  };
+}
+
+export interface TimezoneValidationResponse {
+  isValid: boolean;
+  warnings: string[];
+  suggestions: string[];
+  impact: {
+    currentBusinessHours: string;
+    newBusinessHours: string;
+    queuedMessagesAffected: number;
+    timeDifference: string;
+  };
+}
+
+export interface TimezoneUpdateRequest {
+  timezone: string;
+  confirmed: boolean;
+  reason?: "business_moved" | "incorrect_detection" | "other";
+}
+
 // Recent Activity Types
 export interface RecentContact {
   id: number;
