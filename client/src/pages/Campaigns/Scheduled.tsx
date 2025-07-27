@@ -73,6 +73,12 @@ export default function ScheduledCampaignsPage() {
       return <Badge variant="outline" className="text-orange-600">Ready to Send</Badge>;
     }
     
+    // Check if this is an immediate campaign that was queued due to business hours
+    if (campaign.originalIntent === "immediate" || 
+        campaign.scheduleNotes?.includes("Queued due to business hours")) {
+      return <Badge variant="outline" className="text-amber-600">Queued for Business Hours</Badge>;
+    }
+    
     return <Badge variant="outline" className="text-blue-600">Scheduled</Badge>;
   };
 

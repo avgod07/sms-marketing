@@ -275,6 +275,73 @@ export class MessageQueueService {
   }
 
   /**
+   * Get pending message count and next send time for a specific campaign
+   */
+  static async getCampaignQueueStats(campaignId: number) {
+    try {
+      // Query for pending messages where metadata contains this campaignId
+      const pendingMessages = await db
+        .select()
+        .from(messageQueue)
+        .where(
+          and(
+            eq(messageQueue.status, "pending"),
+            sql`${
+              messageQueue.metadata
+            }::text LIKE ${`%"campaignId":${campaignId}%`}`
+          )
+        )
+        .orderBy(messageQueue.scheduledFor);
+
+      const pendingCount = pendingMessages.length;
+      const nextSendTime =
+        pendingMessages.length > 0 ? pendingMessages[0].scheduledFor : null;
+
+      logInfo("Retrieved campaign queue stats", {
+        campaignId,
+        pendingCount,
+        nextSendTime: nextSendTime?.toISOString(),
+      });
+
+      return {
+        pendingCount,
+        nextSendTime,
+      };
+    } catch (error) {
+      logError("Failed to get campaign queue stats", { error, campaignId });
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel all pending messages for a specific campaign
+   */
+  static async cancelCampaignMessages(campaignId: number) {
+    try {
+      const result = await db
+        .delete(messageQueue)
+        .where(
+          and(
+            eq(messageQueue.status, "pending"),
+            sql`${
+              messageQueue.metadata
+            }::text LIKE ${`%"campaignId":${campaignId}%`}`
+          )
+        );
+
+      logInfo("Cancelled campaign messages", {
+        campaignId,
+        deletedCount: result.rowCount || 0,
+      });
+
+      return { deletedCount: result.rowCount || 0 };
+    } catch (error) {
+      logError("Failed to cancel campaign messages", { error, campaignId });
+      throw error;
+    }
+  }
+
+  /**
    * Get pending messages (paginated)
    */
   static async getPendingMessages(page: number = 1, limit: number = 50) {

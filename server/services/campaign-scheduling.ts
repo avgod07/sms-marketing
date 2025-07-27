@@ -2,6 +2,7 @@ import moment from "moment-timezone";
 import { IStorage } from "../db/storage.js";
 import { QuietHoursCompliance } from "./quiet-hours-compliance.js";
 import { MessageCreditService } from "./message-credits.js";
+import { MessageQueueService } from "./message-queue.js";
 import { logInfo, logError } from "../utils/logger.util.js";
 import type {
   CampaignScheduleRequest,
@@ -330,28 +331,75 @@ export class CampaignSchedulingService {
         };
       }
 
-      if (campaign.status !== "scheduled") {
+      // Handle deliberately scheduled campaigns
+      if (campaign.status === "scheduled") {
+        const updatedCampaign = await bizStorage.updateCampaign(campaignId, {
+          status: "cancelled",
+          schedulingType: "cancelled",
+          updatedAt: new Date(),
+        });
+
+        logInfo("Scheduled campaign cancelled", {
+          campaignId,
+          originalScheduleTime: campaign.scheduledSendTime,
+          businessId: campaign.businessId,
+        });
+
         return {
-          success: false,
-          errors: ["Only scheduled campaigns can be cancelled"],
+          success: true,
+          campaign: updatedCampaign,
         };
       }
 
-      const updatedCampaign = await bizStorage.updateCampaign(campaignId, {
-        status: "cancelled",
-        schedulingType: "cancelled",
-        updatedAt: new Date(),
-      });
+      // Handle immediate campaigns with queued messages
+      if (
+        campaign.status === "completed" &&
+        campaign.schedulingType === "immediate"
+      ) {
+        try {
+          const queueStats = await MessageQueueService.getCampaignQueueStats(
+            campaignId
+          );
+          if (queueStats.pendingCount > 0) {
+            // Cancel all pending messages for this campaign
+            const cancelResult =
+              await MessageQueueService.cancelCampaignMessages(campaignId);
 
-      logInfo("Scheduled campaign cancelled", {
-        campaignId,
-        originalScheduleTime: campaign.scheduledSendTime,
-        businessId: campaign.businessId,
-      });
+            logInfo("Immediate campaign with queued messages cancelled", {
+              campaignId,
+              businessId: campaign.businessId,
+              cancelledMessages: cancelResult.deletedCount,
+            });
 
+            return {
+              success: true,
+              campaign,
+              warnings: [
+                `Cancelled ${cancelResult.deletedCount} pending messages`,
+              ],
+            };
+          }
+        } catch (queueError) {
+          logError("Failed to cancel queued messages for immediate campaign", {
+            campaignId,
+            error:
+              queueError instanceof Error
+                ? queueError.message
+                : String(queueError),
+          });
+          return {
+            success: false,
+            errors: ["Failed to cancel queued messages. Please try again."],
+          };
+        }
+      }
+
+      // Campaign is not cancellable
       return {
-        success: true,
-        campaign: updatedCampaign,
+        success: false,
+        errors: [
+          "This campaign cannot be cancelled (no pending messages or already completed)",
+        ],
       };
     } catch (error) {
       logError("Failed to cancel scheduled campaign", { error, campaignId });
@@ -373,10 +421,49 @@ export class CampaignSchedulingService {
       const business = await bizStorage.getBusiness();
       const contacts = (await bizStorage.getContacts()).filter((c) => c.active);
 
-      const scheduledCampaigns = campaigns
-        .filter(
-          (c) => c.status === "scheduled" && c.schedulingType === "scheduled"
-        )
+      // Get deliberately scheduled campaigns
+      const deliberatelyScheduled = campaigns.filter(
+        (c) => c.status === "scheduled" && c.schedulingType === "scheduled"
+      );
+
+      // Get immediate campaigns that still have queued messages
+      const immediateWithQueue = [];
+      for (const campaign of campaigns) {
+        if (
+          campaign.status === "completed" &&
+          campaign.schedulingType === "immediate"
+        ) {
+          try {
+            const queueStats = await MessageQueueService.getCampaignQueueStats(
+              campaign.id
+            );
+            if (queueStats.pendingCount > 0) {
+              // Create a modified campaign that appears as "scheduled"
+              immediateWithQueue.push({
+                ...campaign,
+                // Override scheduledSendTime to show actual queue time
+                scheduledSendTime: queueStats.nextSendTime,
+                // Update schedule notes to indicate this was queued due to business hours
+                scheduleNotes: campaign.scheduleNotes
+                  ? `${campaign.scheduleNotes} (Queued due to business hours)`
+                  : "Queued due to business hours",
+                // Track that this was originally immediate
+                originalIntent: "immediate" as const,
+              });
+            }
+          } catch (error) {
+            logError("Failed to get queue stats for campaign", {
+              campaignId: campaign.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      }
+
+      // Combine both types of campaigns
+      const allCampaigns = [...deliberatelyScheduled, ...immediateWithQueue];
+
+      const scheduledCampaigns = allCampaigns
         .map((campaign) => {
           const creditCost = MessageCreditService.calculateCreditCost(
             campaign.message,
@@ -404,13 +491,22 @@ export class CampaignSchedulingService {
             businessTimezone: business.timezone,
             createdAt: campaign.createdAt.toISOString(),
             countdown,
-          } as ScheduledCampaignListItem;
+            // Add metadata to help frontend distinguish types
+            originalIntent: (campaign as any).originalIntent || "scheduled",
+          } as ScheduledCampaignListItem & { originalIntent?: string };
         })
         .sort(
           (a, b) =>
             new Date(a.scheduledSendTime).getTime() -
             new Date(b.scheduledSendTime).getTime()
         );
+
+      logInfo("Retrieved scheduled campaigns", {
+        businessId: business.id,
+        deliberatelyScheduled: deliberatelyScheduled.length,
+        immediateWithQueue: immediateWithQueue.length,
+        total: scheduledCampaigns.length,
+      });
 
       return scheduledCampaigns;
     } catch (error) {

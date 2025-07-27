@@ -90,6 +90,7 @@ export interface ScheduledCampaignListItem {
     timeUntilSend: string;
     exactTime: string;
   };
+  originalIntent?: "immediate" | "scheduled"; // Track if this was originally an immediate campaign
 }
 
 export interface SchedulingValidationResult {
