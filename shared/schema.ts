@@ -73,13 +73,18 @@ export const campaigns = pgTable("campaigns", {
   name: text("name").notNull(),
   message: text("message").notNull(),
   mediaUrl: text("media_url"),
-  status: text("status").notNull().default("in_progress"), // in_progress, completed
+  status: text("status").notNull().default("in_progress"), // in_progress, completed, scheduled, cancelled
   sentCount: integer("sent_count").default(0),
   deliveredCount: integer("delivered_count").default(0),
   clickCount: integer("click_count").default(0),
   scheduledAt: timestamp("scheduled_at"),
   campaignSource: text("campaign_source").notNull().default("manual"), // manual, sms_command
   commandSenderPhone: varchar("command_sender_phone", { length: 20 }),
+  // New scheduling fields
+  scheduledSendTime: timestamp("scheduled_send_time"),
+  schedulingType: text("scheduling_type").notNull().default("immediate"), // immediate, scheduled, cancelled
+  scheduledBy: varchar("scheduled_by", { length: 64 }),
+  scheduleNotes: text("schedule_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

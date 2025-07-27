@@ -57,6 +57,52 @@ export interface CampaignSendSummary {
   };
 }
 
+// Campaign Scheduling Types
+export interface CampaignScheduleRequest {
+  scheduledSendTime: string; // ISO string
+  scheduleNotes?: string;
+}
+
+export interface CampaignScheduleResponse {
+  campaign: any; // Campaign with scheduling fields
+  scheduledFor: string; // ISO string
+  businessTimezone: string;
+  businessHours: string;
+  countdown?: {
+    timeUntilSend: string; // Human readable like "in 2 hours"
+    exactTime: string; // ISO string
+  };
+}
+
+export interface ScheduledCampaignListItem {
+  id: number;
+  name: string;
+  message: string;
+  scheduledSendTime: string;
+  schedulingType: "scheduled" | "cancelled";
+  scheduledBy?: string;
+  scheduleNotes?: string;
+  totalContacts: number;
+  estimatedCredits: number;
+  businessTimezone: string;
+  createdAt: string;
+  countdown?: {
+    timeUntilSend: string;
+    exactTime: string;
+  };
+}
+
+export interface SchedulingValidationResult {
+  isValid: boolean;
+  errors?: string[];
+  warnings?: string[];
+  suggestedTime?: string; // ISO string for alternative time
+  businessHoursImpact?: {
+    isOutsideBusinessHours: boolean;
+    nextBusinessHour?: string;
+  };
+}
+
 // Timezone Management Types
 export interface BusinessTimezoneInfo {
   current: {

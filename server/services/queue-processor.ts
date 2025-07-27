@@ -8,6 +8,8 @@ import { MessageCreditService } from "./message-credits.js";
 import { storage } from "../db/storage.js";
 import type { IStorage } from "../db/storage.js";
 import { logInfo, logError } from "../utils/logger.util.js";
+import { executeCampaign } from "./campaign.js";
+import { campaigns } from "@shared/schema";
 
 export interface QueueProcessingStats {
   totalProcessed: number;
@@ -370,5 +372,148 @@ export class QueueProcessor {
 
     // Default to using credits for unknown message types
     return true;
+  }
+
+  /**
+   * Process scheduled campaigns that are ready to be sent
+   * Called by background job to check for campaigns scheduled to run
+   */
+  static async processScheduledCampaigns(): Promise<{
+    totalProcessed: number;
+    sentCount: number;
+    failedCount: number;
+    campaignCount: number;
+    processingTimeMs: number;
+  }> {
+    const startTime = Date.now();
+    let totalProcessed = 0;
+    let sentCount = 0;
+    let failedCount = 0;
+    let campaignCount = 0;
+
+    try {
+      logInfo("Starting scheduled campaigns processing cycle");
+
+      // Get campaigns that are scheduled and ready to send
+      const readyCampaigns = await db
+        .select()
+        .from(campaigns)
+        .where(
+          and(
+            eq(campaigns.status, "scheduled"),
+            eq(campaigns.schedulingType, "scheduled"),
+            lte(campaigns.scheduledSendTime, new Date())
+          )
+        );
+
+      if (readyCampaigns.length === 0) {
+        logInfo("No scheduled campaigns ready for processing");
+        return {
+          totalProcessed: 0,
+          sentCount: 0,
+          failedCount: 0,
+          campaignCount: 0,
+          processingTimeMs: Date.now() - startTime,
+        };
+      }
+
+      logInfo(`Processing ${readyCampaigns.length} scheduled campaigns`);
+
+      for (const campaign of readyCampaigns) {
+        try {
+          totalProcessed++;
+          campaignCount++;
+
+          const bizStorage = storage.forBusiness(campaign.businessId);
+
+          logInfo("Executing scheduled campaign", {
+            campaignId: campaign.id,
+            businessId: campaign.businessId,
+            scheduledFor: campaign.scheduledSendTime,
+            campaignName: campaign.name,
+          });
+
+          // Execute the campaign using existing logic
+          const results = await executeCampaign(bizStorage, campaign.id);
+
+          // Update campaign status to completed
+          await bizStorage.updateCampaign(campaign.id, {
+            status: "completed",
+            sentCount: results.totalProcessed,
+            deliveredCount: results.sentCount,
+          });
+
+          sentCount++;
+
+          logInfo("Scheduled campaign executed successfully", {
+            campaignId: campaign.id,
+            businessId: campaign.businessId,
+            sentCount: results.sentCount,
+            queuedCount: results.queuedCount,
+            failedCount: results.failedCount,
+            totalContacts: results.totalContacts,
+          });
+        } catch (error) {
+          failedCount++;
+
+          logError("Failed to execute scheduled campaign", {
+            campaignId: campaign.id,
+            businessId: campaign.businessId,
+            error: error instanceof Error ? error.message : String(error),
+            scheduledFor: campaign.scheduledSendTime,
+          });
+
+          // Mark campaign as failed but keep scheduling info for debugging
+          try {
+            const bizStorage = storage.forBusiness(campaign.businessId);
+            await bizStorage.updateCampaign(campaign.id, {
+              status: "completed", // Still mark as completed to prevent retry loops
+              scheduleNotes: `Failed: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            });
+          } catch (updateError) {
+            logError("Failed to update failed campaign status", {
+              campaignId: campaign.id,
+              updateError:
+                updateError instanceof Error
+                  ? updateError.message
+                  : String(updateError),
+            });
+          }
+        }
+      }
+
+      const processingTimeMs = Date.now() - startTime;
+
+      logInfo("Scheduled campaigns processing cycle completed", {
+        totalProcessed,
+        sentCount,
+        failedCount,
+        campaignCount,
+        processingTimeMs,
+      });
+
+      return {
+        totalProcessed,
+        sentCount,
+        failedCount,
+        campaignCount,
+        processingTimeMs,
+      };
+    } catch (error) {
+      logError("Critical error in scheduled campaigns processing", {
+        error: error instanceof Error ? error.message : String(error),
+        processingTimeMs: Date.now() - startTime,
+      });
+
+      return {
+        totalProcessed,
+        sentCount,
+        failedCount,
+        campaignCount,
+        processingTimeMs: Date.now() - startTime,
+      };
+    }
   }
 }
