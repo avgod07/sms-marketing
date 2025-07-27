@@ -169,7 +169,8 @@ export function registerBusinessRoutes(app: Express) {
       const { initialMessage } = initialMessageSchema.parse(req.body);
 
       // Ensure initial message includes compliance text
-      const complianceText = "Text STOP to unsubscribe.";
+      const complianceText =
+        "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
       const finalMessage = initialMessage.includes(complianceText)
         ? initialMessage
         : `${initialMessage} ${complianceText}`;

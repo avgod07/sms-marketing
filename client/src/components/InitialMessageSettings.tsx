@@ -18,7 +18,7 @@ export default function InitialMessageSettings() {
   const [message, setMessage] = useState("");
   const [charCount, setCharCount] = useState(0);
   const [isDirty, setIsDirty] = useState(false);
-  const complianceText = "Text STOP to unsubscribe.";
+  const complianceText = "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
 
   // Query to get current initial message
   const { data: messageData, isLoading, error } = useQuery<InitialMessageData>({
@@ -76,7 +76,7 @@ export default function InitialMessageSettings() {
     }
   };
 
-  const isFormValid = message.trim() && charCount <= 160;
+  const isFormValid = message.trim() && charCount <= 160 && message.length <= 70;
 
   if (isLoading) {
     return (
@@ -117,9 +117,19 @@ export default function InitialMessageSettings() {
           className="resize-none"
           disabled={saveMutation.isPending}
         />
-        <p className="text-sm text-gray-500 mt-1">
-          This message is automatically sent immediately when someone signs up for your SMS list.
-        </p>
+        <div className="flex justify-between items-center text-sm mt-1">
+          <span className="text-gray-500">
+            Max 70 characters (compliance text added automatically)
+          </span>
+          <div className={`flex items-center space-x-1 font-mono ${
+            charCount > 160 || message.length > 70 ? 'text-red-600' : 
+            charCount > 140 || message.length > 60 ? 'text-yellow-600' : 
+            'text-gray-600'
+          }`}>
+            {(charCount > 160 || message.length > 70) && <span>⚠</span>}
+            <span>{message.length}/70</span>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -139,9 +149,9 @@ export default function InitialMessageSettings() {
             )}
           </p>
         </div>
-        {charCount > 160 && (
+        {(charCount > 160 || message.length > 70) && (
           <p className="text-sm text-red-600">
-            Message exceeds 160 characters. Please shorten your message.
+            Message exceeds limits. Please shorten your message to 70 characters.
           </p>
         )}
       </div>

@@ -315,6 +315,24 @@ export function registerTwilioRoutes(app: Express) {
           contactId: contact.id,
           phoneNumber: normalizedFrom,
         });
+      } else if (bodyText.toLowerCase() === "help") {
+        // COMPLIANCE REQUIREMENT: HELP responses are free, mandatory, and MUST send immediately
+        // UniversalMessageService handles this correctly with "help_response" type
+        await UniversalMessageService.sendMessage(bizStore, {
+          businessId: businessId,
+          phoneNumber: normalizedFrom,
+          messageContent:
+            "NotiFlow SMS Help: Contact us at getnotiflow@gmail.com. Reply STOP to opt out. Msg & data rates may apply.",
+          messageType: "help_response",
+          contactId: contact.id,
+        });
+
+        // Log HELP response for compliance tracking (no billing)
+        logInfo("HELP response sent (compliance - no charge)", {
+          businessId,
+          contactId: contact.id,
+          phoneNumber: normalizedFrom,
+        });
       } else {
         socketService?.broadcast("message:send", message, businessId);
       }
@@ -1152,7 +1170,8 @@ export function registerTwilioRoutes(app: Express) {
       const { initialMessage } = onboardingCompleteSchema.parse(req.body);
 
       // Ensure initial message includes compliance text
-      const complianceText = "Text STOP to unsubscribe.";
+      const complianceText =
+        "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
       const finalMessage = initialMessage.includes(complianceText)
         ? initialMessage
         : `${initialMessage} ${complianceText}`;

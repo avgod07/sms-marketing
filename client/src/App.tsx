@@ -20,6 +20,8 @@ import Login from "@/pages/auth/login";
 import Signup from "@/pages/auth/signup";
 import CheckoutSuccess from "@/pages/checkout-success";
 import SubscriptionSuccess from "@/pages/subscription-success";
+import PrivacyPolicyPage from "@/pages/privacy";
+import TermsOfServicePage from "@/pages/terms";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useSetupStatus } from "@/hooks/use-setup-status";
@@ -35,7 +37,7 @@ function Router() {
     location === "/signup" ||
     location.startsWith("/sign-in") ||
     location.startsWith("/sign-up");
-  const isPublicPage = location.startsWith("/join/");
+  const isPublicPage = location.startsWith("/join/") || location === "/privacy" || location === "/terms";
   const isOnboardingPage = location === "/onboarding";
 
   useEffect(() => {
@@ -89,6 +91,8 @@ function Router() {
           <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/checkout-success" component={CheckoutSuccess} />
           <Route path="/subscription-success" component={SubscriptionSuccess} />
+          <Route path="/privacy" component={PrivacyPolicyPage} />
+          <Route path="/terms" component={TermsOfServicePage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
