@@ -16,14 +16,14 @@ import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { Campaign } from "@shared/schema";
-import type { CampaignStats } from "@shared/api-types";
+import type { CampaignStats, CampaignWithQueue } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 
 export default function Campaigns() {
-  const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithQueue | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { toast } = useToast();
   const { data: user } = useAuth();
@@ -33,7 +33,7 @@ export default function Campaigns() {
     enabled: !!user,
   });
 
-  const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
+  const { data: campaigns, isLoading: campaignsLoading } = useQuery<CampaignWithQueue[]>({
     queryKey: ["/api/campaigns"],
     enabled: !!user,
   });
@@ -62,7 +62,7 @@ export default function Campaigns() {
 
 
 
-  const handleDelete = (campaign: Campaign) => {
+  const handleDelete = (campaign: CampaignWithQueue) => {
     setDeletingCampaign(campaign);
     setIsDeleteOpen(true);
   };

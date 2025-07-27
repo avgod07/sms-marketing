@@ -7,7 +7,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import type { SchedulingValidationResult } from "@shared/api-types";
+
+interface BusinessHoursCheck {
+  isBusinessHours: boolean;
+  currentTime: string;
+  nextBusinessHour: string | null;
+  willBeQueued: boolean;
+  businessTimezone: string;
+  businessHours: string;
+}
 
 export interface SchedulingOptions {
   mode: 'immediate' | 'scheduled';
@@ -34,6 +44,18 @@ export function TimingControl({
 }: TimingControlProps) {
   const [validation, setValidation] = useState<SchedulingValidationResult | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
+
+  // Check current business hours status
+  const { data: hoursCheck } = useQuery<BusinessHoursCheck>({
+    queryKey: ["/api/business/hours-check"],
+    queryFn: async () => {
+      const res = await apiRequest({ method: "GET", url: "/api/business/hours-check" });
+      return res.json();
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  const canCreateImmediate = hoursCheck?.isBusinessHours ?? true; // Default to true while loading
 
   // Validate scheduling time when it changes
   useEffect(() => {
@@ -68,6 +90,11 @@ export function TimingControl({
   };
 
   const handleModeChange = (mode: 'immediate' | 'scheduled') => {
+    // Prevent switching to immediate mode outside business hours
+    if (mode === 'immediate' && !canCreateImmediate) {
+      return;
+    }
+
     if (mode === 'immediate') {
       onChange({
         mode,
@@ -164,23 +191,36 @@ export function TimingControl({
       {/* Radio Button Group */}
       <div className="mt-2 space-y-3">
         {/* Send Now Option */}
-        <label className="flex items-center space-x-3 cursor-pointer">
+        <label className={`flex items-center space-x-3 ${!canCreateImmediate ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
           <input
             type="radio"
             name="timing"
             value="immediate"
             checked={value.mode === 'immediate'}
             onChange={() => handleModeChange('immediate')}
-            disabled={disabled}
+            disabled={disabled || !canCreateImmediate}
             className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
           />
           <div className="flex-1">
             <div className="text-sm font-medium text-gray-900">Send now</div>
             <div className="text-sm text-gray-500">
-              Sends the moment you click "Create Campaign"
+              {canCreateImmediate 
+                ? "Sends the moment you click \"Create Campaign\""
+                : "Available during business hours only (8 AM - 8 PM)"
+              }
             </div>
           </div>
         </label>
+
+        {/* Business Hours Warning */}
+        {!canCreateImmediate && (
+          <div className="ml-7 text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+            ⏰ <strong>Outside business hours</strong> • Current business time: {hoursCheck?.currentTime}
+            {hoursCheck?.nextBusinessHour && (
+              <> • Next available: {hoursCheck.nextBusinessHour}</>
+            )}
+          </div>
+        )}
 
         {/* Custom Date & Time Option */}
         <label className="flex items-center space-x-3 cursor-pointer">

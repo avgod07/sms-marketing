@@ -24,6 +24,7 @@ import {
   CampaignScheduleResponse,
 } from "@shared/api-types";
 import { CampaignSchedulingService } from "../../services/campaign-scheduling.js";
+import { QuietHoursCompliance } from "../../services/quiet-hours-compliance.js";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -108,6 +109,42 @@ export function registerCampaignRoutes(app: Express) {
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
+
+        // TCPA COMPLIANCE: Block immediate campaign creation outside business hours
+        const business = await biz.getBusiness();
+        if (
+          !QuietHoursCompliance.canSendImmediately(
+            business.timezone,
+            "campaign"
+          )
+        ) {
+          const nextSendTime = QuietHoursCompliance.getNextSendTime(
+            business.timezone
+          );
+          const currentBusinessTime = new Date().toLocaleString("en-US", {
+            timeZone: business.timezone,
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZoneName: "short",
+          });
+          const nextAvailable = nextSendTime.toLocaleString("en-US", {
+            timeZone: business.timezone,
+            weekday: "short",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+
+          return res.status(400).json({
+            message:
+              "Immediate campaigns are only available during business hours (8:00 AM - 8:00 PM).",
+            businessHours: "8:00 AM - 8:00 PM",
+            currentBusinessTime,
+            nextAvailable,
+            businessTimezone: business.timezone,
+          });
+        }
 
         // Check if user has sufficient credits for campaign
         const contacts = (await biz.getContacts()).filter((c) => c.active);
@@ -672,21 +709,6 @@ export function registerCampaignRoutes(app: Express) {
     } catch (error) {
       logError("Error cancelling scheduled campaign:", error);
       res.status(500).json({ message: "Failed to cancel scheduled campaign" });
-    }
-  });
-
-  /**
-   * Get all scheduled campaigns for business
-   */
-  app.get("/api/campaigns/scheduled", requireAuth(), async (req, res) => {
-    try {
-      const { biz } = await getBizForRequest(req);
-      const scheduledCampaigns =
-        await CampaignSchedulingService.getScheduledCampaigns(biz);
-      res.json(scheduledCampaigns);
-    } catch (error) {
-      logError("Error fetching scheduled campaigns:", error);
-      res.status(500).json({ message: "Failed to fetch scheduled campaigns" });
     }
   });
 

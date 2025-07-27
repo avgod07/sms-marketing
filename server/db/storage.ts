@@ -64,8 +64,10 @@ import {
   smsCommandPending,
   type SmsCommandPending,
   type InsertSmsCommandPending,
+  messageQueue,
+  type MessageQueue,
 } from "@shared/schema";
-import type { ContactRedemption } from "@shared/api-types";
+import type { ContactRedemption, CampaignWithQueue } from "@shared/api-types";
 import { db } from "../config/db.config";
 import { eq, desc, asc, count, sql, and } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
@@ -125,7 +127,7 @@ export interface IStorage {
   searchContacts(query: string): Promise<Contact[]>;
 
   // Campaigns
-  getCampaigns(): Promise<Campaign[]>;
+  getCampaigns(): Promise<CampaignWithQueue[]>;
   getCampaign(id: number): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign>;
@@ -455,13 +457,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Campaigns
-  async getCampaigns(): Promise<Campaign[]> {
+  async getCampaigns(): Promise<CampaignWithQueue[]> {
     const businessId = this.requireBusinessId();
-    return await db
-      .select()
+
+    const campaignsWithQueue = await db
+      .select({
+        id: campaigns.id,
+        businessId: campaigns.businessId,
+        name: campaigns.name,
+        message: campaigns.message,
+        mediaUrl: campaigns.mediaUrl,
+        status: campaigns.status,
+        sentCount: campaigns.sentCount,
+        deliveredCount: campaigns.deliveredCount,
+        clickCount: campaigns.clickCount,
+        scheduledAt: campaigns.scheduledAt,
+        campaignSource: campaigns.campaignSource,
+        commandSenderPhone: campaigns.commandSenderPhone,
+        scheduledSendTime: campaigns.scheduledSendTime,
+        schedulingType: campaigns.schedulingType,
+        scheduledBy: campaigns.scheduledBy,
+        scheduleNotes: campaigns.scheduleNotes,
+        createdAt: campaigns.createdAt,
+        updatedAt: campaigns.updatedAt,
+        queuedMessageCount: sql<number>`COALESCE(COUNT(${messageQueue.id}), 0)`,
+        nextQueuedSendTime: sql<Date>`MIN(${messageQueue.scheduledFor})`,
+      })
       .from(campaigns)
+      .leftJoin(
+        messageQueue,
+        and(
+          sql`${messageQueue.metadata}::text LIKE '%"campaignId":' || ${campaigns.id} || '%'`,
+          eq(messageQueue.status, "pending")
+        )
+      )
       .where(eq(campaigns.businessId, businessId))
+      .groupBy(campaigns.id)
       .orderBy(desc(campaigns.createdAt));
+
+    return campaignsWithQueue.map((campaign) => ({
+      ...campaign,
+      hasQueuedMessages: (campaign.queuedMessageCount || 0) > 0,
+    }));
   }
 
   async getCampaign(id: number): Promise<Campaign | undefined> {

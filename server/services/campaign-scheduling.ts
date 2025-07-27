@@ -7,7 +7,6 @@ import { logInfo, logError } from "../utils/logger.util.js";
 import type {
   CampaignScheduleRequest,
   CampaignScheduleResponse,
-  ScheduledCampaignListItem,
   SchedulingValidationResult,
 } from "@shared/api-types";
 
@@ -411,111 +410,6 @@ export class CampaignSchedulingService {
   }
 
   /**
-   * Get list of scheduled campaigns for a business
-   */
-  static async getScheduledCampaigns(
-    bizStorage: IStorage
-  ): Promise<ScheduledCampaignListItem[]> {
-    try {
-      const campaigns = await bizStorage.getCampaigns();
-      const business = await bizStorage.getBusiness();
-      const contacts = (await bizStorage.getContacts()).filter((c) => c.active);
-
-      // Get deliberately scheduled campaigns
-      const deliberatelyScheduled = campaigns.filter(
-        (c) => c.status === "scheduled" && c.schedulingType === "scheduled"
-      );
-
-      // Get immediate campaigns that still have queued messages
-      const immediateWithQueue = [];
-      for (const campaign of campaigns) {
-        if (
-          campaign.status === "completed" &&
-          campaign.schedulingType === "immediate"
-        ) {
-          try {
-            const queueStats = await MessageQueueService.getCampaignQueueStats(
-              campaign.id
-            );
-            if (queueStats.pendingCount > 0) {
-              // Create a modified campaign that appears as "scheduled"
-              immediateWithQueue.push({
-                ...campaign,
-                // Override scheduledSendTime to show actual queue time
-                scheduledSendTime: queueStats.nextSendTime,
-                // Update schedule notes to indicate this was queued due to business hours
-                scheduleNotes: campaign.scheduleNotes
-                  ? `${campaign.scheduleNotes} (Queued due to business hours)`
-                  : "Queued due to business hours",
-                // Track that this was originally immediate
-                originalIntent: "immediate" as const,
-              });
-            }
-          } catch (error) {
-            logError("Failed to get queue stats for campaign", {
-              campaignId: campaign.id,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-      }
-
-      // Combine both types of campaigns
-      const allCampaigns = [...deliberatelyScheduled, ...immediateWithQueue];
-
-      const scheduledCampaigns = allCampaigns
-        .map((campaign) => {
-          const creditCost = MessageCreditService.calculateCreditCost(
-            campaign.message,
-            !!campaign.mediaUrl
-          );
-          const estimatedCredits = contacts.length * creditCost;
-
-          const countdown = campaign.scheduledSendTime
-            ? this.calculateCountdown(
-                campaign.scheduledSendTime,
-                business.timezone
-              )
-            : undefined;
-
-          return {
-            id: campaign.id,
-            name: campaign.name,
-            message: campaign.message,
-            scheduledSendTime: campaign.scheduledSendTime?.toISOString() || "",
-            schedulingType: campaign.schedulingType as "scheduled",
-            scheduledBy: campaign.scheduledBy,
-            scheduleNotes: campaign.scheduleNotes,
-            totalContacts: contacts.length,
-            estimatedCredits,
-            businessTimezone: business.timezone,
-            createdAt: campaign.createdAt.toISOString(),
-            countdown,
-            // Add metadata to help frontend distinguish types
-            originalIntent: (campaign as any).originalIntent || "scheduled",
-          } as ScheduledCampaignListItem & { originalIntent?: string };
-        })
-        .sort(
-          (a, b) =>
-            new Date(a.scheduledSendTime).getTime() -
-            new Date(b.scheduledSendTime).getTime()
-        );
-
-      logInfo("Retrieved scheduled campaigns", {
-        businessId: business.id,
-        deliberatelyScheduled: deliberatelyScheduled.length,
-        immediateWithQueue: immediateWithQueue.length,
-        total: scheduledCampaigns.length,
-      });
-
-      return scheduledCampaigns;
-    } catch (error) {
-      logError("Failed to get scheduled campaigns", { error });
-      return [];
-    }
-  }
-
-  /**
    * Get campaigns ready to be sent (scheduled time has passed)
    */
   static async getCampaignsReadyToSend(): Promise<any[]> {
@@ -559,11 +453,10 @@ export class CampaignSchedulingService {
     const isBusinessHours = hour >= 8 && hour < 20;
 
     if (!isBusinessHours && !forceSchedule) {
-      warnings.push(
-        `Scheduled time (${businessTime.format(
-          "h:mm A"
-        )}) is outside business hours (8 AM - 8 PM). ` +
-          "Messages will still be sent at the scheduled time."
+      errors.push(
+        `Campaigns can only be scheduled between 8:00 AM and 8:00 PM. ` +
+          `Requested time: ${businessTime.format("h:mm A")}. ` +
+          `Please choose a time during business hours.`
       );
     }
 

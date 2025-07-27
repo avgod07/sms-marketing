@@ -1,4 +1,5 @@
 import StatusBadge from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,12 +9,48 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
 import { Campaign } from "@shared/schema";
+import type { CampaignWithQueue } from "@shared/api-types";
 import { MoreHorizontal, Trash2, Play } from "lucide-react";
 
+// Get appropriate status badge with queue support
+function getStatusBadge(campaign: CampaignWithQueue) {
+  // Legacy queue support (for existing campaigns with queued messages)
+  if (campaign.status === "completed" && campaign.hasQueuedMessages) {
+    return (
+      <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">
+        🟡 Queued for Business Hours
+      </Badge>
+    );
+  }
+  
+  if (campaign.status === "scheduled") {
+    return (
+      <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200">
+        📅 Scheduled for {campaign.scheduledSendTime ? formatDate(campaign.scheduledSendTime) : 'later'}
+      </Badge>
+    );
+  }
+  
+  if (campaign.status === "completed") {
+    return (
+      <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
+        ✅ Completed
+      </Badge>
+    );
+  }
+  
+  // Fallback to existing status badge
+  return (
+    <StatusBadge status={campaign.status} className="whitespace-nowrap">
+      {formatCampaignStatus(campaign.status)}
+    </StatusBadge>
+  );
+}
+
 interface CampaignTableProps {
-  campaigns: Campaign[];
+  campaigns: CampaignWithQueue[];
   isLoading: boolean;
-  onDelete: (campaign: Campaign) => void;
+  onDelete: (campaign: CampaignWithQueue) => void;
 }
 
 export default function CampaignTable({
@@ -94,12 +131,7 @@ export default function CampaignTable({
                 <span className="text-gray-900">{formatNumber(campaign.deliveredCount || 0)}</span>
               </td>
               <td className="py-4 px-4 align-middle">
-                <StatusBadge
-                  status={campaign.status}
-                  className="whitespace-nowrap"
-                >
-                  {formatCampaignStatus(campaign.status)}
-                </StatusBadge>
+                {getStatusBadge(campaign)}
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">

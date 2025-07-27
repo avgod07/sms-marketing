@@ -109,7 +109,6 @@ export default function NewCampaignPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/scheduled"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       

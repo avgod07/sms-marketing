@@ -1,3 +1,12 @@
+import type { Campaign } from "./schema";
+
+// Enhanced campaign type with queue information
+export type CampaignWithQueue = Campaign & {
+  hasQueuedMessages?: boolean;
+  queuedMessageCount?: number;
+  nextQueuedSendTime?: Date;
+};
+
 export interface DashboardStats {
   totalContacts: number;
   messagesSent: number;
@@ -72,25 +81,6 @@ export interface CampaignScheduleResponse {
     timeUntilSend: string; // Human readable like "in 2 hours"
     exactTime: string; // ISO string
   };
-}
-
-export interface ScheduledCampaignListItem {
-  id: number;
-  name: string;
-  message: string;
-  scheduledSendTime: string;
-  schedulingType: "scheduled" | "cancelled";
-  scheduledBy?: string;
-  scheduleNotes?: string;
-  totalContacts: number;
-  estimatedCredits: number;
-  businessTimezone: string;
-  createdAt: string;
-  countdown?: {
-    timeUntilSend: string;
-    exactTime: string;
-  };
-  originalIntent?: "immediate" | "scheduled"; // Track if this was originally an immediate campaign
 }
 
 export interface SchedulingValidationResult {
