@@ -15,7 +15,6 @@ import {
 import CampaignTable from "@/components/campaigns/campaign-table";
 import { Plus, Send, Target } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
-import type { Campaign } from "@shared/schema";
 import type { CampaignStats, CampaignWithQueue } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";

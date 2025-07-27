@@ -67,7 +67,11 @@ import {
   messageQueue,
   type MessageQueue,
 } from "@shared/schema";
-import type { ContactRedemption, CampaignWithQueue } from "@shared/api-types";
+import type {
+  ContactRedemption,
+  CampaignWithQueue,
+  RecentCampaign,
+} from "@shared/api-types";
 import { db } from "../config/db.config";
 import { eq, desc, asc, count, sql, and } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
@@ -209,7 +213,7 @@ export interface IStorage {
 
   // Recent Activity
   getRecentContacts(limit?: number): Promise<Contact[]>;
-  getRecentCampaigns(limit?: number): Promise<Campaign[]>;
+  getRecentCampaigns(limit?: number): Promise<RecentCampaign[]>;
   getRecentMessages(limit?: number): Promise<Message[]>;
   getRecentInboxMessages(limit?: number): Promise<Message[]>;
 
@@ -1740,15 +1744,28 @@ export class DatabaseStorage implements IStorage {
     return limit ? recentContacts.slice(0, limit) : recentContacts;
   }
 
-  async getRecentCampaigns(limit?: number): Promise<Campaign[]> {
+  async getRecentCampaigns(limit?: number): Promise<RecentCampaign[]> {
     const businessId = this.requireBusinessId();
     const recentCampaigns = await db
-      .select()
+      .select({
+        id: campaigns.id,
+        name: campaigns.name,
+        status: campaigns.status,
+        createdAt: campaigns.createdAt,
+      })
       .from(campaigns)
       .where(eq(campaigns.businessId, businessId))
       .orderBy(desc(campaigns.createdAt));
 
-    return limit ? recentCampaigns.slice(0, limit) : recentCampaigns;
+    // Convert to RecentCampaign format with string dates
+    const formattedCampaigns = recentCampaigns.map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      createdAt: campaign.createdAt.toISOString(),
+    }));
+
+    return limit ? formattedCampaigns.slice(0, limit) : formattedCampaigns;
   }
 
   async getRecentMessages(limit?: number): Promise<Message[]> {

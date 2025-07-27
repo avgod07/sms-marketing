@@ -8,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
-import { Campaign } from "@shared/schema";
 import type { CampaignWithQueue } from "@shared/api-types";
 import { MoreHorizontal, Trash2, Play } from "lucide-react";
 
