@@ -208,7 +208,8 @@ export interface IStorage {
   }>;
   getCampaignStats(): Promise<{
     activeCampaigns: number;
-    messagesThisMonth: number;
+    campaignsThisMonth: number;
+    scheduledCampaigns: number;
   }>;
 
   // Recent Activity
@@ -1131,9 +1132,12 @@ export class DatabaseStorage implements IStorage {
 
   async getCampaignStats(): Promise<{
     activeCampaigns: number;
-    messagesThisMonth: number;
+    campaignsThisMonth: number;
+    scheduledCampaigns: number;
   }> {
     const businessId = this.requireBusinessId();
+
+    // Get in-progress campaigns
     const [activeCampaigns] = await db
       .select({ count: count() })
       .from(campaigns)
@@ -1141,18 +1145,28 @@ export class DatabaseStorage implements IStorage {
         sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`
       );
 
+    // Get campaigns created this month
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [messagesThisMonth] = await db
+    const [campaignsThisMonth] = await db
       .select({ count: count() })
-      .from(messages)
+      .from(campaigns)
       .where(
-        sql`${messages.createdAt} >= ${firstDayOfMonth} AND ${messages.businessId} = ${businessId}`
+        sql`${campaigns.createdAt} >= ${firstDayOfMonth} AND ${campaigns.businessId} = ${businessId}`
+      );
+
+    // Get scheduled campaigns
+    const [scheduledCampaigns] = await db
+      .select({ count: count() })
+      .from(campaigns)
+      .where(
+        sql`${campaigns.status} = 'scheduled' AND ${campaigns.businessId} = ${businessId}`
       );
 
     return {
       activeCampaigns: activeCampaigns.count,
-      messagesThisMonth: messagesThisMonth.count,
+      campaignsThisMonth: campaignsThisMonth.count,
+      scheduledCampaigns: scheduledCampaigns.count,
     };
   }
 

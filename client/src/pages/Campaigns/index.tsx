@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import CampaignTable from "@/components/campaigns/campaign-table";
-import { Plus, Send, Target } from "lucide-react";
+import { Plus, Send, Target, Calendar } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import type { CampaignStats, CampaignWithQueue } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
@@ -79,11 +79,18 @@ export default function Campaigns() {
       bgColor: "bg-green-50",
     },
     {
-      title: "Messages This Month",
-      value: campaignStats?.messagesThisMonth || 0,
+      title: "Campaigns This Month",
+      value: campaignStats?.campaignsThisMonth || 0,
       icon: Target,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
+    },
+    {
+      title: "Scheduled Campaigns",
+      value: campaignStats?.scheduledCampaigns || 0,
+      icon: Calendar,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
     },
   ];
 
@@ -118,7 +125,7 @@ export default function Campaigns() {
       {/* Content */}
       <div className="p-8">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (

@@ -24,7 +24,8 @@ export interface ContactStats {
 
 export interface CampaignStats {
   activeCampaigns: number;
-  messagesThisMonth: number;
+  campaignsThisMonth: number;
+  scheduledCampaigns: number;
 }
 
 export interface SetupStatus {
