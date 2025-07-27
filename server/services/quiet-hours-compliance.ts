@@ -7,6 +7,18 @@ import moment from "moment-timezone";
 export class QuietHoursCompliance {
   /**
    * Check if a message can be sent immediately based on business timezone
+   *
+   * IMMEDIATE EXEMPTIONS (always send immediately):
+   * - stop_response: FCC requirement for immediate processing
+   * - help_response: Customer service requirement (same as STOP)
+   * - individual: One-to-one conversational messages (customer service)
+   *
+   * QUEUED (respect business hours 8 AM - 8 PM):
+   * - campaign: Mass marketing messages (TCPA compliance)
+   * - welcome: Auto-welcome messages (marketing)
+   * - test: Test messages
+   * - sms_command_response: Command confirmations
+   *
    * @param businessTimezone - Business timezone (e.g., 'America/New_York')
    * @param messageType - Type of message being sent
    * @returns true if message can be sent immediately, false if it should be queued
@@ -17,6 +29,16 @@ export class QuietHoursCompliance {
   ): boolean {
     // CRITICAL EXCEPTION: STOP responses MUST send immediately (FCC requirement)
     if (messageType === "stop_response") {
+      return true;
+    }
+
+    // CRITICAL EXCEPTION: HELP responses MUST send immediately (customer service requirement)
+    if (messageType === "help_response") {
+      return true;
+    }
+
+    // CONVERSATIONAL EXCEPTION: Individual messages send immediately (one-to-one conversations)
+    if (messageType === "individual") {
       return true;
     }
 
