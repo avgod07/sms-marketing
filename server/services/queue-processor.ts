@@ -11,6 +11,10 @@ import { logInfo, logError } from "../utils/logger.util.js";
 import { executeCampaign } from "./campaign.js";
 import { campaigns } from "@shared/schema";
 
+// Feature flag to control message retry behavior
+// Set to false to disable retries and mark messages as failed immediately
+const ENABLE_MESSAGE_RETRIES = process.env.ENABLE_MESSAGE_RETRIES === "true";
+
 export interface QueueProcessingStats {
   totalProcessed: number;
   sentCount: number;
@@ -198,18 +202,22 @@ export class QueueProcessor {
             messageId: message.id,
             businessId,
             error: error instanceof Error ? error.message : String(error),
+            retryEnabled: ENABLE_MESSAGE_RETRIES,
+            attempts: message.attempts,
           });
 
-          // Mark message as failed after max attempts
-          if (message.attempts >= 3) {
-            await MessageQueueService.markAsFailed(
-              message.id,
-              error instanceof Error
-                ? error.message
-                : "Max retry attempts exceeded"
-            );
+          // Feature flag: Check if retries are enabled and max attempts not exceeded
+          if (message.attempts >= 3 || !ENABLE_MESSAGE_RETRIES) {
+            // Mark as failed immediately (retries disabled) OR after max attempts
+            const failureReason = !ENABLE_MESSAGE_RETRIES
+              ? "Message failed - retries disabled"
+              : error instanceof Error
+              ? error.message
+              : "Max retry attempts exceeded";
+
+            await MessageQueueService.markAsFailed(message.id, failureReason);
           } else {
-            // Reschedule for retry (15 minutes later)
+            // Original retry logic (when retries are enabled and attempts < 3)
             const retryTime = new Date(Date.now() + 15 * 60 * 1000);
             await MessageQueueService.rescheduleMessage(message.id, retryTime);
           }
