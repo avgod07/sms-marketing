@@ -12,12 +12,12 @@ export class QuietHoursCompliance {
    * - stop_response: FCC requirement for immediate processing
    * - help_response: Customer service requirement (same as STOP)
    * - individual: One-to-one conversational messages (customer service)
+   * - sms_command_response: Operational feedback (error messages, confirmations)
    *
    * QUEUED (respect business hours 8 AM - 8 PM):
    * - campaign: Mass marketing messages (TCPA compliance)
    * - welcome: Auto-welcome messages (marketing)
    * - test: Test messages
-   * - sms_command_response: Command confirmations
    *
    * @param businessTimezone - Business timezone (e.g., 'America/New_York')
    * @param messageType - Type of message being sent
@@ -39,6 +39,11 @@ export class QuietHoursCompliance {
 
     // CONVERSATIONAL EXCEPTION: Individual messages send immediately (one-to-one conversations)
     if (messageType === "individual") {
+      return true;
+    }
+
+    // CRITICAL EXCEPTION: SMS command responses MUST send immediately (operational feedback)
+    if (messageType === "sms_command_response") {
       return true;
     }
 
