@@ -189,7 +189,7 @@ export function TimingControl({
         Timing Control
       </Label>
       
-      <Card className="border-gray-200 bg-white mt-2">
+      <Card className="border-gray-200 bg-white">
         <CardContent className="p-4">
           {/* Radio Button Group */}
           <div className="space-y-3">
