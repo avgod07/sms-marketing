@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import type {
   RecentContact,
   RecentCampaign,
@@ -7,12 +8,15 @@ import type {
 } from "@shared/api-types";
 
 export function useRecentActivity() {
+  const { data: user } = useAuth();
+
   const {
     data: contacts,
     isLoading: contactsLoading,
     isError: contactsError,
   } = useQuery<RecentContact[]>({
     queryKey: ["/api/contacts/recent"],
+    enabled: !!user,
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -22,6 +26,7 @@ export function useRecentActivity() {
     isError: campaignsError,
   } = useQuery<RecentCampaign[]>({
     queryKey: ["/api/campaigns/recent"],
+    enabled: !!user,
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -31,6 +36,7 @@ export function useRecentActivity() {
     isError: messagesError,
   } = useQuery<RecentMessage[]>({
     queryKey: ["/api/messages/recent"],
+    enabled: !!user,
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -40,6 +46,7 @@ export function useRecentActivity() {
     isError: inboxMessagesError,
   } = useQuery<RecentInboxMessage[]>({
     queryKey: ["/api/messages/inbox/recent"],
+    enabled: !!user,
     staleTime: 30 * 1000, // 30 seconds
   });
 

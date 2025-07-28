@@ -43,16 +43,18 @@ import type { TwilioSettings } from "@shared/api-types";
 import InitialMessageSettings from "@/components/InitialMessageSettings";
 import SMSCommandSettings from "@/components/SMSCommandSettings";
 import BusinessSettingsTab from "@/components/settings/BusinessSettingsTab";
-import { useUser } from "@clerk/clerk-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Settings() {
   const { toast } = useToast();
   const [location] = useLocation();
   const [activeTab, setActiveTab] = useState("account");
+  const { data: user } = useAuth();
 
   // Query to get current account info (company name and email)
   const { data: accountInfo, isLoading, error } = useQuery({
     queryKey: ["/api/business/account-info"],
+    enabled: !!user,
     queryFn: async () => {
       const res = await apiRequest({ method: "GET", url: "/api/business/account-info" });
       return res.json();

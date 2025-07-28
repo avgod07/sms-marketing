@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useSetupStatus } from "@/hooks/use-setup-status";
+import { useAuth } from "@/hooks/use-auth";
 
 interface BusinessHoursCheck {
   isBusinessHours: boolean;
@@ -18,10 +19,12 @@ interface BusinessHoursWarningProps {
 }
 
 export default function BusinessHoursWarning({ onHoursCheck }: BusinessHoursWarningProps) {
+  const { data: user } = useAuth();
   const { data: setup } = useSetupStatus();
   
   const { data: hoursCheck, isLoading } = useQuery<BusinessHoursCheck>({
     queryKey: ["/api/business/hours-check"],
+    enabled: !!user,
     queryFn: async () => {
       const res = await apiRequest({ method: "GET", url: "/api/business/hours-check" });
       return res.json();

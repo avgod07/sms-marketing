@@ -35,6 +35,7 @@ function Router() {
   const isAuthPage =
     location === "/login" ||
     location === "/signup" ||
+    location.startsWith("/signup/") ||
     location.startsWith("/sign-in") ||
     location.startsWith("/sign-up");
   const isPublicPage = location.startsWith("/join/") || location === "/privacy" || location === "/terms";
@@ -46,10 +47,10 @@ function Router() {
 
     // If user is authenticated and on auth page, redirect appropriately
     if (user && isClerkAuthenticated && isAuthPage) {
-      if (setupStatus && !setupStatus.onboardingComplete) {
-        navigate("/onboarding");
-      } else {
+      if (setupStatus?.onboardingComplete) {
         navigate("/dashboard");
+      } else {
+        navigate("/onboarding");
       }
       return;
     }
@@ -88,6 +89,7 @@ function Router() {
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
+          <Route path="/signup/:rest*" component={Signup} />
           <Route path="/join/:businessId" component={JoinPage} />
           <Route path="/checkout-success" component={CheckoutSuccess} />
           <Route path="/subscription-success" component={SubscriptionSuccess} />

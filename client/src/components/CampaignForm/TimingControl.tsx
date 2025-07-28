@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -188,171 +189,173 @@ export function TimingControl({
         Timing Control
       </Label>
       
-      {/* Radio Button Group */}
-      <div className="mt-2 space-y-3">
-        {/* Send Now Option */}
-        <label className={`flex items-center space-x-3 ${!canCreateImmediate ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-          <input
-            type="radio"
-            name="timing"
-            value="immediate"
-            checked={value.mode === 'immediate'}
-            onChange={() => handleModeChange('immediate')}
-            disabled={disabled || !canCreateImmediate}
-            className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">Send now</div>
-            <div className="text-sm text-gray-500">
-              {canCreateImmediate 
-                ? "Sends the moment you click \"Create Campaign\""
-                : "Available during business hours only (8 AM - 8 PM)"
-              }
+      <Card className="border-gray-200 bg-white mt-2">
+        <CardContent className="p-4">
+          {/* Radio Button Group */}
+          <div className="space-y-3">
+          {/* Send Now Option */}
+          <label className={`flex items-center space-x-3 ${!canCreateImmediate ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+            <input
+              type="radio"
+              name="timing"
+              value="immediate"
+              checked={value.mode === 'immediate'}
+              onChange={() => handleModeChange('immediate')}
+              disabled={disabled || !canCreateImmediate}
+              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">Send now</div>
+              <div className="text-sm text-gray-500">
+                {canCreateImmediate 
+                  ? "Sends the moment you click \"Create Campaign\""
+                  : "Available during business hours only (8 AM - 8 PM)"
+                }
+              </div>
             </div>
-          </div>
-        </label>
+          </label>
 
-        {/* Business Hours Warning */}
-        {!canCreateImmediate && (
-          <div className="ml-7 text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-            ⏰ <strong>Outside business hours</strong> • Current business time: {hoursCheck?.currentTime}
-            {hoursCheck?.nextBusinessHour && (
-              <> • Next available: {hoursCheck.nextBusinessHour}</>
-            )}
+          {/* Business Hours Warning */}
+          {!canCreateImmediate && (
+            <div className="ml-7 text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+              ⏰ <strong>Outside business hours</strong> • Current business time: {hoursCheck?.currentTime}
+              {hoursCheck?.nextBusinessHour && (
+                <> • Next available: {hoursCheck.nextBusinessHour}</>
+              )}
+            </div>
+          )}
+
+          {/* Custom Date & Time Option */}
+          <label className="flex items-center space-x-3 cursor-pointer">
+            <input
+              type="radio"
+              name="timing"
+              value="scheduled"
+              checked={value.mode === 'scheduled'}
+              onChange={() => handleModeChange('scheduled')}
+              disabled={disabled}
+              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">Custom date & time</div>
+              <div className="text-sm text-gray-500">
+                Schedule for a specific date and time
+              </div>
+            </div>
+          </label>
+        </div>
+
+        {/* Helper Text for Immediate Mode */}
+        {value.mode === 'immediate' && (
+          <div className="mt-2 text-sm text-gray-500">
+            If sent outside business hours ({businessHours}), messages will be queued until the next business hour.
           </div>
         )}
 
-        {/* Custom Date & Time Option */}
-        <label className="flex items-center space-x-3 cursor-pointer">
-          <input
-            type="radio"
-            name="timing"
-            value="scheduled"
-            checked={value.mode === 'scheduled'}
-            onChange={() => handleModeChange('scheduled')}
-            disabled={disabled}
-            className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">Custom date & time</div>
-            <div className="text-sm text-gray-500">
-              Schedule for a specific date and time
-            </div>
-          </div>
-        </label>
-      </div>
-
-      {/* Helper Text for Immediate Mode */}
-      {value.mode === 'immediate' && (
-        <div className="mt-2 text-sm text-gray-500">
-          If sent outside business hours ({businessHours}), messages will be queued until the next business hour.
-        </div>
-      )}
-
-      {/* Scheduling Options - Revealed when Custom Date selected */}
-      {value.mode === 'scheduled' && (
-        <div className="mt-4 space-y-4">
-          {/* Scheduled Date & Time */}
-          <div>
-            <Label htmlFor="scheduledDateTime" className="text-sm font-medium">
-              Scheduled Date & Time
-            </Label>
-            <div className="mt-1">
-              <DateTimePicker
-                value={value.scheduledTime}
-                onChange={handleScheduledTimeChange}
-                disabled={disabled}
-                timezone={timezone}
-                minDate={new Date()}
-                placeholder="Select date and time"
-              />
-            </div>
-            
-            {/* Countdown Display */}
-            {value.scheduledTime && (
-              <div className="mt-1 text-sm text-gray-500">
-                Will send {formatCountdown(value.scheduledTime)} • {timezone}
-              </div>
-            )}
-          </div>
-
-          {/* Quick Select Options */}
-          <div>
-            <Label className="text-sm font-medium text-gray-700">Quick Options</Label>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {getQuickSelectOptions().map((option, index) => (
-                <Button
-                  key={index}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleScheduledTimeChange(option.date)}
+        {/* Scheduling Options - Revealed when Custom Date selected */}
+        {value.mode === 'scheduled' && (
+          <div className="mt-4 space-y-4">
+            {/* Scheduled Date & Time */}
+            <div>
+              <Label htmlFor="scheduledDateTime" className="text-sm font-medium">
+                Scheduled Date & Time
+              </Label>
+              <div className="mt-1">
+                <DateTimePicker
+                  value={value.scheduledTime}
+                  onChange={handleScheduledTimeChange}
                   disabled={disabled}
-                  className="text-xs h-8 px-3"
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Schedule Notes */}
-          <div>
-            <Label htmlFor="scheduleNotes" className="text-sm font-medium">
-              Notes (Optional)
-            </Label>
-            <Textarea
-              id="scheduleNotes"
-              value={value.scheduleNotes || ''}
-              onChange={(e) => handleNotesChange(e.target.value)}
-              placeholder="Add notes about this scheduled campaign..."
-              disabled={disabled}
-              rows={2}
-              className="mt-1 text-sm resize-none"
-            />
-          </div>
-
-          {/* Validation Loading */}
-          {validationLoading && (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-              Validating schedule time...
-            </div>
-          )}
-
-          {/* Validation Results */}
-          {validation && !validationLoading && (
-            <div className="space-y-2">
-              {/* Errors */}
-              {validation.errors && validation.errors.length > 0 && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    {validation.errors.join(". ")}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Warnings */}
-              {validation.warnings && validation.warnings.length > 0 && (
-                <Alert className="bg-orange-50 border-orange-200">
-                  <Info className="h-4 w-4 text-orange-600" />
-                  <AlertDescription className="text-sm text-orange-800">
-                    {validation.warnings.join(". ")}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Business Hours Impact */}
-              {validation.businessHoursImpact?.isOutsideBusinessHours && (
-                <div className="text-sm text-orange-600">
-                  ⚠️ Scheduled outside business hours ({businessHours})
+                  timezone={timezone}
+                  minDate={new Date()}
+                  placeholder="Select date and time"
+                />
+              </div>
+              
+              {/* Countdown Display */}
+              {value.scheduledTime && (
+                <div className="mt-1 text-sm text-gray-500">
+                  Will send {formatCountdown(value.scheduledTime)} • {timezone}
                 </div>
               )}
             </div>
+
+            {/* Quick Select Options */}
+            <div>
+              <Label className="text-sm font-medium">Quick Select</Label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {getQuickSelectOptions().map((option, index) => (
+                  <Button
+                    key={index}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleScheduledTimeChange(option.date)}
+                    disabled={disabled}
+                    className="text-xs"
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Schedule Notes */}
+            <div>
+              <Label htmlFor="scheduleNotes" className="text-sm font-medium">
+                Notes (Optional)
+              </Label>
+                              <Textarea
+                  id="scheduleNotes"
+                  value={value.scheduleNotes || ""}
+                  onChange={(e) => handleNotesChange(e.target.value)}
+                  disabled={disabled}
+                  placeholder="Add any notes about this scheduled campaign..."
+                  className="mt-1"
+                  rows={2}
+                />
+            </div>
+
+            {/* Validation Results */}
+            {validationLoading && (
+              <div className="text-sm text-gray-500">
+                Validating schedule time...
+              </div>
+            )}
+
+            {validation && !validationLoading && (
+              <div className="space-y-2">
+                {/* Errors */}
+                {validation.errors && validation.errors.length > 0 && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      {validation.errors.join(". ")}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Warnings */}
+                {validation.warnings && validation.warnings.length > 0 && (
+                  <Alert className="bg-orange-50 border-orange-200">
+                    <Info className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-sm text-orange-800">
+                      {validation.warnings.join(". ")}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Business Hours Impact */}
+                {validation.businessHoursImpact?.isOutsideBusinessHours && (
+                  <div className="text-sm text-orange-600">
+                    ⚠️ Scheduled outside business hours ({businessHours})
+                  </div>
+                )}
+              </div>
+            )}
+                      </div>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 } 
