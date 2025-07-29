@@ -156,7 +156,7 @@ export class MessageQueueService {
         .set({
           status: "suppressed",
           errorMessage: `Suppressed: ${reason}`,
-          sentAt: new Date(), // Track when suppression decision was made
+          // sentAt remains NULL for suppressed messages (they weren't actually sent)
         })
         .where(eq(messageQueue.id, messageId));
 
