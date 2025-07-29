@@ -441,7 +441,7 @@ export const messageQueue = pgTable(
     messageContent: text("message_content").notNull(),
     messageType: varchar("message_type", { length: 50 }).notNull(), // 'welcome', 'individual', 'test', 'sms_command_response', etc.
     scheduledFor: timestamp("scheduled_for").notNull(),
-    status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'sent', 'failed'
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'sent', 'failed', 'suppressed'
     attempts: integer("attempts").notNull().default(0),
     metadata: text("metadata"), // JSON string for additional context
     createdAt: timestamp("created_at").defaultNow().notNull(),

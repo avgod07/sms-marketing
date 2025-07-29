@@ -296,6 +296,31 @@ export function registerTwilioRoutes(app: Express) {
       if (bodyText.toLowerCase() === "stop") {
         if (contact.active) {
           await bizStore.updateContact(contact.id, { active: false });
+
+          // Enhanced logging for compliance and queue suppression tracking
+          logInfo("STOP received - contact deactivated", {
+            businessId,
+            contactId: contact.id,
+            phoneNumber: normalizedFrom,
+            previouslyActive: true,
+            compliance: {
+              note: "Future queued messages will be automatically suppressed",
+              tcpaCompliance: "Contact will not receive marketing messages",
+              auditTrail:
+                "Queue processor will check contact.active status before sending",
+            },
+          });
+        } else {
+          // Contact already inactive - still send STOP response per TCPA
+          logInfo("STOP received for already inactive contact", {
+            businessId,
+            contactId: contact.id,
+            phoneNumber: normalizedFrom,
+            previouslyActive: false,
+            compliance: {
+              note: "STOP response still required per TCPA even if already inactive",
+            },
+          });
         }
 
         // COMPLIANCE REQUIREMENT: STOP responses are free, mandatory, and MUST send immediately
@@ -309,11 +334,18 @@ export function registerTwilioRoutes(app: Express) {
           contactId: contact.id,
         });
 
-        // Log STOP response for compliance tracking (no billing)
+        // Enhanced compliance logging
         logInfo("STOP response sent (compliance - no charge)", {
           businessId,
           contactId: contact.id,
           phoneNumber: normalizedFrom,
+          compliance: {
+            tcpaRequired: true,
+            chargeApplied: false,
+            messageType: "stop_response",
+            sentAt: new Date().toISOString(),
+            auditNote: "Automatic suppression now active for future messages",
+          },
         });
       } else if (bodyText.toLowerCase() === "help") {
         // COMPLIANCE REQUIREMENT: HELP responses are free, mandatory, and MUST send immediately

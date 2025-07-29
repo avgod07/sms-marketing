@@ -142,6 +142,40 @@ export class MessageQueueService {
   }
 
   /**
+   * Mark a message as suppressed due to opt-out
+   * @param messageId - ID of the message
+   * @param reason - Suppression reason for compliance tracking
+   */
+  static async markAsSuppressed(
+    messageId: number,
+    reason: string
+  ): Promise<void> {
+    try {
+      await db
+        .update(messageQueue)
+        .set({
+          status: "suppressed",
+          errorMessage: `Suppressed: ${reason}`,
+          sentAt: new Date(), // Track when suppression decision was made
+        })
+        .where(eq(messageQueue.id, messageId));
+
+      logInfo("Message marked as suppressed", {
+        messageId,
+        reason,
+        suppressedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      logError("Failed to mark message as suppressed", {
+        error,
+        messageId,
+        reason,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Reschedule a message for later delivery
    * @param messageId - ID of the message
    * @param newScheduledTime - New scheduled delivery time
@@ -174,36 +208,48 @@ export class MessageQueueService {
    */
   static async getQueueStats() {
     try {
-      const [pending, processing, sent, failed] = await Promise.all([
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(messageQueue)
-          .where(eq(messageQueue.status, "pending")),
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(messageQueue)
-          .where(eq(messageQueue.status, "processing")),
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(messageQueue)
-          .where(eq(messageQueue.status, "sent")),
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(messageQueue)
-          .where(eq(messageQueue.status, "failed")),
-      ]);
+      const [pending, processing, sent, failed, suppressed] = await Promise.all(
+        [
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(messageQueue)
+            .where(eq(messageQueue.status, "pending")),
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(messageQueue)
+            .where(eq(messageQueue.status, "processing")),
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(messageQueue)
+            .where(eq(messageQueue.status, "sent")),
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(messageQueue)
+            .where(eq(messageQueue.status, "failed")),
+          // NEW: Track suppressed messages for compliance reporting
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(messageQueue)
+            .where(eq(messageQueue.status, "suppressed")),
+        ]
+      );
 
-      return {
+      const stats = {
         pending: pending[0]?.count || 0,
         processing: processing[0]?.count || 0,
         sent: sent[0]?.count || 0,
         failed: failed[0]?.count || 0,
+        suppressed: suppressed[0]?.count || 0, // NEW
         total:
           (pending[0]?.count || 0) +
           (processing[0]?.count || 0) +
           (sent[0]?.count || 0) +
-          (failed[0]?.count || 0),
+          (failed[0]?.count || 0) +
+          (suppressed[0]?.count || 0),
       };
+
+      logInfo("Queue statistics retrieved", stats);
+      return stats;
     } catch (error) {
       logError("Failed to get queue statistics", { error });
       throw error;

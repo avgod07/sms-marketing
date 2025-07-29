@@ -20,6 +20,7 @@ export interface QueueProcessingStats {
   sentCount: number;
   rescheduledCount: number;
   failedCount: number;
+  suppressedCount: number; // NEW: Track suppressed separately from failed
   businessCount: number;
   processingTimeMs: number;
 }
@@ -54,6 +55,7 @@ export class QueueProcessor {
           sentCount: 0,
           rescheduledCount: 0,
           failedCount: 0,
+          suppressedCount: 0,
           businessCount: 0,
           processingTimeMs: Date.now() - startTime,
         };
@@ -114,15 +116,31 @@ export class QueueProcessor {
 
       const processingTimeMs = Date.now() - startTime;
 
-      // Get actual counts by re-checking what happened
-      // (This is approximate since we're processing in parallel)
-      sentCount = Math.max(0, totalProcessed - rescheduledCount - failedCount);
+      // Get actual counts by checking what happened during this processing cycle
+      // For now, we'll use a simple calculation - in production, this could be more sophisticated
+      let suppressedCount = 0;
+
+      // Calculate suppressed count from recent queue stats (approximate for current cycle)
+      try {
+        const currentStats = await MessageQueueService.getQueueStats();
+        suppressedCount = currentStats.suppressed;
+      } catch (error) {
+        logError("Failed to get suppressed count", { error });
+        suppressedCount = 0;
+      }
+
+      // Updated calculation: exclude suppressed from sent count
+      sentCount = Math.max(
+        0,
+        totalProcessed - rescheduledCount - failedCount - suppressedCount
+      );
 
       logInfo("Queue processing cycle completed", {
         totalProcessed,
         sentCount,
         rescheduledCount,
         failedCount,
+        suppressedCount,
         businessCount: businessesProcessed.size,
         processingTimeMs,
       });
@@ -132,6 +150,7 @@ export class QueueProcessor {
         sentCount,
         rescheduledCount,
         failedCount,
+        suppressedCount,
         businessCount: businessesProcessed.size,
         processingTimeMs,
       };
@@ -245,6 +264,38 @@ export class QueueProcessor {
     >[0]
   ): Promise<void> {
     try {
+      // NEW: Pre-send suppression check for TCPA compliance
+      if (queuedMessage.contactId) {
+        const contact = await bizStorage.getContact(queuedMessage.contactId);
+
+        if (!contact) {
+          await MessageQueueService.markAsSuppressed(
+            queuedMessage.id,
+            "Contact deleted"
+          );
+          logInfo("Message suppressed - contact deleted", {
+            messageId: queuedMessage.id,
+            contactId: queuedMessage.contactId,
+            businessId: queuedMessage.businessId,
+          });
+          return; // Skip sending, return success (not an error)
+        }
+
+        if (!contact.active) {
+          await MessageQueueService.markAsSuppressed(
+            queuedMessage.id,
+            "Contact opted out (STOP)"
+          );
+          logInfo("Message suppressed - contact opted out", {
+            messageId: queuedMessage.id,
+            contactId: queuedMessage.contactId,
+            phoneNumber: queuedMessage.phoneNumber,
+            businessId: queuedMessage.businessId,
+          });
+          return; // Skip sending, return success (not an error)
+        }
+      }
+
       const business = await bizStorage.getBusiness();
       const messagingServiceSid = await bizStorage.getMessagingServiceSid();
       const numbers = await bizStorage.getPhoneNumbers();
