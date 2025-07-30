@@ -127,7 +127,7 @@ export default function Dashboard() {
                 variant="secondary"
                 className="flex items-center space-x-2"
               >
-                <Link href="/campaigns">
+                <Link href="/campaigns/new">
                   <Plus className="w-4 h-4" />
                   <span>Create Campaign</span>
                 </Link>
