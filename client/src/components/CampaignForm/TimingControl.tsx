@@ -245,13 +245,6 @@ export function TimingControl({
           </label>
         </div>
 
-        {/* Helper Text for Immediate Mode - Only show during business hours */}
-        {value.mode === 'immediate' && canCreateImmediate && (
-          <div className="mt-2 text-sm text-gray-500">
-            Campaign will send immediately when you click "Create Campaign".
-          </div>
-        )}
-
         {/* Scheduling Options - Revealed when Custom Date selected */}
         {value.mode === 'scheduled' && (
           <div className="mt-4 space-y-4">
