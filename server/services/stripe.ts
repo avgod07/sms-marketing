@@ -29,23 +29,21 @@ export async function createCheckoutSession({
   successUrl: string;
   cancelUrl: string;
 }): Promise<Stripe.Checkout.Session> {
-  // You may want to price credits dynamically or use a fixed price per credit
-  const pricePerCredit = 1; // in cents (e.g., $0.01 per credit)
-  const totalAmount = amount * pricePerCredit;
+  const priceId = process.env.STRIPE_CREDITS_PRICE_ID;
+
+  if (!priceId) {
+    throw new Error(
+      "Missing STRIPE_CREDITS_PRICE_ID environment variable. Please configure this in your Stripe Dashboard and set the environment variable."
+    );
+  }
 
   return await getStripe().checkout.sessions.create({
     payment_method_types: ["card"],
     mode: "payment",
     line_items: [
       {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `${amount} SMS Credits`,
-          },
-          unit_amount: pricePerCredit,
-        },
-        quantity: amount,
+        price: priceId, // $0.01 per credit (configured in Stripe Dashboard)
+        quantity: amount, // User-specified amount (maintains flexible purchasing)
       },
     ],
     metadata: {

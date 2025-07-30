@@ -11,11 +11,20 @@ import {
 import { securityHeaders } from "./middlewares/security.middleware";
 import { requireAuth } from "@clerk/express";
 import { checkDatabaseHealth } from "./config/db.config";
+import { validateEnvironment } from "./utils/env-validation";
 
 // Production server - no Vite dependencies
 const app = express();
 
 setupGlobalErrorHandling();
+
+// Validate environment configuration early to fail fast if misconfigured
+try {
+  validateEnvironment();
+} catch (error) {
+  console.error("Environment validation failed:", error);
+  process.exit(1);
+}
 
 // Apply security headers to all responses (before any routes)
 app.use(securityHeaders);
