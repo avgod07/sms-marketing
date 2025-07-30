@@ -245,10 +245,10 @@ export function TimingControl({
           </label>
         </div>
 
-        {/* Helper Text for Immediate Mode */}
-        {value.mode === 'immediate' && (
+        {/* Helper Text for Immediate Mode - Only show during business hours */}
+        {value.mode === 'immediate' && canCreateImmediate && (
           <div className="mt-2 text-sm text-gray-500">
-            If sent outside business hours ({businessHours}), messages will be queued until the next business hour.
+            Campaign will send immediately when you click "Create Campaign".
           </div>
         )}
 

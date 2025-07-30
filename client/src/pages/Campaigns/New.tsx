@@ -24,6 +24,15 @@ export default function NewCampaignPage() {
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const { data: setup } = useSetupStatus();
 
+  // Browser timezone detection for pre-onboarding users
+  const getBrowserTimezone = () => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return "America/New_York"; // Ultimate fallback
+    }
+  };
+
   // Get business timezone info for scheduling
   const { data: businessTimezoneInfo } = useQuery<BusinessTimezoneInfo>({
     queryKey: ["/api/business/timezone"],
@@ -186,7 +195,7 @@ export default function NewCampaignPage() {
               onMessageChange={setPreviewMessage}
               onImageChange={setPreviewImageUrl}
               onSendTest={handleSendTest}
-              businessTimezone={businessTimezoneInfo?.current?.timezone || "America/New_York"}
+              businessTimezone={businessTimezoneInfo?.current?.timezone || getBrowserTimezone()}
               businessHours={businessTimezoneInfo?.current?.businessHours || "8 AM - 8 PM"}
             />
           </div>
