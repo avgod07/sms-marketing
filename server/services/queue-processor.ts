@@ -5,6 +5,7 @@ import { MessageQueueService } from "./message-queue.js";
 import { QuietHoursCompliance } from "./quiet-hours-compliance.js";
 import { TwilioService } from "./twilio.js";
 import { MessageCreditService } from "./message-credits.js";
+import { FairRateLimitedProcessor } from "./fair-rate-limited-processor.js";
 import { storage } from "../db/storage.js";
 import type { IStorage } from "../db/storage.js";
 import { logInfo, logError } from "../utils/logger.util.js";
@@ -40,6 +41,7 @@ export class QueueProcessor {
     let sentCount = 0;
     let rescheduledCount = 0;
     let failedCount = 0;
+    let suppressedCount = 0;
     const businessesProcessed = new Set<number>();
 
     try {
@@ -72,25 +74,46 @@ export class QueueProcessor {
         messagesByBusiness.set(message.businessId, businessMessages);
       }
 
-      // Process each business's messages
-      for (const [businessId, messages] of messagesByBusiness) {
-        try {
-          await this.processBusinessMessages(businessId, messages);
+      // Process all messages using fair rate-limited processor
+      try {
+        const fairProcessingStats =
+          await FairRateLimitedProcessor.processQueuedMessages(
+            messagesByBusiness
+          );
+
+        // Aggregate results from fair processor
+        totalProcessed = fairProcessingStats.totalProcessed;
+        sentCount = fairProcessingStats.sentCount;
+        rescheduledCount = fairProcessingStats.queuedCount;
+        failedCount = fairProcessingStats.failedCount;
+        suppressedCount = fairProcessingStats.suppressedCount;
+
+        // Track all businesses that had messages processed
+        for (const businessId of messagesByBusiness.keys()) {
           businessesProcessed.add(businessId);
+        }
 
-          // Count results for this business
-          for (const message of messages) {
-            totalProcessed++;
-            // We'll update these counts based on actual results in processBusinessMessages
-          }
-        } catch (error) {
-          logError("Failed to process messages for business", {
-            businessId,
-            messageCount: messages.length,
-            error: error instanceof Error ? error.message : String(error),
-          });
+        logInfo("Fair processing completed for queue messages", {
+          totalProcessed,
+          sentCount,
+          rescheduledCount,
+          failedCount,
+          suppressedCount,
+          businessCount: businessesProcessed.size,
+          fairProcessingTimeMs: fairProcessingStats.processingTimeMs,
+        });
+      } catch (error) {
+        logError("Critical error in fair queue processing", {
+          error: error instanceof Error ? error.message : String(error),
+          businessCount: messagesByBusiness.size,
+          totalMessages: Array.from(messagesByBusiness.values()).reduce(
+            (sum, msgs) => sum + msgs.length,
+            0
+          ),
+        });
 
-          // Mark all messages for this business as failed
+        // Fallback: Mark all messages as failed
+        for (const [businessId, messages] of messagesByBusiness) {
           for (const message of messages) {
             totalProcessed++;
             failedCount++;
@@ -99,11 +122,12 @@ export class QueueProcessor {
                 message.id,
                 error instanceof Error
                   ? error.message
-                  : "Queue processing error"
+                  : "Fair queue processing error"
               );
             } catch (markError) {
-              logError("Failed to mark message as failed", {
+              logError("Failed to mark message as failed during fallback", {
                 messageId: message.id,
+                businessId,
                 error:
                   markError instanceof Error
                     ? markError.message
@@ -111,29 +135,14 @@ export class QueueProcessor {
               });
             }
           }
+          businessesProcessed.add(businessId);
         }
       }
 
       const processingTimeMs = Date.now() - startTime;
 
-      // Get actual counts by checking what happened during this processing cycle
-      // For now, we'll use a simple calculation - in production, this could be more sophisticated
-      let suppressedCount = 0;
-
-      // Calculate suppressed count from recent queue stats (approximate for current cycle)
-      try {
-        const currentStats = await MessageQueueService.getQueueStats();
-        suppressedCount = currentStats.suppressed;
-      } catch (error) {
-        logError("Failed to get suppressed count", { error });
-        suppressedCount = 0;
-      }
-
-      // Updated calculation: exclude suppressed from sent count
-      sentCount = Math.max(
-        0,
-        totalProcessed - rescheduledCount - failedCount - suppressedCount
-      );
+      // No need to recalculate counts - they're already provided by fair processor
+      // If not using fair processor (fallback), suppressedCount remains 0
 
       logInfo("Queue processing cycle completed", {
         totalProcessed,

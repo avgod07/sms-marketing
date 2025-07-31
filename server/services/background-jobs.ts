@@ -1,4 +1,5 @@
 import { QueueProcessor } from "./queue-processor.js";
+import { FairProcessorMonitor } from "./fair-processor-monitor.js";
 import { logInfo, logError } from "../utils/logger.util.js";
 
 /**
@@ -22,11 +23,14 @@ export class BackgroundJobs {
     logInfo("Starting background jobs");
     this.isRunning = true;
 
-    // Start queue processor (runs every 15 minutes)
+    // Start queue processor (runs every 1 minute)
     this.startQueueProcessor();
 
-    // Start scheduled campaigns processor (runs every 5 minutes)
+    // Start scheduled campaigns processor (runs every 30 seconds)
     this.startScheduledCampaignsProcessor();
+
+    // Start fair processor monitoring (runs every 5 minutes)
+    FairProcessorMonitor.startMonitoring();
 
     logInfo("Background jobs started successfully");
   }
@@ -54,24 +58,27 @@ export class BackgroundJobs {
       this.scheduledCampaignsInterval = null;
     }
 
+    // Stop fair processor monitoring
+    FairProcessorMonitor.stopMonitoring();
+
     this.isRunning = false;
     logInfo("Background jobs stopped");
   }
 
   /**
    * Start the queue processor background job
-   * Runs every 15 minutes to process queued messages
+   * Runs every 1 minute to process queued messages
    */
   private static startQueueProcessor(): void {
     // Run immediately on startup
     this.runQueueProcessor();
 
-    // Then run every 15 minutes
+    // Then run every 1 minute
     this.queueProcessorInterval = setInterval(() => {
       this.runQueueProcessor();
-    }, 15 * 60 * 1000); // 15 minutes in milliseconds
+    }, 1 * 60 * 1000); // 1 minute in milliseconds
 
-    logInfo("Queue processor started - runs every 15 minutes");
+    logInfo("Queue processor started - runs every 1 minute");
   }
 
   /**
@@ -122,18 +129,18 @@ export class BackgroundJobs {
 
   /**
    * Start the scheduled campaigns processor background job
-   * Runs every 5 minutes to process campaigns ready to be sent
+   * Runs every 30 seconds to process campaigns ready to be sent
    */
   private static startScheduledCampaignsProcessor(): void {
     // Run immediately on startup
     this.runScheduledCampaignsProcessor();
 
-    // Then run every 5 minutes
+    // Then run every 30 seconds
     this.scheduledCampaignsInterval = setInterval(() => {
       this.runScheduledCampaignsProcessor();
-    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+    }, 30 * 1000); // 30 seconds in milliseconds
 
-    logInfo("Scheduled campaigns processor started - runs every 5 minutes");
+    logInfo("Scheduled campaigns processor started - runs every 30 seconds");
   }
 
   /**

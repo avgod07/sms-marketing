@@ -2,6 +2,10 @@ import type { IStorage } from "../db/storage";
 import { UniversalMessageService } from "./universal-message.js";
 import { MessageCreditService } from "./message-credits.js";
 import { QuietHoursCompliance } from "./quiet-hours-compliance.js";
+import {
+  FairRateLimitedProcessor,
+  type QueuedMessage,
+} from "./fair-rate-limited-processor.js";
 import { logError } from "../utils/logger.util";
 import { logInfo } from "../utils/logger.util";
 
@@ -84,51 +88,49 @@ export async function executeCampaign(
   const defaultNumber = numbers.find((n) => n.isDefault)?.phoneNumber;
 
   try {
-    let sentCount = 0;
-    let queuedCount = 0;
-    let failedCount = 0;
+    // Prepare all messages for fair processing
+    const campaignMessages: QueuedMessage[] = contacts.map((contact) => ({
+      businessId: business.id,
+      phoneNumber: contact.phoneNumber,
+      messageContent: campaign.message,
+      messageType: "campaign",
+      contactId: contact.id,
+      campaignId: campaign.id,
+      from: defaultNumber,
+      messagingServiceSid: messagingServiceSid ?? undefined,
+      mediaUrl: campaign.mediaUrl || undefined,
+      metadata: {
+        campaignId: campaign.id,
+        creditCost,
+      },
+    }));
 
-    // Send messages to each contact using UniversalMessageService
-    // This will handle TCPA quiet hours compliance automatically
-    for (const contact of contacts) {
-      try {
-        const result = await UniversalMessageService.sendMessage(bizStorage, {
-          businessId: business.id,
-          phoneNumber: contact.phoneNumber,
-          messageContent: campaign.message,
-          messageType: "campaign",
-          contactId: contact.id,
-          campaignId: campaign.id,
-          from: defaultNumber,
-          messagingServiceSid: messagingServiceSid ?? undefined,
-          mediaUrl: campaign.mediaUrl || undefined,
-        });
+    logInfo("Starting fair campaign processing", {
+      campaignId,
+      messageCount: campaignMessages.length,
+      businessId: business.id,
+    });
 
-        if (result.status === "sent") {
-          sentCount++;
-        } else if (result.status === "queued") {
-          queuedCount++;
-        }
-      } catch (error) {
-        failedCount++;
-        logError("Failed to send campaign message to contact", {
-          campaignId,
-          contactId: contact.id,
-          phoneNumber: contact.phoneNumber,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+    // Process all messages through fair rate-limited processor
+    const processingStats = await FairRateLimitedProcessor.addBusinessMessages(
+      business.id,
+      campaignMessages
+    );
 
-    // Credits are automatically deducted by UniversalMessageService for sent messages
+    const sentCount = processingStats.sentCount;
+    const queuedCount = processingStats.queuedCount;
+    const failedCount = processingStats.failedCount;
+
+    // Credits are automatically deducted by FairRateLimitedProcessor for sent messages
     // Queued messages will have credits deducted when they are actually sent
 
-    logInfo("Campaign execution completed", {
+    logInfo("Campaign execution completed via fair processor", {
       campaignId,
       sentCount,
       queuedCount,
       failedCount,
       totalContacts: contacts.length,
+      processingTimeMs: processingStats.processingTimeMs,
     });
 
     // Update campaign with results
