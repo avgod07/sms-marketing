@@ -1,10 +1,10 @@
 import { QueueProcessor } from "./queue-processor.js";
-import { FairProcessorMonitor } from "./fair-processor-monitor.js";
 import { logInfo, logError } from "../utils/logger.util.js";
 
 /**
  * BackgroundJobs Service
  * Handles all background processing tasks including message queue processing
+ * Updated to use the new FairRateLimitedProcessorV2 with database persistence
  */
 export class BackgroundJobs {
   private static queueProcessorInterval: NodeJS.Timeout | null = null;
@@ -20,7 +20,7 @@ export class BackgroundJobs {
       return;
     }
 
-    logInfo("Starting background jobs");
+    logInfo("Starting background jobs with new fair processor V2");
     this.isRunning = true;
 
     // Start queue processor (runs every 1 minute)
@@ -29,8 +29,8 @@ export class BackgroundJobs {
     // Start scheduled campaigns processor (runs every 30 seconds)
     this.startScheduledCampaignsProcessor();
 
-    // Start fair processor monitoring (runs every 5 minutes)
-    FairProcessorMonitor.startMonitoring();
+    // Note: FairProcessorMonitor removed - new system uses database persistence
+    // and doesn't need in-memory monitoring
 
     logInfo("Background jobs started successfully");
   }
@@ -58,8 +58,8 @@ export class BackgroundJobs {
       this.scheduledCampaignsInterval = null;
     }
 
-    // Stop fair processor monitoring
-    FairProcessorMonitor.stopMonitoring();
+    // Note: FairProcessorMonitor.stopMonitoring() removed -
+    // new system uses database persistence and doesn't need cleanup
 
     this.isRunning = false;
     logInfo("Background jobs stopped");

@@ -473,6 +473,7 @@ export class DatabaseStorage implements IStorage {
         message: campaigns.message,
         mediaUrl: campaigns.mediaUrl,
         status: campaigns.status,
+        processingStatus: campaigns.processingStatus,
         sentCount: campaigns.sentCount,
         deliveredCount: campaigns.deliveredCount,
         clickCount: campaigns.clickCount,

@@ -9,8 +9,9 @@ import {
   decimal,
   index,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -74,6 +75,9 @@ export const campaigns = pgTable("campaigns", {
   message: text("message").notNull(),
   mediaUrl: text("media_url"),
   status: text("status").notNull().default("in_progress"), // in_progress, completed, scheduled, cancelled
+  processingStatus: varchar("processing_status", { length: 20 }).default(
+    "pending"
+  ), // pending, processing, committed, completed, failed
   sentCount: integer("sent_count").default(0),
   deliveredCount: integer("delivered_count").default(0),
   clickCount: integer("click_count").default(0),
@@ -456,6 +460,73 @@ export const messageQueue = pgTable(
   ]
 );
 
+// NEW: Committed Messages Table for Fair Rate Limited Processing
+export const committedMessages = pgTable(
+  "committed_messages",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id, { onDelete: "cascade" })
+      .notNull(),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    messageContent: text("message_content").notNull(),
+    messageType: varchar("message_type", { length: 50 }).notNull(),
+    contactId: integer("contact_id").references(() => contacts.id, {
+      onDelete: "cascade",
+    }),
+    campaignId: integer("campaign_id").references(() => campaigns.id, {
+      onDelete: "cascade",
+    }),
+    creditsDeducted: integer("credits_deducted").notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'processing', 'sent', 'failed', 'suppressed'
+
+    // Fair processing fields
+    processingBatchId: uuid("processing_batch_id"),
+    processingPriority: integer("processing_priority").notNull().default(0),
+    processingAttempts: integer("processing_attempts").notNull().default(0),
+    lastProcessingAttempt: timestamp("last_processing_attempt"),
+
+    // Metadata and tracking
+    metadata: text("metadata"), // JSON string for additional context (from, messagingServiceSid, etc.)
+    twilioMessageSid: varchar("twilio_message_sid", { length: 100 }),
+    errorMessage: text("error_message"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    processedAt: timestamp("processed_at"),
+  },
+  (table) => [
+    // Critical indexes for fair processing performance
+    index("committed_messages_pending_idx")
+      .on(
+        table.status,
+        table.businessId,
+        table.processingPriority,
+        table.createdAt
+      )
+      .where(sql`${table.status} = 'pending'`),
+
+    index("committed_messages_processing_idx")
+      .on(table.status, table.processingBatchId, table.lastProcessingAttempt)
+      .where(sql`${table.status} = 'processing'`),
+
+    index("committed_messages_business_status_idx").on(
+      table.businessId,
+      table.status,
+      table.createdAt
+    ),
+
+    index("committed_messages_campaign_idx")
+      .on(table.campaignId, table.status)
+      .where(sql`${table.campaignId} IS NOT NULL`),
+
+    // Performance index for cleanup operations
+    index("committed_messages_cleanup_idx")
+      .on(table.status, table.processedAt)
+      .where(sql`${table.status} IN ('sent', 'failed', 'suppressed')`),
+  ]
+);
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -757,6 +828,9 @@ export type InsertSmsCommandRateLimit = z.infer<
 
 export type MessageQueue = typeof messageQueue.$inferSelect;
 export type InsertMessageQueue = z.infer<typeof insertMessageQueueSchema>;
+
+export type CommittedMessage = typeof committedMessages.$inferSelect;
+export type InsertCommittedMessage = typeof committedMessages.$inferInsert;
 
 export type SmsCommandPending = typeof smsCommandPending.$inferSelect;
 export type InsertSmsCommandPending = z.infer<

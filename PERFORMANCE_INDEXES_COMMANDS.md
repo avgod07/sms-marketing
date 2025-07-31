@@ -1,6 +1,8 @@
-# Performance Indexes for Fair Rate Limiting
+# Performance Indexes for Fair Rate Limiting V2
 
 **📋 When to use:** Around 200-500 businesses when you notice slower queue processing
+
+**🆕 UPDATED for Fair Processor V2:** This includes indexes for the new `committed_messages` table used by the database-backed fair processing system.
 
 ## 🎯 Signs You Need These Indexes
 
@@ -12,6 +14,8 @@ ssh -i your-key-file.pem ec2-user@YOUR_EC2_IP
 
 # Check database query performance
 docker-compose -f docker-compose.prod.yml logs | grep "Queue processor cycle completed"
+# Also check fair processor performance
+docker-compose -f docker-compose.prod.yml logs | grep "Fair cycle batch completed"
 ```
 
 **If you see processing times > 2-3 seconds, it's time to add indexes.**
@@ -43,7 +47,39 @@ psql $DATABASE_URL
 ### Step 3: Create the Performance Indexes
 
 ```sql
--- CRITICAL INDEX: Queue processing (1-minute frequency)
+-- ========================================
+-- CRITICAL INDEXES: Fair Processor V2 (committed_messages table)
+-- ========================================
+
+-- MOST CRITICAL: Fair processing pending messages
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_committed_messages_pending
+ON committed_messages(status, business_id, processing_priority, created_at)
+WHERE status = 'pending';
+
+-- IMPORTANT: Fair processing batch operations
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_committed_messages_processing
+ON committed_messages(status, processing_batch_id, last_processing_attempt)
+WHERE status = 'processing';
+
+-- HELPFUL: Business-specific operations and monitoring
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_committed_messages_business_status
+ON committed_messages(business_id, status, created_at);
+
+-- HELPFUL: Campaign tracking for committed messages
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_committed_messages_campaign
+ON committed_messages(campaign_id, status)
+WHERE campaign_id IS NOT NULL;
+
+-- MAINTENANCE: Cleanup operations for old processed messages
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_committed_messages_cleanup
+ON committed_messages(status, processed_at)
+WHERE status IN ('sent', 'failed', 'suppressed');
+
+-- ========================================
+-- EXISTING INDEXES: TCPA Queue (message_queue table)
+-- ========================================
+
+-- CRITICAL INDEX: TCPA queue processing (1-minute frequency)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_queue_ready_to_send
 ON message_queue(scheduled_for, status)
 WHERE status = 'pending';
@@ -53,7 +89,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_campaigns_scheduled_ready
 ON campaigns(scheduled_send_time, status, scheduling_type)
 WHERE status = 'scheduled' AND scheduling_type = 'scheduled';
 
--- HELPFUL INDEX: Business-specific operations
+-- HELPFUL INDEX: Business-specific TCPA operations
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_queue_business_status
 ON message_queue(business_id, status, scheduled_for)
 WHERE status IN ('pending', 'processing');
@@ -62,12 +98,17 @@ WHERE status IN ('pending', 'processing');
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_queue_status_created
 ON message_queue(status, created_at);
 
--- OPTIONAL INDEX: Campaign tracking
+-- OPTIONAL INDEX: Campaign tracking in TCPA queue
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_queue_metadata_campaign
 ON message_queue USING gin(metadata)
 WHERE metadata IS NOT NULL;
 
+-- ========================================
+-- UPDATE STATISTICS
+-- ========================================
+
 -- Update database statistics for optimal query planning
+ANALYZE committed_messages;
 ANALYZE message_queue;
 ANALYZE campaigns;
 
@@ -78,12 +119,16 @@ ANALYZE campaigns;
 ### Step 4: Verify Indexes Were Created
 
 ```sql
--- Check that indexes exist
+-- Check that all indexes exist
 SELECT indexname, tablename
 FROM pg_indexes
-WHERE indexname LIKE 'idx_message_queue%' OR indexname LIKE 'idx_campaigns%';
+WHERE indexname LIKE 'idx_committed_messages%'
+   OR indexname LIKE 'idx_message_queue%'
+   OR indexname LIKE 'idx_campaigns%';
 
--- Should show 5 indexes if all were created successfully
+-- Should show 10 indexes total:
+-- - 5 for committed_messages (new fair processor)
+-- - 5 for message_queue (TCPA queue)
 ```
 
 ---
@@ -128,7 +173,9 @@ psql -h your-rds-endpoint.us-east-1.rds.amazonaws.com -U myuser -d smsapp -p 543
 -- See which indexes are being used
 SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch
 FROM pg_stat_user_indexes
-WHERE indexname LIKE 'idx_message_queue%' OR indexname LIKE 'idx_campaigns%'
+WHERE indexname LIKE 'idx_committed_messages%'
+   OR indexname LIKE 'idx_message_queue%'
+   OR indexname LIKE 'idx_campaigns%'
 ORDER BY idx_scan DESC;
 ```
 
@@ -138,7 +185,9 @@ ORDER BY idx_scan DESC;
 -- Check slow queries (run this before and after adding indexes)
 SELECT query, mean_time, calls
 FROM pg_stat_statements
-WHERE query LIKE '%message_queue%' OR query LIKE '%campaigns%'
+WHERE query LIKE '%committed_messages%'
+   OR query LIKE '%message_queue%'
+   OR query LIKE '%campaigns%'
 ORDER BY mean_time DESC
 LIMIT 10;
 ```
@@ -148,6 +197,12 @@ LIMIT 10;
 ```bash
 # From your EC2 instance - monitor app logs for performance improvements
 docker-compose -f docker-compose.prod.yml logs -f | grep "Queue processor cycle completed"
+
+# Also monitor fair processor performance
+docker-compose -f docker-compose.prod.yml logs -f | grep "Fair cycle batch completed"
+
+# Monitor commitment performance
+docker-compose -f docker-compose.prod.yml logs -f | grep "Messages committed"
 
 # You should see processing times drop from 1000-3000ms to 50-200ms
 ```
@@ -159,12 +214,16 @@ docker-compose -f docker-compose.prod.yml logs -f | grep "Queue processor cycle 
 **Before Indexes:**
 
 - Queue processing: 1-3 seconds per cycle
+- Fair processing: 2-5 seconds per cycle
+- Campaign commitment: 1-2 seconds
 - Database CPU: High during processing
 - 500+ businesses: Likely timeouts
 
 **After Indexes:**
 
 - Queue processing: 50-200ms per cycle
+- Fair processing: 100-300ms per cycle
+- Campaign commitment: 50-150ms
 - Database CPU: Normal/low
 - 1000+ businesses: Smooth operation
 
@@ -181,7 +240,8 @@ SELECT indexname FROM pg_indexes WHERE indexname LIKE 'idx_%';
 -- Check for table locks (other processes using tables)
 SELECT pid, usename, query, state
 FROM pg_stat_activity
-WHERE query LIKE '%message_queue%' AND state = 'active';
+WHERE (query LIKE '%committed_messages%' OR query LIKE '%message_queue%')
+  AND state = 'active';
 ```
 
 ### If you get permission errors:
@@ -196,8 +256,11 @@ cat .env.production | grep DATABASE_URL
 ### Verify your app is using the indexes:
 
 ```bash
-# Check app metrics endpoint (if monitoring is enabled)
-curl http://localhost:5000/api/metrics/fair-processor/health
+# Check if Fair Processor V2 is running properly
+docker-compose -f docker-compose.prod.yml logs | grep "Fair processing" | tail -10
+
+# Check commitment performance
+docker-compose -f docker-compose.prod.yml logs | grep "committed for processing" | tail -10
 
 # Check background job performance in logs
 docker-compose -f docker-compose.prod.yml logs | grep "processing.*completed" | tail -10
@@ -209,19 +272,22 @@ docker-compose -f docker-compose.prod.yml logs | grep "processing.*completed" | 
 
 - **CONCURRENTLY** means indexes are built without locking your tables (app keeps running)
 - **IF NOT EXISTS** means it's safe to run these commands multiple times
-- These indexes will use ~10-50MB of additional disk space (negligible)
+- These indexes will use ~20-100MB of additional disk space (negligible)
 - Index creation takes 30 seconds to 5 minutes depending on data size
 - **No application restart required** - improvements are immediate
+- **Fair Processor V2** automatically uses database persistence - no in-memory state loss
 
 ---
 
 ## 🎯 When You'll Need This
 
-| Businesses | Status      | Action                                  |
-| ---------- | ----------- | --------------------------------------- |
-| 0-100      | ✅ Fine     | No action needed                        |
-| 100-200    | ⚠️ Monitor  | Watch queue processing times            |
-| 200-500    | 🟡 Consider | Add indexes when processing > 2 seconds |
-| 500+       | 🚨 Critical | Definitely need indexes                 |
+| Businesses | Status      | Action                                                    |
+| ---------- | ----------- | --------------------------------------------------------- |
+| 0-100      | ✅ Fine     | No action needed                                          |
+| 100-200    | ⚠️ Monitor  | Watch queue processing times and fair processing cycles   |
+| 200-500    | 🟡 Consider | Add indexes when processing > 2 seconds                   |
+| 500+       | 🚨 Critical | Definitely need indexes for both TCPA and fair processing |
 
-**Bottom line:** Run these commands when queue processing consistently takes more than 2-3 seconds per cycle.
+**Bottom line:** Run these commands when queue processing or fair processing consistently takes more than 2-3 seconds per cycle.
+
+**New with V2:** The committed_messages table stores all committed campaigns and bulk messages, so it will grow faster than the TCPA message_queue table.

@@ -168,39 +168,52 @@ export default function NewCampaignPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-8 max-w-4xl mx-auto">
-        {!disabled && <BusinessHoursWarning />}
-        {disabled && (
-          <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
-            <AlertTitle>Finish Setup</AlertTitle>
-            <AlertDescription className="space-y-2">
-              <p>Complete your onboarding to start creating campaigns.</p>
-              <div className="flex gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/onboarding">Complete Setup</Link>
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-        <Card className="flex flex-col lg:flex-row gap-8 p-6 shadow-md">
-          <div className="flex-1">
-            <CampaignForm
-              onSubmit={handleSubmit}
-              onCancel={() => navigate("/campaigns")}
-              pending={createCampaignMutation.isPending || createScheduledCampaignMutation.isPending}
-              submitLabel="Create Campaign"
-              disabled={disabled}
-              onMessageChange={setPreviewMessage}
-              onImageChange={setPreviewImageUrl}
-              onSendTest={handleSendTest}
-              businessTimezone={businessTimezoneInfo?.current?.timezone || getBrowserTimezone()}
-              businessHours={businessTimezoneInfo?.current?.businessHours || "8 AM - 8 PM"}
-            />
+    <div className="fade-in">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-8 py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Create Campaign</h1>
+            <p className="text-gray-600 mt-1">Design and send your SMS campaign.</p>
           </div>
-          <SmsPreview message={previewMessage} imageUrl={previewImageUrl} />
-        </Card>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="p-8 bg-gray-50 min-h-screen">
+        <div className="max-w-4xl mx-auto">
+          {!disabled && <BusinessHoursWarning />}
+          {disabled && (
+            <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
+              <AlertTitle>Finish Setup</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>Complete your onboarding to start creating campaigns.</p>
+                <div className="flex gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href="/onboarding">Complete Setup</Link>
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          <Card className="flex flex-col lg:flex-row gap-8 p-6 shadow-md">
+            <div className="flex-1">
+              <CampaignForm
+                onSubmit={handleSubmit}
+                onCancel={() => navigate("/campaigns")}
+                pending={createCampaignMutation.isPending || createScheduledCampaignMutation.isPending}
+                submitLabel="Create Campaign"
+                disabled={disabled}
+                onMessageChange={setPreviewMessage}
+                onImageChange={setPreviewImageUrl}
+                onSendTest={handleSendTest}
+                businessTimezone={businessTimezoneInfo?.current?.timezone || getBrowserTimezone()}
+                businessHours={businessTimezoneInfo?.current?.businessHours || "8 AM - 8 PM"}
+              />
+            </div>
+            <SmsPreview message={previewMessage} imageUrl={previewImageUrl} />
+          </Card>
+        </div>
       </div>
 
       <TestMessageModal
