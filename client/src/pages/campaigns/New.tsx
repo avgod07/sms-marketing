@@ -174,7 +174,7 @@ export default function NewCampaignPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Create Campaign</h1>
-            <p className="text-gray-600 mt-1">Design and send your SMS campaign.</p>
+            <p className="text-gray-600 mt-1">Craft your SMS campaign.</p>
           </div>
         </div>
       </header>

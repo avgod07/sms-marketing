@@ -70,6 +70,14 @@ export class TwilioService {
         params.mediaUrl = [smsData.mediaUrl];
       }
 
+      // Add status callback to ensure webhooks go to the correct endpoint
+      const baseUrl =
+        process.env.TWILIO_WEBHOOK_BASE_URL ||
+        (process.env.NODE_ENV === "production" ? process.env.BASE_URL : null);
+      if (baseUrl) {
+        params.statusCallback = `${baseUrl}/api/webhooks/twilio/status-callback`;
+      }
+
       const message = await client.messages.create(params);
 
       return {

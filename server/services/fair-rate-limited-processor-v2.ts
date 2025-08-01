@@ -6,6 +6,7 @@ import { storage } from "../db/storage.js";
 import { logInfo, logError } from "../utils/logger.util.js";
 import type { CommitMessageParams } from "./message-commitment.js";
 import type { CommittedMessage } from "@shared/schema";
+import type { IStorage } from "../db/storage.js";
 
 export interface ProcessingStats {
   totalProcessed: number;
@@ -99,6 +100,7 @@ export class FairRateLimitedProcessorV2 {
   /**
    * Process TCPA queue messages through fair distribution
    * This handles messages that were queued due to quiet hours
+   * ALL MESSAGES IN TCPA QUEUE ARE NOW PRE-PAID (credits deducted when queued)
    */
   static async processQueuedMessages(
     messagesByBusiness: Map<number, Array<any>>
@@ -106,7 +108,7 @@ export class FairRateLimitedProcessorV2 {
     const startTime = Date.now();
 
     try {
-      logInfo("Processing TCPA queued messages through fair processor", {
+      logInfo("Processing TCPA queued messages (all pre-paid)", {
         businessCount: messagesByBusiness.size,
         totalMessages: Array.from(messagesByBusiness.values()).reduce(
           (sum, msgs) => sum + msgs.length,
@@ -114,91 +116,165 @@ export class FairRateLimitedProcessorV2 {
         ),
       });
 
-      // Convert TCPA queue messages to committed messages format
-      const allCommitments: Promise<ProcessingStats>[] = [];
+      // Convert TCPA queue messages and send directly without billing
+      // Since all queued messages are pre-paid, we just need to send them
+      const allSendResults: Promise<any>[] = [];
 
       for (const [businessId, messages] of messagesByBusiness) {
-        // Convert queue messages to commitment format
-        const commitMessages: CommitMessageParams[] = messages.map((msg) => {
+        const bizStorage = storage.forBusiness(businessId);
+
+        for (const queuedMessage of messages) {
+          // Parse metadata safely
           let metadata: any = {};
           try {
-            metadata = JSON.parse(msg.metadata || "{}");
+            metadata = JSON.parse(queuedMessage.metadata || "{}");
           } catch (parseError) {
             logError("Failed to parse TCPA message metadata", {
-              messageId: msg.id,
-              metadata: msg.metadata,
+              messageId: queuedMessage.id,
+              metadata: queuedMessage.metadata,
             });
           }
 
-          return {
-            businessId,
-            phoneNumber: msg.phoneNumber,
-            messageContent: msg.messageContent,
-            messageType: msg.messageType,
-            contactId: msg.contactId,
-            campaignId: metadata.campaignId || undefined,
-            from: metadata.from || undefined,
-            messagingServiceSid: metadata.messagingServiceSid || undefined,
-            mediaUrl: metadata.mediaUrl || undefined,
-            metadata: {
-              originalTcpaMessageId: msg.id,
-              tcpaScheduledFor: msg.scheduledFor,
-              ...metadata,
-            },
-          };
-        });
+          // Send directly without credit deduction - already paid when queued
+          const sendPromise = this.sendPrePaidQueuedMessage(
+            bizStorage,
+            queuedMessage,
+            metadata
+          );
 
-        // Process through fair system with credit deduction
-        allCommitments.push(
-          this.addBusinessMessages(businessId, commitMessages)
-        );
+          allSendResults.push(sendPromise);
+        }
       }
 
-      const results = await Promise.allSettled(allCommitments);
+      const results = await Promise.allSettled(allSendResults);
 
       // Aggregate results
       let totalProcessed = 0;
+      let sentCount = 0;
       let queuedCount = 0;
       let failedCount = 0;
-      const businessesProcessed = new Set<number>();
+      let suppressedCount = 0;
 
-      results.forEach((result, index) => {
-        const businessId = Array.from(messagesByBusiness.keys())[index];
-        businessesProcessed.add(businessId);
-
+      for (const result of results) {
+        totalProcessed++;
         if (result.status === "fulfilled") {
-          totalProcessed += result.value.totalProcessed;
-          queuedCount += result.value.queuedCount;
+          const messageResult = result.value;
+          if (messageResult.status === "sent") {
+            sentCount++;
+          } else if (messageResult.status === "queued") {
+            queuedCount++;
+          } else if (messageResult.status === "suppressed") {
+            suppressedCount++;
+          }
         } else {
           failedCount++;
-          logError("Failed to process business messages in TCPA fair queue", {
-            businessId,
+          logError("Failed to send pre-paid queued message", {
             error: result.reason,
           });
         }
-      });
+      }
 
-      logInfo("TCPA messages processed through fair processor", {
+      const processingTimeMs = Date.now() - startTime;
+
+      logInfo("TCPA queue processing completed (pre-paid)", {
         totalProcessed,
+        sentCount,
         queuedCount,
         failedCount,
-        businessCount: businessesProcessed.size,
-        processingTimeMs: Date.now() - startTime,
+        suppressedCount,
+        processingTimeMs,
       });
 
       return {
         totalProcessed,
-        sentCount: 0, // Will be processed asynchronously
+        sentCount,
         queuedCount,
         failedCount,
-        suppressedCount: 0,
-        businessCount: businessesProcessed.size,
-        processingTimeMs: Date.now() - startTime,
+        suppressedCount,
+        businessCount: messagesByBusiness.size,
+        processingTimeMs,
       };
     } catch (error) {
-      logError("Critical error processing TCPA messages", {
+      logError("Critical error in TCPA queue processing (pre-paid)", {
         error: error instanceof Error ? error.message : String(error),
-        processingTimeMs: Date.now() - startTime,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Send a pre-paid queued message directly without credit deduction
+   * Used by TCPA queue processor since messages are already billed when queued
+   */
+  private static async sendPrePaidQueuedMessage(
+    bizStorage: IStorage,
+    queuedMessage: any,
+    metadata: any
+  ): Promise<{ status: string; messageId?: string }> {
+    try {
+      logInfo("Processing pre-paid queued message", {
+        messageId: queuedMessage.id,
+        messageType: queuedMessage.messageType,
+        phoneNumber: queuedMessage.phoneNumber,
+        businessId: queuedMessage.businessId,
+      });
+
+      // Check if contact is still active (TCPA compliance)
+      if (queuedMessage.contactId) {
+        const contact = await bizStorage.getContact(queuedMessage.contactId);
+
+        if (!contact) {
+          logInfo("Pre-paid message suppressed - contact deleted", {
+            messageId: queuedMessage.id,
+            contactId: queuedMessage.contactId,
+          });
+          return { status: "suppressed" };
+        }
+
+        if (!contact.active) {
+          logInfo("Pre-paid message suppressed - contact opted out", {
+            messageId: queuedMessage.id,
+            contactId: queuedMessage.contactId,
+          });
+          return { status: "suppressed" };
+        }
+      }
+
+      // Send directly using UniversalMessageService without credit deduction
+      // Credits were already deducted when the message was queued
+      const result = await UniversalMessageService.sendMessageWithoutCredits(
+        bizStorage,
+        {
+          businessId: queuedMessage.businessId,
+          phoneNumber: queuedMessage.phoneNumber,
+          messageContent: queuedMessage.messageContent,
+          messageType: queuedMessage.messageType,
+          contactId: queuedMessage.contactId || undefined,
+          campaignId: metadata.campaignId || undefined,
+          from: metadata.from,
+          messagingServiceSid: metadata.messagingServiceSid,
+          mediaUrl: metadata.mediaUrl,
+        }
+      );
+
+      logInfo("Pre-paid queued message sent successfully", {
+        messageId: queuedMessage.id,
+        messageType: queuedMessage.messageType,
+        messageSid: result.messageId,
+        businessId: queuedMessage.businessId,
+      });
+
+      return {
+        status: "sent",
+        messageId: result.messageId,
+      };
+    } catch (error) {
+      logError("Failed to send pre-paid queued message", {
+        messageId: queuedMessage.id,
+        messageType: queuedMessage.messageType,
+        businessId: queuedMessage.businessId,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

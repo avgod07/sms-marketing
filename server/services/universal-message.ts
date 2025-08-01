@@ -110,6 +110,45 @@ export class UniversalMessageService {
     businessTimezone: string
   ): Promise<SendMessageResult> {
     try {
+      // NEW: Charge credits upfront before queueing (fixes double billing bug)
+      // All queued messages are now pre-paid, eliminating billing complexity in queue processor
+      const creditCost = MessageCreditService.calculateCreditCost(
+        params.messageContent,
+        !!params.mediaUrl
+      );
+
+      // Check and deduct credits immediately - fail fast if insufficient
+      const currentCredits = await bizStorage.getCredits();
+      const currentBalance = currentCredits?.balance || 0;
+
+      if (currentBalance < creditCost) {
+        throw new Error(
+          `Insufficient credits. Need ${creditCost}, have ${currentBalance}`
+        );
+      }
+
+      // Deduct credits immediately using the same pattern as MessageCommitmentService
+      const updatedCredits = await bizStorage.adjustCredits(
+        -creditCost,
+        "message_queue",
+        `Queued ${params.messageType} message for TCPA compliance`,
+        {
+          messageType: params.messageType,
+          creditCost,
+          phoneNumber: params.phoneNumber,
+          contactId: params.contactId,
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      logInfo("Credits deducted for queued message", {
+        businessId: params.businessId,
+        messageType: params.messageType,
+        creditCost,
+        previousBalance: currentBalance,
+        remainingCredits: updatedCredits.balance,
+      });
+
       const scheduledFor =
         QuietHoursCompliance.getNextSendTime(businessTimezone);
 
@@ -126,14 +165,18 @@ export class UniversalMessageService {
           messagingServiceSid: params.messagingServiceSid,
           campaignId: params.campaignId,
           mediaUrl: params.mediaUrl,
+          // Mark as pre-paid to help with debugging
+          creditsPaid: true,
+          creditsDeducted: creditCost,
         },
       });
 
-      logInfo("Message queued due to quiet hours", {
+      logInfo("Message queued with upfront billing", {
         businessId: params.businessId,
         messageType: params.messageType,
         queueId: queuedMessage.id,
         scheduledFor: scheduledFor.toISOString(),
+        creditCost,
       });
 
       return {
@@ -142,7 +185,7 @@ export class UniversalMessageService {
         queueId: queuedMessage.id,
       };
     } catch (error) {
-      logError("Failed to queue message", {
+      logError("Failed to queue message with upfront billing", {
         error,
         businessId: params.businessId,
         messageType: params.messageType,

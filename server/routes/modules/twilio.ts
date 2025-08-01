@@ -24,9 +24,16 @@ import { UniversalMessageService } from "../../services/universal-message.js";
 const tfvRateLimiter = createTFVRateLimiter();
 
 export function registerTwilioRoutes(app: Express) {
-  // Twilio status webhook endpoint (unauthenticated - external Twilio calls)
+  // DEPRECATED: Old Twilio status webhook endpoint (unauthenticated - external Twilio calls)
+  // This endpoint has unreliable message matching logic and should not be used in production
+  // Use /api/webhooks/twilio/status-callback instead
   app.post("/api/twilio/webhook", async (req, res) => {
     try {
+      logError("DEPRECATED webhook endpoint called", {
+        url: "/api/twilio/webhook",
+        recommendation: "Use /api/webhooks/twilio/status-callback instead",
+      });
+
       const { AccountSid, MessageStatus, To } = req.body as any;
 
       // Find business by phone number since we're using a single Twilio account
@@ -589,7 +596,9 @@ export function registerTwilioRoutes(app: Express) {
       const webhookUrl =
         process.env.TWILIO_WEBHOOK_URL ||
         (process.env.NODE_ENV === "production"
-          ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+          ? `${req.protocol}://${req.get(
+              "host"
+            )}/api/webhooks/twilio/status-callback`
           : "");
 
       // Get or create messaging service SID
@@ -693,7 +702,9 @@ export function registerTwilioRoutes(app: Express) {
         const webhookUrl =
           process.env.TWILIO_WEBHOOK_URL ||
           (process.env.NODE_ENV === "production"
-            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            ? `${req.protocol}://${req.get(
+                "host"
+              )}/api/webhooks/twilio/status-callback`
             : "");
 
         try {
@@ -852,7 +863,9 @@ export function registerTwilioRoutes(app: Express) {
         const webhookUrl =
           process.env.TWILIO_WEBHOOK_URL ||
           (process.env.NODE_ENV === "production"
-            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            ? `${req.protocol}://${req.get(
+                "host"
+              )}/api/webhooks/twilio/status-callback`
             : "");
 
         // Get or create messaging service SID
