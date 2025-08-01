@@ -1785,13 +1785,17 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentMessages(limit?: number): Promise<Message[]> {
     const businessId = this.requireBusinessId();
-    const recentMessages = await db
+    let query = db
       .select()
       .from(messages)
       .where(eq(messages.businessId, businessId))
       .orderBy(desc(messages.createdAt));
 
-    return limit ? recentMessages.slice(0, limit) : recentMessages;
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    return await query;
   }
 
   async getRecentInboxMessages(limit?: number): Promise<Message[]> {
