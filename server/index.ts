@@ -29,6 +29,10 @@ try {
 // Apply security headers to all responses (before any routes)
 app.use(securityHeaders);
 
+// Trust proxy - CRITICAL for HTTPS detection behind ALB
+// This ensures req.protocol correctly returns "https" when behind a load balancer
+app.set("trust proxy", true);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
