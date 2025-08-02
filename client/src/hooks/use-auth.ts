@@ -17,8 +17,52 @@ interface LocalUserResponse {
   [key: string]: any;
 }
 
-// Global state to track setup attempts across all component instances
-const SETUP_STATES = new Map<string, boolean>();
+// iOS-safe localStorage-based setup state management
+const getSetupState = (key: string): boolean => {
+  try {
+    return localStorage.getItem(`setup_${key}`) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const setSetupState = (key: string, value: boolean): void => {
+  try {
+    localStorage.setItem(`setup_${key}`, value.toString());
+    // Add timestamp for cleanup
+    localStorage.setItem(`setup_${key}_timestamp`, Date.now().toString());
+  } catch {
+    // Ignore localStorage errors (e.g., quota exceeded)
+  }
+};
+
+const deleteSetupState = (key: string): void => {
+  try {
+    localStorage.removeItem(`setup_${key}`);
+    localStorage.removeItem(`setup_${key}_timestamp`);
+  } catch {
+    // Ignore localStorage errors
+  }
+};
+
+const cleanupOldSetupStates = (): void => {
+  try {
+    const cutoff = Date.now() - 60 * 60 * 1000; // 1 hour ago
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("setup_") && key.endsWith("_timestamp")) {
+        const timestamp = localStorage.getItem(key);
+        if (timestamp && parseInt(timestamp) < cutoff) {
+          const setupKey = key.replace("_timestamp", "");
+          localStorage.removeItem(setupKey);
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+};
 
 export function useAuth() {
   const { userId, isLoaded, isSignedIn } = useClerkAuth();
@@ -27,17 +71,17 @@ export function useAuth() {
   // Create a unique key for this user's setup state
   const setupKey = `setup-${userId}`;
 
-  // Call setup endpoint when user is authenticated - with global deduplication
+  // Call setup endpoint when user is authenticated - with localStorage deduplication
   const setupMutation = useMutation({
     mutationKey: ["auth-setup", userId], // Keep React Query deduplication
     mutationFn: async () => {
-      // Double-check global state before making the request
-      if (SETUP_STATES.get(setupKey)) {
+      // Double-check localStorage state before making the request
+      if (getSetupState(setupKey)) {
         throw new Error("Setup already in progress or completed");
       }
 
-      // Mark as in progress globally
-      SETUP_STATES.set(setupKey, true);
+      // Mark as in progress in localStorage
+      setSetupState(setupKey, true);
 
       try {
         const response = await apiRequest({
@@ -47,7 +91,7 @@ export function useAuth() {
         return response.json();
       } catch (error) {
         // Reset on error so it can be retried
-        SETUP_STATES.delete(setupKey);
+        deleteSetupState(setupKey);
         throw error;
       }
     },
@@ -92,7 +136,7 @@ export function useAuth() {
   // Auto-setup when user is authenticated but no local user exists
   useEffect(() => {
     // Early exit if setup already attempted for this user
-    if (SETUP_STATES.get(setupKey)) {
+    if (getSetupState(setupKey)) {
       return;
     }
 
@@ -117,15 +161,11 @@ export function useAuth() {
     setupKey,
   ]);
 
-  // Clean up global state when user changes (logout/login scenarios)
+  // Clean up localStorage when user changes (logout/login scenarios)
   useEffect(() => {
     if (!isSignedIn || !userId) {
       // Clean up any setup state for previous users
-      Array.from(SETUP_STATES.keys()).forEach((key) => {
-        if (key.startsWith("setup-")) {
-          SETUP_STATES.delete(key);
-        }
-      });
+      cleanupOldSetupStates();
     }
   }, [isSignedIn, userId]);
 
