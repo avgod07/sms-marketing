@@ -133,7 +133,11 @@ export default function TimezoneChangeModal({
     
     // Refresh timezone data
     queryClient.invalidateQueries({ queryKey: ["/api/business/timezone"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/business/hours-check"] });
+    
+    // Force refresh business hours service
+    import("@/services/business-hours").then(({ businessHoursService }) => {
+      businessHoursService.forceRefresh();
+    });
     
     toast({
       title: "Timezone Updated",

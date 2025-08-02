@@ -1,36 +1,16 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Clock, CheckCircle2 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useSetupStatus } from "@/hooks/use-setup-status";
-import { useAuth } from "@/hooks/use-auth";
-
-interface BusinessHoursCheck {
-  isBusinessHours: boolean;
-  currentTime: string;
-  nextBusinessHour: string | null;
-  willBeQueued: boolean;
-  businessTimezone: string;
-  businessHours: string;
-}
+import { useBusinessHours } from "@/hooks/use-business-hours";
+import type { BusinessHoursCheck } from "@/services/business-hours";
 
 interface BusinessHoursWarningProps {
   onHoursCheck?: (check: BusinessHoursCheck) => void;
 }
 
 export default function BusinessHoursWarning({ onHoursCheck }: BusinessHoursWarningProps) {
-  const { data: user } = useAuth();
   const { data: setup } = useSetupStatus();
-  
-  const { data: hoursCheck, isLoading } = useQuery<BusinessHoursCheck>({
-    queryKey: ["/api/business/hours-check"],
-    enabled: !!user,
-    queryFn: async () => {
-      const res = await apiRequest({ method: "GET", url: "/api/business/hours-check" });
-      return res.json();
-    },
-    refetchInterval: 60000, // Refresh every minute
-  });
+  const { data: hoursCheck, isLoading } = useBusinessHours();
 
   useEffect(() => {
     if (hoursCheck && onHoursCheck) {

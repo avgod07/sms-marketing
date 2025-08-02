@@ -8,17 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
+import { useBusinessHours } from "@/hooks/use-business-hours";
 import type { SchedulingValidationResult } from "@shared/api-types";
-
-interface BusinessHoursCheck {
-  isBusinessHours: boolean;
-  currentTime: string;
-  nextBusinessHour: string | null;
-  willBeQueued: boolean;
-  businessTimezone: string;
-  businessHours: string;
-}
+import type { BusinessHoursCheck } from "@/services/business-hours";
 
 export interface SchedulingOptions {
   mode: 'immediate' | 'scheduled';
@@ -46,15 +38,8 @@ export function TimingControl({
   const [validation, setValidation] = useState<SchedulingValidationResult | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
 
-  // Check current business hours status
-  const { data: hoursCheck } = useQuery<BusinessHoursCheck>({
-    queryKey: ["/api/business/hours-check"],
-    queryFn: async () => {
-      const res = await apiRequest({ method: "GET", url: "/api/business/hours-check" });
-      return res.json();
-    },
-    refetchInterval: 60000, // Refresh every minute
-  });
+  // Check current business hours status using shared hook
+  const { data: hoursCheck } = useBusinessHours();
 
   const canCreateImmediate = hoursCheck?.isBusinessHours ?? true; // Default to true while loading
 
