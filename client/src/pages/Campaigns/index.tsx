@@ -102,7 +102,7 @@ export default function Campaigns() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Campaign Management</h1>
             <p className="text-gray-600 mt-1">
-              Create and manage your SMS campaigns.
+              Manage your SMS campaigns.
             </p>
           </div>
           <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
