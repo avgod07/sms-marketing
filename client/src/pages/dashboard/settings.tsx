@@ -25,6 +25,9 @@ import {
   AlertCircle,
   ExternalLink,
   MessageSquareText,
+  Building2,
+  FileText,
+  Shield,
 } from "lucide-react";
 import { useCredits } from "@/hooks/use-credits";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -39,24 +42,19 @@ import { useSetupStatus } from "@/hooks/use-setup-status";
 import type { TwilioSettings } from "@shared/api-types";
 import InitialMessageSettings from "@/components/InitialMessageSettings";
 import SMSCommandSettings from "@/components/SMSCommandSettings";
+import BusinessSettingsTab from "@/components/settings/BusinessSettingsTab";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Settings() {
   const { toast } = useToast();
   const [location] = useLocation();
   const [activeTab, setActiveTab] = useState("account");
-
-  // Parse tab from URL query parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1]);
-    const tab = urlParams.get('tab');
-    if (tab && ['account', 'billing'].includes(tab)) {
-      setActiveTab(tab);
-    }
-  }, [location]);
+  const { data: user } = useAuth();
 
   // Query to get current account info (company name and email)
   const { data: accountInfo, isLoading, error } = useQuery({
     queryKey: ["/api/business/account-info"],
+    enabled: !!user,
     queryFn: async () => {
       const res = await apiRequest({ method: "GET", url: "/api/business/account-info" });
       return res.json();
@@ -66,6 +64,21 @@ export default function Settings() {
   // Query onboarding status
   const { data: setupStatus, isLoading: setupLoading } = useSetupStatus();
   const onboardingComplete = setupStatus?.onboardingComplete;
+
+  // Parse tab from URL query parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.split('?')[1]);
+    const tab = urlParams.get('tab');
+    
+    const allowedTabs = ['account', 'billing', 'legal'];
+    if (setupStatus?.onboardingComplete) {
+      allowedTabs.push('business');
+    }
+    
+    if (tab && allowedTabs.includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location, setupStatus?.onboardingComplete]);
 
   const [companyName, setCompanyName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -122,7 +135,11 @@ export default function Settings() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
           <TabsList className="mb-4">
             <TabsTrigger value="account">Account</TabsTrigger>
+            {setupStatus?.onboardingComplete && (
+              <TabsTrigger value="business">Business</TabsTrigger>
+            )}
             <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="legal">Privacy & Legal</TabsTrigger>
           </TabsList>
 
           <TabsContent value="account">
@@ -240,8 +257,96 @@ export default function Settings() {
             </div>
           </TabsContent>
 
+          <TabsContent value="business">
+            <BusinessSettingsTab />
+          </TabsContent>
+
           <TabsContent value="billing">
             <BillingTab />
+          </TabsContent>
+
+          <TabsContent value="legal">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Shield className="w-5 h-5" />
+                    <span>Privacy & Legal Documents</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-600 mb-4">
+                    Access our privacy policy and terms of service. These documents outline how we handle your data and the terms governing your use of our SMS messaging platform.
+                  </p>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="border border-gray-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Shield className="w-5 h-5 text-blue-600" />
+                            <div>
+                              <h3 className="font-medium">Privacy Policy</h3>
+                              <p className="text-sm text-gray-600">
+                                Learn how we collect, use, and protect your personal information
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="w-full mt-3"
+                          onClick={() => window.open('/privacy', '_blank')}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          View Privacy Policy
+                          <ExternalLink className="w-4 h-4 ml-2" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border border-gray-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="w-5 h-5 text-green-600" />
+                            <div>
+                              <h3 className="font-medium">Terms of Service</h3>
+                              <p className="text-sm text-gray-600">
+                                Review the terms governing your use of our SMS messaging service
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="w-full mt-3"
+                          onClick={() => window.open('/terms', '_blank')}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          View Terms of Service
+                          <ExternalLink className="w-4 h-4 ml-2" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="border border-amber-200 bg-amber-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3">
+                        <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-amber-800">TCPA Compliance</h4>
+                          <p className="text-sm text-amber-700 mt-1">
+                            Our platform is designed to help you comply with the Telephone Consumer Protection Act (TCPA) and related SMS regulations. Review our terms and privacy policy for complete compliance information.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
         </Tabs>

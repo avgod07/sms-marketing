@@ -6,6 +6,7 @@ import type { ContactStats } from "@shared/api-types";
 import { 
   calculateTwilioSegmentation
 } from "@/lib/twilio-segmentation";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CreditUsageEstimateProps {
   hasImage: boolean;
@@ -13,8 +14,11 @@ interface CreditUsageEstimateProps {
 }
 
 export default function CreditUsageEstimate({ hasImage, message }: CreditUsageEstimateProps) {
+  const { data: user } = useAuth();
+  
   const { data: contactStats, isLoading } = useQuery<ContactStats>({
     queryKey: ["/api/contacts/stats"],
+    enabled: !!user,
   });
 
   if (isLoading) {

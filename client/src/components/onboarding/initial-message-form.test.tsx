@@ -22,10 +22,10 @@ const mockValidateMessage = (message: string) => {
 const mockAppendComplianceText = (message: string) => {
   if (!message.trim()) return message;
   
-  const complianceText = " Text STOP to unsubscribe";
+  const complianceText = " Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
   const lowerMessage = message.toLowerCase();
   
-  if (lowerMessage.includes("text stop to unsubscribe")) {
+  if (lowerMessage.includes("reply stop to opt out, help for help")) {
     return message;
   }
   
@@ -66,27 +66,26 @@ describe("InitialMessageForm Logic", () => {
     it("should append compliance text to messages without it", () => {
       const message = "Welcome to our service!";
       const result = mockAppendComplianceText(message);
-      expect(result).toBe("Welcome to our service! Text STOP to unsubscribe");
+      expect(result).toBe("Welcome to our service! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.");
     });
 
     it("should not duplicate compliance text if already present", () => {
-      const messageWithCompliance = "Welcome! Text STOP to unsubscribe";
+      const messageWithCompliance = "Welcome! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
       const result = mockAppendComplianceText(messageWithCompliance);
       expect(result).toBe(messageWithCompliance);
     });
 
     it("should handle case-insensitive compliance text detection", () => {
-      const messageWithLowerCase = "Welcome! text stop to unsubscribe";
+      const messageWithLowerCase = "Welcome! reply stop to opt out, help for help. msg & data rates may apply. msg frequency varies.";
       const result = mockAppendComplianceText(messageWithLowerCase);
       expect(result).toBe(messageWithLowerCase);
     });
 
     it("should handle compliance text in different variations", () => {
       const variations = [
-        "Welcome! Text STOP to unsubscribe",
-        "Welcome! text stop to unsubscribe",
-        "Welcome! TEXT STOP TO UNSUBSCRIBE",
-        "Welcome! Text Stop To Unsubscribe",
+        "Welcome! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.",
+        "Welcome! reply stop to opt out, help for help. msg & data rates may apply. msg frequency varies.",
+        "Welcome! REPLY STOP TO OPT OUT, HELP FOR HELP. MSG & DATA RATES MAY APPLY. MSG FREQUENCY VARIES.",
       ];
 
       variations.forEach(variation => {
@@ -152,13 +151,13 @@ describe("InitialMessageForm Logic", () => {
 
   describe("Edge Cases", () => {
     it("should handle messages with only compliance text", () => {
-      const onlyCompliance = "Text STOP to unsubscribe";
+      const onlyCompliance = "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
       const result = mockAppendComplianceText(onlyCompliance);
       expect(result).toBe(onlyCompliance);
     });
 
     it("should handle messages with compliance text in the middle", () => {
-      const message = "Welcome! Text STOP to unsubscribe. We're glad to have you!";
+      const message = "Welcome! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies. We're glad to have you!";
       const result = mockAppendComplianceText(message);
       expect(result).toBe(message);
     });
@@ -166,13 +165,13 @@ describe("InitialMessageForm Logic", () => {
     it("should handle very short messages", () => {
       const shortMessage = "Hi!";
       const result = mockAppendComplianceText(shortMessage);
-      expect(result).toBe("Hi! Text STOP to unsubscribe");
+      expect(result).toBe("Hi! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.");
     });
 
     it("should handle messages with multiple spaces", () => {
       const spacedMessage = "Welcome    to    our    service!";
       const result = mockAppendComplianceText(spacedMessage);
-      expect(result).toBe("Welcome    to    our    service! Text STOP to unsubscribe");
+      expect(result).toBe("Welcome    to    our    service! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.");
     });
 
     it("should handle messages with compliance text variations", () => {
@@ -185,7 +184,7 @@ describe("InitialMessageForm Logic", () => {
       variations.forEach(variation => {
         const result = mockAppendComplianceText(variation);
         // These should not be detected as having compliance text
-        expect(result).toBe(`${variation} Text STOP to unsubscribe`);
+        expect(result).toBe(`${variation} Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.`);
       });
     });
   });

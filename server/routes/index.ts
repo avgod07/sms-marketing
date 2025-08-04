@@ -5,6 +5,7 @@ import { registerTwilioRoutes } from "./modules/twilio";
 import { registerPublicRoutes } from "./modules/public";
 import { registerBusinessRoutes } from "./modules/business";
 import { registerAnalyticsRoutes } from "./modules/analytics";
+import fairProcessorMetricsRouter from "./modules/fair-processor-metrics";
 import { registerContactRoutes } from "./modules/contacts";
 import { registerCampaignRoutes } from "./modules/campaigns";
 import { registerCouponRoutes } from "./modules/coupons";
@@ -12,6 +13,7 @@ import { registerMessageRoutes } from "./modules/messages";
 import { registerCreditsRoutes } from "./modules/credits";
 import { registerSubscriptionRoutes } from "./modules/subscriptions";
 import { registerSMSCommandRoutes } from "./modules/sms-commands";
+import { registerAdminRoutes } from "./modules/admin";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   registerAuthRoutes(app);
@@ -19,6 +21,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerPublicRoutes(app);
   registerBusinessRoutes(app);
   registerAnalyticsRoutes(app);
+  app.use("/api/metrics/fair-processor", fairProcessorMetricsRouter);
   registerContactRoutes(app);
   registerCampaignRoutes(app);
   registerCouponRoutes(app);
@@ -26,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCreditsRoutes(app);
   registerSubscriptionRoutes(app);
   registerSMSCommandRoutes(app);
+  registerAdminRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

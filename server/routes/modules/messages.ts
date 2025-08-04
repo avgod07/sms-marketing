@@ -11,6 +11,7 @@ import { getBizForRequest } from "./utils";
 import { logError } from "../../utils/logger.util";
 import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
 import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
+import { UniversalMessageService } from "../../services/universal-message.js";
 
 export function registerMessageRoutes(app: Express) {
   app.get("/api/conversations", requireAuth(), async (req, res) => {
@@ -144,46 +145,43 @@ export function registerMessageRoutes(app: Express) {
         const numbers = await biz.getPhoneNumbers();
         const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-        // Create a minimal creds object for compatibility
-        const tempCreds = {
+        // Send message using UniversalMessageService with TCPA compliance
+        const result = await UniversalMessageService.sendMessage(biz, {
           businessId: (await biz.getBusiness()).id,
-          accountSid: process.env.TWILIO_ACCOUNT_SID!,
-          messagingServiceSid: messagingServiceSid || null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          id: 0,
-        };
-
-        // Use the updated credit deduction service (send-first-then-deduct)
-        const result = await MessageCreditService.sendWithCreditDeduction(
-          biz,
-          tempCreds,
-          {
-            to: validatedData.phoneNumber,
-            message: validatedData.content,
-            from,
-            messagingServiceSid: messagingServiceSid ?? undefined,
-            campaignId: validatedData.campaignId ?? undefined,
-            contactId: validatedData.contactId || undefined,
-            messageType: "regular",
-          }
-        );
-
-        // Create message record with both delivery and billing status
-        const message = await biz.createMessage({
-          ...validatedData,
-          status: result.success ? "sent" : "failed",
-          messageType: "regular",
-          billingStatus: result.billingStatus,
-          messageSid: result.messageSid,
+          phoneNumber: validatedData.phoneNumber,
+          messageContent: validatedData.content,
+          messageType: "individual",
+          contactId: validatedData.contactId,
+          campaignId: validatedData.campaignId ?? undefined,
         });
 
-        // Return clean success response - user doesn't need to know about billing failures
-        res.status(201).json({
-          ...message,
-          creditCost: result.creditCost,
-          remainingCredits: result.remainingCredits,
-        });
+        if (result.status === "sent") {
+          // Create message record for immediately sent message
+          const message = await biz.createMessage({
+            ...validatedData,
+            status: "sent",
+            messageType: "individual",
+            billingStatus: "success",
+            messageSid: result.messageId,
+          });
+
+          res.status(201).json(message);
+        } else if (result.status === "queued") {
+          // Create message record for queued message
+          const message = await biz.createMessage({
+            ...validatedData,
+            status: "pending",
+            messageType: "individual",
+            billingStatus: "pending",
+            queueId: result.queueId,
+          });
+
+          res.status(201).json({
+            ...message,
+            scheduledFor: result.scheduledFor,
+            message: "Message queued for business hours compliance",
+          });
+        }
       } catch (error) {
         if (error instanceof InsufficientCreditsError) {
           return res.status(402).json({

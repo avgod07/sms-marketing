@@ -149,7 +149,7 @@ export default function BusinessInfoForm({
             Business Information
           </h3>
           <p className="text-sm text-gray-500">
-            Required for Twilio verification
+            Required for toll free number verification
           </p>
         </div>
       </div>

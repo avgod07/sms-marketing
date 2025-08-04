@@ -7,14 +7,18 @@ import { Link } from "wouter";
 import { Users, MessageSquare, Send, TrendingUp, Plus } from "lucide-react";
 import type { DashboardStats } from "@shared/api-types";
 import { TFVStatusBanner } from "@/components/tfv-status-banner";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
+  const { data: user } = useAuth();
+  
   const {
     data: stats,
     isLoading,
     isError,
   } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+    enabled: !!user,
     staleTime: 0,
   });
 
@@ -123,7 +127,7 @@ export default function Dashboard() {
                 variant="secondary"
                 className="flex items-center space-x-2"
               >
-                <Link href="/campaigns">
+                <Link href="/campaigns/new">
                   <Plus className="w-4 h-4" />
                   <span>Create Campaign</span>
                 </Link>

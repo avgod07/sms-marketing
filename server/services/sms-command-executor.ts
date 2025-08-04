@@ -24,6 +24,46 @@ export interface SMSCommandPendingResult {
 
 export class SMSCommandExecutor {
   /**
+   * Validate phone configuration before processing SMS commands
+   * Prevents credit deduction when responses can't be sent
+   */
+  private static async validatePhoneConfiguration(
+    bizStore: IStorage
+  ): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      const business = await bizStore.getBusiness();
+      const numbers = await bizStore.getPhoneNumbers();
+      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
+      const messagingServiceSid = await bizStore.getMessagingServiceSid();
+
+      if (!from && !messagingServiceSid) {
+        logError("SMS command blocked - no phone configuration", {
+          businessId: business.id,
+          hasPhoneNumbers: numbers.length > 0,
+          hasDefaultNumber: !!from,
+          hasMessagingService: !!messagingServiceSid,
+        });
+
+        return {
+          isValid: false,
+          error:
+            "No phone number or messaging service configured. Please complete your phone setup before using SMS commands.",
+        };
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      logError("Error validating phone configuration for SMS command", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        isValid: false,
+        error: "System error validating phone configuration",
+      };
+    }
+  }
+
+  /**
    * Create pending command with preview (NEW - replaces immediate execution)
    */
   static async createPendingCommand(
@@ -57,7 +97,21 @@ export class SMSCommandExecutor {
         };
       }
 
-      // 2. Get contacts and validate
+      // 2. Validate phone configuration FIRST (prevents credit loss)
+      const phoneValidation = await this.validatePhoneConfiguration(bizStore);
+      if (!phoneValidation.isValid) {
+        logError("SMS command failed phone validation", {
+          businessId,
+          senderPhone,
+          error: phoneValidation.error,
+        });
+        return {
+          success: false,
+          error: phoneValidation.error || "Phone configuration invalid",
+        };
+      }
+
+      // 3. Get contacts and validate
       const contacts = (await bizStore.getContacts()).filter((c) => c.active);
 
       if (contacts.length === 0) {
@@ -68,7 +122,7 @@ export class SMSCommandExecutor {
         };
       }
 
-      // 3. Calculate credits needed (always 1 credit per contact for 160-char limit)
+      // 4. Calculate credits needed (always 1 credit per contact for 160-char limit)
       const creditCost = 1; // Simple fixed cost for MVP
       const totalCreditsNeeded = contacts.length * creditCost;
 
@@ -154,6 +208,52 @@ export class SMSCommandExecutor {
         creditCost: pendingCommand.creditCost,
       });
 
+      // CHECK BUSINESS HOURS FIRST - SMS commands fail outside hours
+      const business = await bizStore.getBusiness();
+      const { QuietHoursCompliance } = await import(
+        "./quiet-hours-compliance.js"
+      );
+
+      const canSendNow = QuietHoursCompliance.canSendImmediately(
+        business.timezone,
+        "campaign" // SMS commands create campaigns
+      );
+
+      if (!canSendNow) {
+        // FAIL the command immediately with business hours error
+        await SMSCommandResponses.sendBusinessHoursErrorResponse(
+          bizStore,
+          pendingCommand.senderPhone,
+          business.timezone
+        );
+
+        logInfo("SMS command failed - outside business hours", {
+          businessId,
+          pendingId: pendingCommand.id,
+          timezone: business.timezone,
+          senderPhone: pendingCommand.senderPhone,
+        });
+
+        return {
+          success: false,
+          error: "Cannot send campaigns outside business hours (8 AM - 8 PM)",
+        };
+      }
+
+      // Revalidate phone configuration (might have changed since pending created)
+      const phoneValidation = await this.validatePhoneConfiguration(bizStore);
+      if (!phoneValidation.isValid) {
+        logError("Pending SMS command failed phone validation", {
+          businessId,
+          pendingId: pendingCommand.id,
+          error: phoneValidation.error,
+        });
+        return {
+          success: false,
+          error: phoneValidation.error || "Phone configuration invalid",
+        };
+      }
+
       // Revalidate everything (contacts might have changed)
       const contacts = (await bizStore.getContacts()).filter((c) => c.active);
 
@@ -212,14 +312,27 @@ export class SMSCommandExecutor {
         businessId
       );
 
-      // Send confirmation response (enhanced with remaining balance)
-      await SMSCommandResponses.sendConfirmationResponse(
-        bizStore,
-        pendingCommand.senderPhone,
-        results.sentCount,
-        totalCreditsNeeded,
-        nextAvailable
-      );
+      // Send confirmation response (enhanced with remaining balance and queue info)
+      if (results.queuedCount > 0) {
+        // Some messages were queued due to quiet hours
+        await SMSCommandResponses.sendConfirmationWithQueueResponse(
+          bizStore,
+          pendingCommand.senderPhone,
+          results.sentCount,
+          results.queuedCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      } else {
+        // All messages sent immediately
+        await SMSCommandResponses.sendConfirmationResponse(
+          bizStore,
+          pendingCommand.senderPhone,
+          results.sentCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      }
 
       logInfo("SMS command executed successfully from pending", {
         businessId,
@@ -292,7 +405,21 @@ export class SMSCommandExecutor {
         };
       }
 
-      // 2. Get contacts and validate
+      // 2. Validate phone configuration FIRST (prevents credit loss)
+      const phoneValidation = await this.validatePhoneConfiguration(bizStore);
+      if (!phoneValidation.isValid) {
+        logError("SMS command failed phone validation", {
+          businessId,
+          senderPhone,
+          error: phoneValidation.error,
+        });
+        return {
+          success: false,
+          error: phoneValidation.error || "Phone configuration invalid",
+        };
+      }
+
+      // 3. Get contacts and validate
       const contacts = (await bizStore.getContacts()).filter((c) => c.active);
 
       if (contacts.length === 0) {
@@ -303,7 +430,7 @@ export class SMSCommandExecutor {
         };
       }
 
-      // 3. Calculate credits needed
+      // 4. Calculate credits needed
       const creditCost = MessageCreditService.calculateCreditCost(
         message,
         false
@@ -352,14 +479,27 @@ export class SMSCommandExecutor {
         businessId
       );
 
-      // 7. Send success response
-      await SMSCommandResponses.sendSuccessResponse(
-        bizStore,
-        senderPhone,
-        results.sentCount,
-        totalCreditsNeeded,
-        nextAvailable
-      );
+      // 7. Send success response (with queue info if applicable)
+      if (results.queuedCount > 0) {
+        // Some messages were queued due to quiet hours
+        await SMSCommandResponses.sendSuccessWithQueueResponse(
+          bizStore,
+          senderPhone,
+          results.sentCount,
+          results.queuedCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      } else {
+        // All messages sent immediately
+        await SMSCommandResponses.sendSuccessResponse(
+          bizStore,
+          senderPhone,
+          results.sentCount,
+          totalCreditsNeeded,
+          nextAvailable
+        );
+      }
 
       logInfo("SMS command executed successfully", {
         businessId,

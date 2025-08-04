@@ -18,6 +18,7 @@ import {
   getCharacterCounterLimit,
   validateMessageLength
 } from "@/lib/twilio-segmentation";
+import { TimingControl, type SchedulingOptions } from "./TimingControl";
 
 export const campaignSchema = z
   .object({
@@ -28,7 +29,10 @@ export const campaignSchema = z
       .min(1, "Message cannot be empty"),
   });
 
-export type CampaignFormValues = z.infer<typeof campaignSchema> & { mediaUrl?: string };
+export type CampaignFormValues = z.infer<typeof campaignSchema> & { 
+  mediaUrl?: string;
+  scheduling?: SchedulingOptions;
+};
 
 interface CampaignFormProps {
   initialValues?: CampaignFormValues;
@@ -40,6 +44,8 @@ interface CampaignFormProps {
   onMessageChange?: (message: string) => void;
   onImageChange?: (url?: string) => void;
   onSendTest?: () => void;
+  businessTimezone?: string;
+  businessHours?: string;
 }
 
 export default function CampaignForm({
@@ -52,6 +58,8 @@ export default function CampaignForm({
   onMessageChange,
   onImageChange,
   onSendTest,
+  businessTimezone = "America/New_York",
+  businessHours = "8 AM - 8 PM",
 }: CampaignFormProps) {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
@@ -59,6 +67,9 @@ export default function CampaignForm({
       name: "",
       message: "",
       mediaUrl: "",
+      scheduling: {
+        mode: 'immediate'
+      },
     },
   });
 
@@ -66,6 +77,9 @@ export default function CampaignForm({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState<SchedulingOptions>(
+    initialValues?.scheduling || { mode: 'immediate' }
+  );
 
   useEffect(() => {
     if (initialValues) {
@@ -140,7 +154,11 @@ export default function CampaignForm({
 
   // Custom validation for message length and content
   const validateAndSubmit = (data: CampaignFormValues) => {
-    const finalData = { ...data, mediaUrl: imageUrl || undefined };
+    const finalData = { 
+      ...data, 
+      mediaUrl: imageUrl || undefined,
+      scheduling: scheduling
+    };
     
     // Check for empty or whitespace-only messages
     const trimmedMessage = finalData.message.trim();
@@ -161,6 +179,20 @@ export default function CampaignForm({
         message: validation.error || "Message exceeds maximum length"
       });
       return;
+    }
+    
+    // Validate scheduling
+    if (scheduling.mode === 'scheduled') {
+      if (!scheduling.scheduledTime) {
+        // Show error for missing scheduled time
+        alert("Please select a scheduled date and time.");
+        return;
+      }
+      
+      if (scheduling.scheduledTime <= new Date()) {
+        alert("Scheduled time must be in the future.");
+        return;
+      }
     }
     
     // Update finalData with trimmed message
@@ -242,6 +274,7 @@ export default function CampaignForm({
             </div>
           </div>
         </div>
+
         <div>
           <Label htmlFor="image">Attach Image (Optional)</Label>
           <Input
@@ -259,6 +292,15 @@ export default function CampaignForm({
           )}
           <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF only. Max 5MB. Sending an MMS costs 3 credits.</p>
         </div>
+
+        {/* Timing Control */}
+        <TimingControl
+          value={scheduling}
+          onChange={setScheduling}
+          disabled={disabled}
+          timezone={businessTimezone}
+          businessHours={businessHours}
+        />
 
         <CreditUsageEstimate hasImage={!!imageUrl || !!imagePreview} message={form.watch("message") || ""} />
 

@@ -42,6 +42,24 @@ npm run build
 npm start
 ```
 
+## Feature Flags
+
+### Message Retry Control
+
+The application includes a feature flag to control automatic message retry behavior:
+
+```bash
+# Disable retries (recommended for cost control)
+ENABLE_MESSAGE_RETRIES=false
+
+# Enable retries (3 attempts with 15-minute delays)
+ENABLE_MESSAGE_RETRIES=true
+```
+
+**Default behavior**: When `ENABLE_MESSAGE_RETRIES` is not set or set to `false`, failed messages are marked as failed immediately instead of being retried. This provides better cost control and predictable behavior.
+
+**User Experience**: The feature flag does not affect the user interface - users still see identical success/failure statuses and campaign statistics.
+
 ## Database Connection Pooling
 
 The application uses a production-optimized database connection pool to ensure stability and scalability.

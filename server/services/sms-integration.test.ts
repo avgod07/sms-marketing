@@ -469,9 +469,9 @@ describe("SMS Integration Tests", () => {
   describe("Compliance and Opt-out", () => {
     it("should include STOP compliance text in all messages", async () => {
       const testMessages = [
-        "Welcome to our service! Text STOP to unsubscribe",
-        "Thank you for joining! Text STOP to unsubscribe",
-        "Your account is ready! Text STOP to unsubscribe",
+        "Welcome to our service! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.",
+        "Thank you for joining! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.",
+        "Your account is ready! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.",
       ];
 
       const mockMessage = {
@@ -497,20 +497,26 @@ describe("SMS Integration Tests", () => {
         });
       }
 
-      // All messages should contain STOP compliance text
+      // All messages should contain STOP and HELP compliance text
       testMessages.forEach((message) => {
         expect(message.toLowerCase()).toContain("stop");
-        expect(message.toLowerCase()).toContain("unsubscribe");
+        expect(message.toLowerCase()).toContain("help");
+        expect(message.toLowerCase()).toContain("opt out");
+        expect(message.toLowerCase()).toContain("msg & data rates");
+        expect(message.toLowerCase()).toContain("msg frequency");
       });
     });
 
     it("should properly format compliance text", async () => {
-      const messageWithCompliance = "Welcome! Text STOP to unsubscribe";
+      const messageWithCompliance =
+        "Welcome! Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
 
       // Test that compliance text is properly formatted
-      expect(messageWithCompliance).toMatch(/Text STOP to unsubscribe$/);
+      expect(messageWithCompliance).toMatch(
+        /Reply STOP to opt out, HELP for help\. Msg & data rates may apply\. Msg frequency varies\.$/
+      );
       expect(messageWithCompliance).not.toMatch(
-        /Text STOP to unsubscribe Text STOP to unsubscribe/
+        /Reply STOP to opt out, HELP for help\. Msg & data rates may apply\. Msg frequency varies\. Reply STOP to opt out, HELP for help\. Msg & data rates may apply\. Msg frequency varies\./
       );
     });
   });

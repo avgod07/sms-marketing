@@ -11,6 +11,7 @@ import { createRateLimiter } from "../../middlewares/rate-limit.middleware";
 import { logInfo } from "../../utils/logger.util";
 import { requirePublicTFVVerification } from "../../middlewares/tfv-public-verification.middleware";
 import { requirePublicSubscriptionVerification } from "../../middlewares/subscription-verification.middleware";
+import { UniversalMessageService } from "../../services/universal-message.js";
 
 export function registerPublicRoutes(app: Express) {
   const publicContactRateLimiter = createRateLimiter({
@@ -107,69 +108,83 @@ export function registerPublicRoutes(app: Express) {
           consentMethod: "web_form",
         });
 
-        // Send initial message to the new contact with credit deduction
+        // Send initial message to the new contact with TCPA compliance
         try {
           const messagingServiceSid =
             await contactStore.getMessagingServiceSid();
           const numbers = await contactStore.getPhoneNumbers();
           const from = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-          if (from && process.env.TWILIO_ACCOUNT_SID) {
-            // Create a minimal creds object for compatibility
-            const tempCreds = {
-              businessId: business.id,
-              accountSid: process.env.TWILIO_ACCOUNT_SID,
-              messagingServiceSid: messagingServiceSid || null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              id: 0,
-            };
-
-            // Use the updated credit deduction service (send-first-then-deduct)
-            const result = await MessageCreditService.sendWithCreditDeduction(
+          if (
+            from &&
+            process.env.TWILIO_ACCOUNT_SID &&
+            business.initialMessage
+          ) {
+            // Send via UniversalMessageService with TCPA compliance
+            const result = await UniversalMessageService.sendMessage(
               contactStore,
-              tempCreds,
               {
-                to: newContact.phoneNumber,
-                message: business.initialMessage,
-                from,
-                messagingServiceSid: messagingServiceSid ?? undefined,
+                businessId: business.id,
+                phoneNumber: newContact.phoneNumber,
+                messageContent: business.initialMessage,
+                messageType: "welcome",
                 contactId: newContact.id,
-                messageType: "initial",
               }
             );
 
-            // Record the sent message in the database with billing status
-            await contactStore.createMessage({
-              phoneNumber: newContact.phoneNumber,
-              contactId: newContact.id,
-              content: business.initialMessage,
-              status: result.success ? "sent" : "failed",
-              messageType: "initial",
-              billingStatus: result.billingStatus,
-              messageSid: result.messageSid,
-            });
+            if (result.status === "sent") {
+              // Record the immediately sent message
+              await contactStore.createMessage({
+                phoneNumber: newContact.phoneNumber,
+                contactId: newContact.id,
+                content: business.initialMessage,
+                status: "sent",
+                messageType: "welcome",
+                billingStatus: "success",
+                messageSid: result.messageId,
+              });
 
-            // Log initial message result for monitoring
-            if (result.success) {
               logInfo("Initial message sent successfully (public signup)", {
                 contactId: newContact.id,
                 phoneNumber: newContact.phoneNumber,
-                creditCost: result.creditCost,
-                remainingCredits: result.remainingCredits,
-                billingStatus: result.billingStatus,
+                messageSid: result.messageId,
               });
-            } else {
-              logError("Initial message failed to send (public signup)", {
-                contactId: newContact.id,
+            } else if (result.status === "queued") {
+              // Record the queued message
+              await contactStore.createMessage({
                 phoneNumber: newContact.phoneNumber,
-                error: result.error,
+                contactId: newContact.id,
+                content: business.initialMessage,
+                status: "pending",
+                messageType: "welcome",
+                billingStatus: "pending",
+                queueId: result.queueId,
               });
+
+              logInfo(
+                "Initial message queued for business hours (public signup)",
+                {
+                  contactId: newContact.id,
+                  phoneNumber: newContact.phoneNumber,
+                  queueId: result.queueId,
+                  scheduledFor: result.scheduledFor,
+                }
+              );
             }
           }
-        } catch (smsError) {
-          // Log the SMS error but don't fail the contact creation
-          logError("Error sending initial message:", smsError);
+        } catch (messageError) {
+          // Log error but don't fail contact creation
+          logError(
+            "Failed to send initial message to new contact (public signup)",
+            {
+              contactId: newContact.id,
+              phoneNumber: newContact.phoneNumber,
+              error:
+                messageError instanceof Error
+                  ? messageError.message
+                  : String(messageError),
+            }
+          );
         }
 
         res.status(201).json(newContact);

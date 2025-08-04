@@ -18,6 +18,13 @@ import { TwilioService } from "../../services/twilio.js";
 import { MessageCreditService } from "../../services/message-credits.js";
 import { requireTFVVerification } from "../../middlewares/tfv-verification.middleware";
 import { requireActiveSubscription } from "../../middlewares/subscription-verification.middleware";
+import {
+  CampaignSendSummary,
+  CampaignScheduleRequest,
+  CampaignScheduleResponse,
+} from "@shared/api-types";
+import { CampaignSchedulingService } from "../../services/campaign-scheduling.js";
+import { QuietHoursCompliance } from "../../services/quiet-hours-compliance.js";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -103,6 +110,42 @@ export function registerCampaignRoutes(app: Express) {
       try {
         const { biz } = await getBizForRequest(req);
 
+        // TCPA COMPLIANCE: Block immediate campaign creation outside business hours
+        const business = await biz.getBusiness();
+        if (
+          !QuietHoursCompliance.canSendImmediately(
+            business.timezone,
+            "campaign"
+          )
+        ) {
+          const nextSendTime = QuietHoursCompliance.getNextSendTime(
+            business.timezone
+          );
+          const currentBusinessTime = new Date().toLocaleString("en-US", {
+            timeZone: business.timezone,
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZoneName: "short",
+          });
+          const nextAvailable = nextSendTime.toLocaleString("en-US", {
+            timeZone: business.timezone,
+            weekday: "short",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+
+          return res.status(400).json({
+            message:
+              "Immediate campaigns are only available during business hours (8:00 AM - 8:00 PM).",
+            businessHours: "8:00 AM - 8:00 PM",
+            currentBusinessTime,
+            nextAvailable,
+            businessTimezone: business.timezone,
+          });
+        }
+
         // Check if user has sufficient credits for campaign
         const contacts = (await biz.getContacts()).filter((c) => c.active);
         if (contacts.length === 0) {
@@ -147,12 +190,25 @@ export function registerCampaignRoutes(app: Express) {
 
         const results = await executeCampaign(biz, campaign.id);
 
-        res.status(201).json({
+        // Map execution result to API response format
+        const response: CampaignSendSummary & { campaign: any } = {
           campaign,
-          sentCount: results.sentCount,
+          sentCount: results.totalProcessed, // Total successfully processed (for compatibility)
           failedCount: results.failedCount,
           totalContacts: results.totalContacts,
-        });
+          queuedCount: results.queuedCount,
+          hasQueuedMessages: results.hasQueuedMessages,
+          nextSendTime: results.nextSendTime?.toISOString(),
+          queueInfo: results.hasQueuedMessages
+            ? {
+                scheduledFor: results.nextSendTime?.toISOString() || "",
+                businessTimezone: (await biz.getBusiness()).timezone,
+                businessHours: "8 AM - 8 PM",
+              }
+            : undefined,
+        };
+
+        res.status(201).json(response);
       } catch (error) {
         if (error instanceof z.ZodError) {
           return res
@@ -166,6 +222,79 @@ export function registerCampaignRoutes(app: Express) {
         }
         logError("Error creating campaign:", error);
         res.status(500).json({ message: "Failed to create campaign" });
+      }
+    }
+  );
+
+  /**
+   * Create a new scheduled campaign (without executing immediately)
+   */
+  app.post(
+    "/api/campaigns/scheduled",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz, user } = await getBizForRequest(req);
+
+        const scheduleRequestSchema = z.object({
+          name: z.string().min(1, "Campaign name is required"),
+          message: z.string().min(1, "Message is required"),
+          mediaUrl: z.string().optional(),
+          scheduledSendTime: z
+            .string()
+            .refine((val) => !isNaN(Date.parse(val)), {
+              message: "Invalid date format",
+            }),
+          scheduleNotes: z.string().optional(),
+        });
+
+        const validatedData = scheduleRequestSchema.parse(req.body);
+        const scheduledDate = new Date(validatedData.scheduledSendTime);
+
+        const result = await CampaignSchedulingService.createScheduledCampaign(
+          biz,
+          {
+            name: validatedData.name,
+            message: validatedData.message,
+            mediaUrl: validatedData.mediaUrl,
+          },
+          {
+            scheduledSendTime: scheduledDate,
+            scheduledBy: user.clerkId || undefined,
+            scheduleNotes: validatedData.scheduleNotes,
+          }
+        );
+
+        if (!result.success) {
+          return res.status(400).json({
+            message: result.errors?.[0] || "Failed to schedule campaign",
+            errors: result.errors,
+            warnings: result.warnings,
+          });
+        }
+
+        const business = await biz.getBusiness();
+        const response: CampaignScheduleResponse = {
+          campaign: result.campaign,
+          scheduledFor: result.scheduledFor!.toISOString(),
+          businessTimezone: business.timezone,
+          businessHours: "8 AM - 8 PM",
+        };
+
+        res.status(201).json(response);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            message: "Validation error",
+            errors: error.errors.map((e) => e.message),
+          });
+        }
+        logError("Error creating scheduled campaign:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to create scheduled campaign" });
       }
     }
   );
@@ -262,11 +391,28 @@ export function registerCampaignRoutes(app: Express) {
 
         const results = await executeCampaign(biz, id);
 
-        res.json({
-          message: "Campaign sent successfully",
-          sentCount: results.sentCount,
+        // Map execution result to API response format
+        const response: CampaignSendSummary = {
+          sentCount: results.totalProcessed, // Total successfully processed (for compatibility)
           failedCount: results.failedCount,
           totalContacts: results.totalContacts,
+          queuedCount: results.queuedCount,
+          hasQueuedMessages: results.hasQueuedMessages,
+          nextSendTime: results.nextSendTime?.toISOString(),
+          queueInfo: results.hasQueuedMessages
+            ? {
+                scheduledFor: results.nextSendTime?.toISOString() || "",
+                businessTimezone: (await biz.getBusiness()).timezone,
+                businessHours: "8 AM - 8 PM",
+              }
+            : undefined,
+        };
+
+        res.json({
+          message: results.hasQueuedMessages
+            ? "Campaign scheduled for business hours"
+            : "Campaign sent successfully",
+          ...response,
         });
       } catch (error) {
         if (error instanceof InsufficientCreditsError) {
@@ -399,6 +545,212 @@ export function registerCampaignRoutes(app: Express) {
         res
           .status(500)
           .json({ message: error.message || "Failed to upload image" });
+      }
+    }
+  );
+
+  // ================================
+  // CAMPAIGN SCHEDULING ENDPOINTS
+  // ================================
+
+  /**
+   * Schedule a campaign for future delivery
+   */
+  app.post(
+    "/api/campaigns/:id/schedule",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz, user } = await getBizForRequest(req);
+        const campaignId = parseInt(req.params.id);
+
+        const scheduleRequestSchema = z.object({
+          scheduledSendTime: z
+            .string()
+            .refine((val) => !isNaN(Date.parse(val)), {
+              message: "Invalid date format",
+            }),
+          scheduleNotes: z.string().optional(),
+        });
+
+        const { scheduledSendTime, scheduleNotes } =
+          scheduleRequestSchema.parse(req.body);
+        const scheduledDate = new Date(scheduledSendTime);
+
+        const result = await CampaignSchedulingService.scheduleCampaign(
+          biz,
+          campaignId,
+          {
+            scheduledSendTime: scheduledDate,
+            scheduledBy: user.clerkId || undefined,
+            scheduleNotes,
+          }
+        );
+
+        if (!result.success) {
+          return res.status(400).json({
+            message: result.errors?.[0] || "Failed to schedule campaign",
+            errors: result.errors,
+            warnings: result.warnings,
+          });
+        }
+
+        const business = await biz.getBusiness();
+        const response: CampaignScheduleResponse = {
+          campaign: result.campaign,
+          scheduledFor: result.scheduledFor!.toISOString(),
+          businessTimezone: business.timezone,
+          businessHours: "8 AM - 8 PM",
+        };
+
+        res.status(200).json(response);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            message: "Validation error",
+            errors: error.errors.map((e) => e.message),
+          });
+        }
+        logError("Error scheduling campaign:", error);
+        res.status(500).json({ message: "Failed to schedule campaign" });
+      }
+    }
+  );
+
+  /**
+   * Reschedule an existing scheduled campaign
+   */
+  app.put(
+    "/api/campaigns/:id/schedule",
+    requireAuth(),
+    requireTFVVerification,
+    async (req, res) => {
+      try {
+        const { biz, user } = await getBizForRequest(req);
+        const campaignId = parseInt(req.params.id);
+
+        const rescheduleRequestSchema = z.object({
+          scheduledSendTime: z
+            .string()
+            .refine((val) => !isNaN(Date.parse(val)), {
+              message: "Invalid date format",
+            }),
+          scheduleNotes: z.string().optional(),
+        });
+
+        const { scheduledSendTime, scheduleNotes } =
+          rescheduleRequestSchema.parse(req.body);
+        const newScheduledDate = new Date(scheduledSendTime);
+
+        const result = await CampaignSchedulingService.rescheduleCampaign(
+          biz,
+          campaignId,
+          newScheduledDate,
+          user.clerkId || undefined,
+          scheduleNotes
+        );
+
+        if (!result.success) {
+          return res.status(400).json({
+            message: result.errors?.[0] || "Failed to reschedule campaign",
+            errors: result.errors,
+            warnings: result.warnings,
+          });
+        }
+
+        const business = await biz.getBusiness();
+        const response: CampaignScheduleResponse = {
+          campaign: result.campaign,
+          scheduledFor: result.scheduledFor!.toISOString(),
+          businessTimezone: business.timezone,
+          businessHours: "8 AM - 8 PM",
+        };
+
+        res.status(200).json(response);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            message: "Validation error",
+            errors: error.errors.map((e) => e.message),
+          });
+        }
+        logError("Error rescheduling campaign:", error);
+        res.status(500).json({ message: "Failed to reschedule campaign" });
+      }
+    }
+  );
+
+  /**
+   * Cancel a scheduled campaign
+   */
+  app.delete("/api/campaigns/:id/schedule", requireAuth(), async (req, res) => {
+    try {
+      const { biz } = await getBizForRequest(req);
+      const campaignId = parseInt(req.params.id);
+
+      const result = await CampaignSchedulingService.cancelScheduledCampaign(
+        biz,
+        campaignId
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          message: result.errors?.[0] || "Failed to cancel scheduled campaign",
+          errors: result.errors,
+        });
+      }
+
+      res.status(200).json({
+        message: "Campaign scheduling cancelled successfully",
+        campaign: result.campaign,
+      });
+    } catch (error) {
+      logError("Error cancelling scheduled campaign:", error);
+      res.status(500).json({ message: "Failed to cancel scheduled campaign" });
+    }
+  });
+
+  /**
+   * Validate scheduling time for a campaign
+   */
+  app.post(
+    "/api/campaigns/validate-schedule",
+    requireAuth(),
+    requireTFVVerification,
+    requireActiveSubscription,
+    async (req, res) => {
+      try {
+        const { biz } = await getBizForRequest(req);
+
+        const validateRequestSchema = z.object({
+          scheduledSendTime: z
+            .string()
+            .refine((val) => !isNaN(Date.parse(val)), {
+              message: "Invalid date format",
+            }),
+        });
+
+        const { scheduledSendTime } = validateRequestSchema.parse(req.body);
+        const scheduledDate = new Date(scheduledSendTime);
+        const business = await biz.getBusiness();
+
+        const validation = CampaignSchedulingService.validateScheduleTime(
+          scheduledDate,
+          business.timezone
+        );
+
+        res.json(validation);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            message: "Validation error",
+            errors: error.errors.map((e) => e.message),
+          });
+        }
+        logError("Error validating schedule time:", error);
+        res.status(500).json({ message: "Failed to validate schedule time" });
       }
     }
   );

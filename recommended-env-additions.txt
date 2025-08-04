@@ -1,0 +1,29 @@
+# ===========================================
+# RECOMMENDED ADDITIONS TO .env FILES
+# For new Round Robin Queue Implementation
+# ===========================================
+
+# Add these to the bottom of your .env and .env.production files:
+
+# ---------- QUEUE PROCESSING CONFIGURATION ----------
+
+# Twilio Rate Limiting
+TWILIO_ACCOUNT_MPS_LIMIT=25                    # Messages per second (Twilio's limit)
+MESSAGES_PER_BUSINESS_PER_CYCLE=3              # Fairness: messages per business per cycle
+
+# Message Retry Behavior  
+ENABLE_MESSAGE_RETRIES=false                   # Set to 'true' to enable automatic retries
+
+# ---------- PERFORMANCE TUNING (Optional) ----------
+
+# If you experience high load, you can adjust these:
+# TWILIO_ACCOUNT_MPS_LIMIT=20                 # Lower if hitting rate limits
+# MESSAGES_PER_BUSINESS_PER_CYCLE=5           # Higher for better throughput
+# ENABLE_MESSAGE_RETRIES=true                 # Enable if you want automatic retries
+
+# ===========================================
+# NOTES:
+# - These are optional - system uses defaults if not set
+# - Current defaults work well for most use cases
+# - Only add ENABLE_MESSAGE_RETRIES=true if you want automatic retries
+# =========================================== 

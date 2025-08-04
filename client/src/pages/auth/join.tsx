@@ -273,7 +273,9 @@ export default function JoinPage({ params }: JoinPageProps) {
                 <div className="text-sm leading-relaxed">
                   <Label htmlFor="consent" className="cursor-pointer">
                     I agree to receive text messages from <strong>{businessName}</strong> at the number provided. 
-                    Message frequency varies. Message and data rates may apply.
+                    I understand these messages may be sent using an automatic telephone dialing system. 
+                    Message frequency varies. Message and data rates may apply. 
+                    Consent is not required to make a purchase or use services.
                   </Label>
                 </div>
               </div>
@@ -281,6 +283,7 @@ export default function JoinPage({ params }: JoinPageProps) {
               <div className="text-xs text-gray-600 space-y-1">
                 <p>• Reply STOP to opt out at any time</p>
                 <p>• Reply HELP for customer support</p>
+                <p>• View our <a href="/privacy" className="underline">Privacy Policy</a> and <a href="/terms" className="underline">Terms of Service</a></p>
                 <p>• Your information will not be shared with third parties</p>
               </div>
             </div>

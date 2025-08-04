@@ -64,8 +64,14 @@ import {
   smsCommandPending,
   type SmsCommandPending,
   type InsertSmsCommandPending,
+  messageQueue,
+  type MessageQueue,
 } from "@shared/schema";
-import type { ContactRedemption } from "@shared/api-types";
+import type {
+  ContactRedemption,
+  CampaignWithQueue,
+  RecentCampaign,
+} from "@shared/api-types";
 import { db } from "../config/db.config";
 import { eq, desc, asc, count, sql, and } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
@@ -125,7 +131,7 @@ export interface IStorage {
   searchContacts(query: string): Promise<Contact[]>;
 
   // Campaigns
-  getCampaigns(): Promise<Campaign[]>;
+  getCampaigns(): Promise<CampaignWithQueue[]>;
   getCampaign(id: number): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: number, campaign: Partial<Campaign>): Promise<Campaign>;
@@ -202,12 +208,13 @@ export interface IStorage {
   }>;
   getCampaignStats(): Promise<{
     activeCampaigns: number;
-    messagesThisMonth: number;
+    campaignsThisMonth: number;
+    scheduledCampaigns: number;
   }>;
 
   // Recent Activity
   getRecentContacts(limit?: number): Promise<Contact[]>;
-  getRecentCampaigns(limit?: number): Promise<Campaign[]>;
+  getRecentCampaigns(limit?: number): Promise<RecentCampaign[]>;
   getRecentMessages(limit?: number): Promise<Message[]>;
   getRecentInboxMessages(limit?: number): Promise<Message[]>;
 
@@ -455,13 +462,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Campaigns
-  async getCampaigns(): Promise<Campaign[]> {
+  async getCampaigns(): Promise<CampaignWithQueue[]> {
     const businessId = this.requireBusinessId();
-    return await db
-      .select()
+
+    const campaignsWithQueue = await db
+      .select({
+        id: campaigns.id,
+        businessId: campaigns.businessId,
+        name: campaigns.name,
+        message: campaigns.message,
+        mediaUrl: campaigns.mediaUrl,
+        status: campaigns.status,
+        processingStatus: campaigns.processingStatus,
+        sentCount: campaigns.sentCount,
+        deliveredCount: campaigns.deliveredCount,
+        clickCount: campaigns.clickCount,
+        scheduledAt: campaigns.scheduledAt,
+        campaignSource: campaigns.campaignSource,
+        commandSenderPhone: campaigns.commandSenderPhone,
+        scheduledSendTime: campaigns.scheduledSendTime,
+        schedulingType: campaigns.schedulingType,
+        scheduledBy: campaigns.scheduledBy,
+        scheduleNotes: campaigns.scheduleNotes,
+        createdAt: campaigns.createdAt,
+        updatedAt: campaigns.updatedAt,
+        queuedMessageCount: sql<number>`COALESCE(COUNT(${messageQueue.id}), 0)`,
+        nextQueuedSendTime: sql<Date>`MIN(${messageQueue.scheduledFor})`,
+      })
       .from(campaigns)
+      .leftJoin(
+        messageQueue,
+        and(
+          sql`${messageQueue.metadata}::text LIKE '%"campaignId":' || ${campaigns.id} || '%'`,
+          eq(messageQueue.status, "pending")
+        )
+      )
       .where(eq(campaigns.businessId, businessId))
+      .groupBy(campaigns.id)
       .orderBy(desc(campaigns.createdAt));
+
+    return campaignsWithQueue.map((campaign) => ({
+      ...campaign,
+      hasQueuedMessages: (campaign.queuedMessageCount || 0) > 0,
+    }));
   }
 
   async getCampaign(id: number): Promise<Campaign | undefined> {
@@ -1090,9 +1133,12 @@ export class DatabaseStorage implements IStorage {
 
   async getCampaignStats(): Promise<{
     activeCampaigns: number;
-    messagesThisMonth: number;
+    campaignsThisMonth: number;
+    scheduledCampaigns: number;
   }> {
     const businessId = this.requireBusinessId();
+
+    // Get in-progress campaigns
     const [activeCampaigns] = await db
       .select({ count: count() })
       .from(campaigns)
@@ -1100,18 +1146,28 @@ export class DatabaseStorage implements IStorage {
         sql`${campaigns.status} = 'in_progress' AND ${campaigns.businessId} = ${businessId}`
       );
 
+    // Get campaigns created this month
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [messagesThisMonth] = await db
+    const [campaignsThisMonth] = await db
       .select({ count: count() })
-      .from(messages)
+      .from(campaigns)
       .where(
-        sql`${messages.createdAt} >= ${firstDayOfMonth} AND ${messages.businessId} = ${businessId}`
+        sql`${campaigns.createdAt} >= ${firstDayOfMonth} AND ${campaigns.businessId} = ${businessId}`
+      );
+
+    // Get scheduled campaigns
+    const [scheduledCampaigns] = await db
+      .select({ count: count() })
+      .from(campaigns)
+      .where(
+        sql`${campaigns.status} = 'scheduled' AND ${campaigns.businessId} = ${businessId}`
       );
 
     return {
       activeCampaigns: activeCampaigns.count,
-      messagesThisMonth: messagesThisMonth.count,
+      campaignsThisMonth: campaignsThisMonth.count,
+      scheduledCampaigns: scheduledCampaigns.count,
     };
   }
 
@@ -1703,26 +1759,47 @@ export class DatabaseStorage implements IStorage {
     return limit ? recentContacts.slice(0, limit) : recentContacts;
   }
 
-  async getRecentCampaigns(limit?: number): Promise<Campaign[]> {
+  async getRecentCampaigns(limit?: number): Promise<RecentCampaign[]> {
     const businessId = this.requireBusinessId();
     const recentCampaigns = await db
-      .select()
+      .select({
+        id: campaigns.id,
+        name: campaigns.name,
+        status: campaigns.status,
+        createdAt: campaigns.createdAt,
+      })
       .from(campaigns)
       .where(eq(campaigns.businessId, businessId))
       .orderBy(desc(campaigns.createdAt));
 
-    return limit ? recentCampaigns.slice(0, limit) : recentCampaigns;
+    // Convert to RecentCampaign format with string dates
+    const formattedCampaigns = recentCampaigns.map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      createdAt: campaign.createdAt.toISOString(),
+    }));
+
+    return limit ? formattedCampaigns.slice(0, limit) : formattedCampaigns;
   }
 
   async getRecentMessages(limit?: number): Promise<Message[]> {
     const businessId = this.requireBusinessId();
-    const recentMessages = await db
-      .select()
-      .from(messages)
-      .where(eq(messages.businessId, businessId))
-      .orderBy(desc(messages.createdAt));
 
-    return limit ? recentMessages.slice(0, limit) : recentMessages;
+    if (limit) {
+      return await db
+        .select()
+        .from(messages)
+        .where(eq(messages.businessId, businessId))
+        .orderBy(desc(messages.createdAt))
+        .limit(limit);
+    } else {
+      return await db
+        .select()
+        .from(messages)
+        .where(eq(messages.businessId, businessId))
+        .orderBy(desc(messages.createdAt));
+    }
   }
 
   async getRecentInboxMessages(limit?: number): Promise<Message[]> {

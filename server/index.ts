@@ -11,14 +11,27 @@ import {
 import { securityHeaders } from "./middlewares/security.middleware";
 import { requireAuth } from "@clerk/express";
 import { checkDatabaseHealth } from "./config/db.config";
+import { validateEnvironment } from "./utils/env-validation";
 
 // Production server - no Vite dependencies
 const app = express();
 
 setupGlobalErrorHandling();
 
+// Validate environment configuration early to fail fast if misconfigured
+try {
+  validateEnvironment();
+} catch (error) {
+  console.error("Environment validation failed:", error);
+  process.exit(1);
+}
+
 // Apply security headers to all responses (before any routes)
 app.use(securityHeaders);
+
+// Trust proxy - CRITICAL for HTTPS detection behind ALB
+// This ensures req.protocol correctly returns "https" when behind a load balancer
+app.set("trust proxy", true);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -103,6 +116,15 @@ app.use((req, res, next) => {
         );
         SMSCommandTimeoutService.startPeriodicCleanup(30 * 1000); // Every 30 seconds
         logInfo("SMS command cleanup service started");
+      })();
+
+      // Start background jobs for TCPA queue processing
+      (async () => {
+        const { BackgroundJobs } = await import(
+          "./services/background-jobs.js"
+        );
+        BackgroundJobs.start();
+        logInfo("Background jobs started - TCPA queue processing active");
       })();
     }
   );

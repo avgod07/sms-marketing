@@ -18,14 +18,22 @@ import { eq } from "drizzle-orm";
 import { logInfo } from "../../utils/logger.util";
 import { requireTFVPreCheck } from "../../middlewares/tfv-purchase-check.middleware";
 import { createTFVRateLimiter } from "../../middlewares/rate-limit.middleware";
+import { UniversalMessageService } from "../../services/universal-message.js";
 
 // ✅ CREATE TFV RATE LIMITER INSTANCE
 const tfvRateLimiter = createTFVRateLimiter();
 
 export function registerTwilioRoutes(app: Express) {
-  // Twilio status webhook endpoint (unauthenticated - external Twilio calls)
+  // DEPRECATED: Old Twilio status webhook endpoint (unauthenticated - external Twilio calls)
+  // This endpoint has unreliable message matching logic and should not be used in production
+  // Use /api/webhooks/twilio/status-callback instead
   app.post("/api/twilio/webhook", async (req, res) => {
     try {
+      logError("DEPRECATED webhook endpoint called", {
+        url: "/api/twilio/webhook",
+        recommendation: "Use /api/webhooks/twilio/status-callback instead",
+      });
+
       const { AccountSid, MessageStatus, To } = req.body as any;
 
       // Find business by phone number since we're using a single Twilio account
@@ -295,34 +303,71 @@ export function registerTwilioRoutes(app: Express) {
       if (bodyText.toLowerCase() === "stop") {
         if (contact.active) {
           await bizStore.updateContact(contact.id, { active: false });
+
+          // Enhanced logging for compliance and queue suppression tracking
+          logInfo("STOP received - contact deactivated", {
+            businessId,
+            contactId: contact.id,
+            phoneNumber: normalizedFrom,
+            previouslyActive: true,
+            compliance: {
+              note: "Future queued messages will be automatically suppressed",
+              tcpaCompliance: "Contact will not receive marketing messages",
+              auditTrail:
+                "Queue processor will check contact.active status before sending",
+            },
+          });
+        } else {
+          // Contact already inactive - still send STOP response per TCPA
+          logInfo("STOP received for already inactive contact", {
+            businessId,
+            contactId: contact.id,
+            phoneNumber: normalizedFrom,
+            previouslyActive: false,
+            compliance: {
+              note: "STOP response still required per TCPA even if already inactive",
+            },
+          });
         }
-        const numbers = await bizStore.getPhoneNumbers();
-        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-        const messagingServiceSid = await bizStore.getMessagingServiceSid();
 
-        // Create a minimal creds object for compatibility
-        const tempCreds = {
+        // COMPLIANCE REQUIREMENT: STOP responses are free, mandatory, and MUST send immediately
+        // UniversalMessageService handles this correctly with "stop_response" type
+        await UniversalMessageService.sendMessage(bizStore, {
           businessId: businessId,
-          accountSid: process.env.TWILIO_ACCOUNT_SID!,
-          messagingServiceSid: messagingServiceSid || null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          id: 0,
-        };
-
-        // COMPLIANCE REQUIREMENT: STOP responses are free and mandatory
-        // These should NEVER be charged to the business
-        await TwilioService.sendSMS(tempCreds, {
-          to: normalizedFrom,
-          message:
+          phoneNumber: normalizedFrom,
+          messageContent:
             "You've been removed from our list. You will no longer receive messages from us.",
-          from,
-          messagingServiceSid: messagingServiceSid ?? undefined,
+          messageType: "stop_response",
           contactId: contact.id,
         });
 
-        // Log STOP response for compliance tracking (no billing)
+        // Enhanced compliance logging
         logInfo("STOP response sent (compliance - no charge)", {
+          businessId,
+          contactId: contact.id,
+          phoneNumber: normalizedFrom,
+          compliance: {
+            tcpaRequired: true,
+            chargeApplied: false,
+            messageType: "stop_response",
+            sentAt: new Date().toISOString(),
+            auditNote: "Automatic suppression now active for future messages",
+          },
+        });
+      } else if (bodyText.toLowerCase() === "help") {
+        // COMPLIANCE REQUIREMENT: HELP responses are free, mandatory, and MUST send immediately
+        // UniversalMessageService handles this correctly with "help_response" type
+        await UniversalMessageService.sendMessage(bizStore, {
+          businessId: businessId,
+          phoneNumber: normalizedFrom,
+          messageContent:
+            "NotiFlow SMS Help: Contact us at getnotiflow@gmail.com. Reply STOP to opt out. Msg & data rates may apply.",
+          messageType: "help_response",
+          contactId: contact.id,
+        });
+
+        // Log HELP response for compliance tracking (no billing)
+        logInfo("HELP response sent (compliance - no charge)", {
           businessId,
           contactId: contact.id,
           phoneNumber: normalizedFrom,
@@ -551,7 +596,9 @@ export function registerTwilioRoutes(app: Express) {
       const webhookUrl =
         process.env.TWILIO_WEBHOOK_URL ||
         (process.env.NODE_ENV === "production"
-          ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+          ? `${req.protocol}://${req.get(
+              "host"
+            )}/api/webhooks/twilio/status-callback`
           : "");
 
       // Get or create messaging service SID
@@ -655,7 +702,9 @@ export function registerTwilioRoutes(app: Express) {
         const webhookUrl =
           process.env.TWILIO_WEBHOOK_URL ||
           (process.env.NODE_ENV === "production"
-            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            ? `${req.protocol}://${req.get(
+                "host"
+              )}/api/webhooks/twilio/status-callback`
             : "");
 
         try {
@@ -814,7 +863,9 @@ export function registerTwilioRoutes(app: Express) {
         const webhookUrl =
           process.env.TWILIO_WEBHOOK_URL ||
           (process.env.NODE_ENV === "production"
-            ? `${req.protocol}://${req.get("host")}/api/twilio/webhook`
+            ? `${req.protocol}://${req.get(
+                "host"
+              )}/api/webhooks/twilio/status-callback`
             : "");
 
         // Get or create messaging service SID
@@ -1164,7 +1215,8 @@ export function registerTwilioRoutes(app: Express) {
       const { initialMessage } = onboardingCompleteSchema.parse(req.body);
 
       // Ensure initial message includes compliance text
-      const complianceText = "Text STOP to unsubscribe.";
+      const complianceText =
+        "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
       const finalMessage = initialMessage.includes(complianceText)
         ? initialMessage
         : `${initialMessage} ${complianceText}`;
@@ -1177,10 +1229,39 @@ export function registerTwilioRoutes(app: Express) {
         });
       }
 
-      // Mark onboarding as complete at business level and set initial message
+      // Get onboarding progress to extract business information
+      const progress = await biz.getOnboardingProgress();
+
+      // Determine business timezone from address if available
+      let businessTimezone = "America/New_York"; // Default timezone
+      if (progress?.state && progress?.postalCode) {
+        const { TimezoneService } = await import(
+          "../../services/timezone-lookup.js"
+        );
+        businessTimezone = TimezoneService.getTimezoneFromAddress({
+          state: progress.state,
+          postalCode: progress.postalCode,
+          country: progress.country || "United States",
+        });
+
+        logInfo("Business timezone determined from address", {
+          businessId: (await biz.getBusiness()).id,
+          state: progress.state,
+          postalCode: progress.postalCode,
+          timezone: businessTimezone,
+        });
+      } else {
+        logInfo("Using default timezone - no address information available", {
+          businessId: (await biz.getBusiness()).id,
+          defaultTimezone: businessTimezone,
+        });
+      }
+
+      // Mark onboarding as complete at business level and set initial message + timezone
       await biz.updateBusiness({
         initialMessage: finalMessage,
         onboardingComplete: true,
+        timezone: businessTimezone,
       });
 
       // Also mark user onboarding as complete for backward compatibility
@@ -1189,8 +1270,7 @@ export function registerTwilioRoutes(app: Express) {
         .set({ onboardingComplete: true })
         .where(eq(users.id, user.id));
 
-      // Fetch onboarding progress to get the business name
-      const progress = await biz.getOnboardingProgress();
+      // Update business name from onboarding progress
       if (progress && progress.businessName) {
         await biz.updateBusiness({ name: progress.businessName });
       }
@@ -1203,13 +1283,9 @@ export function registerTwilioRoutes(app: Express) {
         phoneNumber: defaultNum?.phoneNumber || null,
         serviceSid: defaultNum?.serviceSid || messagingServiceSid || null,
         initialMessage: finalMessage,
+        timezone: businessTimezone,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res
-          .status(400)
-          .json({ message: "Validation error", errors: error.errors });
-      }
       logError("Error completing onboarding:", error);
       res.status(500).json({ message: "Failed to complete onboarding" });
     }

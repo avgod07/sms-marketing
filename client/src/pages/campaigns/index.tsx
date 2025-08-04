@@ -13,17 +13,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import CampaignTable from "@/components/campaigns/campaign-table";
-import { Plus, Send, Target } from "lucide-react";
+import { Plus, Send, Target, Calendar } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
-import type { Campaign } from "@shared/schema";
-import type { CampaignStats } from "@shared/api-types";
+import type { CampaignStats, CampaignWithQueue } from "@shared/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
 
 export default function Campaigns() {
-  const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithQueue | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { toast } = useToast();
   const { data: user } = useAuth();
@@ -33,7 +32,7 @@ export default function Campaigns() {
     enabled: !!user,
   });
 
-  const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
+  const { data: campaigns, isLoading: campaignsLoading } = useQuery<CampaignWithQueue[]>({
     queryKey: ["/api/campaigns"],
     enabled: !!user,
   });
@@ -62,7 +61,7 @@ export default function Campaigns() {
 
 
 
-  const handleDelete = (campaign: Campaign) => {
+  const handleDelete = (campaign: CampaignWithQueue) => {
     setDeletingCampaign(campaign);
     setIsDeleteOpen(true);
   };
@@ -80,11 +79,18 @@ export default function Campaigns() {
       bgColor: "bg-green-50",
     },
     {
-      title: "Messages This Month",
-      value: campaignStats?.messagesThisMonth || 0,
+      title: "Campaigns This Month",
+      value: campaignStats?.campaignsThisMonth || 0,
       icon: Target,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
+    },
+    {
+      title: "Scheduled Campaigns",
+      value: campaignStats?.scheduledCampaigns || 0,
+      icon: Calendar,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
     },
   ];
 
@@ -96,7 +102,7 @@ export default function Campaigns() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Campaign Management</h1>
             <p className="text-gray-600 mt-1">
-              Create and manage your SMS campaigns.
+              Manage your SMS campaigns.
             </p>
           </div>
           <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
@@ -119,7 +125,7 @@ export default function Campaigns() {
       {/* Content */}
       <div className="p-8">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (

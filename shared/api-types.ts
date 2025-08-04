@@ -1,3 +1,12 @@
+import type { Campaign } from "./schema";
+
+// Enhanced campaign type with queue information
+export type CampaignWithQueue = Campaign & {
+  hasQueuedMessages?: boolean;
+  queuedMessageCount?: number;
+  nextQueuedSendTime?: Date;
+};
+
 export interface DashboardStats {
   totalContacts: number;
   messagesSent: number;
@@ -15,7 +24,8 @@ export interface ContactStats {
 
 export interface CampaignStats {
   activeCampaigns: number;
-  messagesThisMonth: number;
+  campaignsThisMonth: number;
+  scheduledCampaigns: number;
 }
 
 export interface SetupStatus {
@@ -41,9 +51,87 @@ export interface TwilioSettings {
 }
 
 export interface CampaignSendSummary {
-  sentCount: number;
-  failedCount: number;
+  // Original fields (for compatibility)
+  sentCount: number; // NOW: Total processed successfully (sentCount + queuedCount)
+  failedCount: number; // Processing failures
   totalContacts: number;
+
+  // NEW: Queue awareness fields
+  queuedCount?: number; // How many queued
+  hasQueuedMessages?: boolean;
+  nextSendTime?: string; // ISO string for next send
+  queueInfo?: {
+    scheduledFor: string;
+    businessTimezone: string;
+    businessHours: string; // "8 AM - 8 PM"
+  };
+}
+
+// Campaign Scheduling Types
+export interface CampaignScheduleRequest {
+  scheduledSendTime: string; // ISO string
+  scheduleNotes?: string;
+}
+
+export interface CampaignScheduleResponse {
+  campaign: any; // Campaign with scheduling fields
+  scheduledFor: string; // ISO string
+  businessTimezone: string;
+  businessHours: string;
+  countdown?: {
+    timeUntilSend: string; // Human readable like "in 2 hours"
+    exactTime: string; // ISO string
+  };
+}
+
+export interface SchedulingValidationResult {
+  isValid: boolean;
+  errors?: string[];
+  warnings?: string[];
+  suggestedTime?: string; // ISO string for alternative time
+  businessHoursImpact?: {
+    isOutsideBusinessHours: boolean;
+    nextBusinessHour?: string;
+  };
+}
+
+// Timezone Management Types
+export interface BusinessTimezoneInfo {
+  current: {
+    timezone: string;
+    displayName: string;
+    currentTime: string;
+    businessHours: string;
+    isBusinessHours: boolean;
+  };
+  detection: {
+    method: "auto" | "manual";
+    lastUpdated: string;
+    suggestedTimezone?: string;
+    addressMatch: boolean;
+  };
+  queueInfo?: {
+    pendingMessages: number;
+    nextSendTime?: string;
+  };
+}
+
+export interface TimezoneValidationResponse {
+  isValid: boolean;
+  warnings: string[];
+  suggestions: string[];
+  impact: {
+    currentBusinessHours: string;
+    newBusinessHours: string;
+    queuedMessagesAffected: number;
+    timeDifference: string;
+  };
+}
+
+export interface TimezoneUpdateRequest {
+  timezone: string;
+  confirmed: boolean;
+  reason?: "business_moved" | "incorrect_detection" | "other";
 }
 
 // Recent Activity Types

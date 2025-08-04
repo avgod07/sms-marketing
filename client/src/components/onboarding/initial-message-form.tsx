@@ -42,7 +42,7 @@ export default function InitialMessageForm({
   isSaving = false,
 }: InitialMessageFormProps) {
   const [charCount, setCharCount] = useState(0);
-  const complianceText = "Text STOP to unsubscribe.";
+  const complianceText = "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
   
   const form = useForm<InitialMessageFormValues>({
     resolver: zodResolver(initialMessageSchema),
@@ -78,8 +78,9 @@ export default function InitialMessageForm({
     return !!(values.initialMessage && charCount <= 160);
   };
 
-  const isOverLimit = charCount > 160;
-  const isCloseToLimit = charCount > 140;
+  const messageLength = (watchedMessage || "").length;
+  const isOverLimit = charCount > 160 || messageLength > 70;
+  const isCloseToLimit = charCount > 140 || messageLength > 60;
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -129,7 +130,7 @@ export default function InitialMessageForm({
             />
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-600">
-                Your auto-welcome message (compliance text added automatically)
+                Your auto-welcome message (max 70 chars, compliance text added automatically)
               </span>
               <div className={`flex items-center space-x-1 font-mono ${
                 isOverLimit ? 'text-red-600' : 
@@ -137,7 +138,7 @@ export default function InitialMessageForm({
                 'text-gray-600'
               }`}>
                 {isOverLimit && <AlertCircle className="w-3 h-3" />}
-                <span>{charCount}/160</span>
+                <span>{(watchedMessage || "").length}/70 (Total: {charCount}/160)</span>
               </div>
             </div>
             {form.formState.errors.initialMessage && (

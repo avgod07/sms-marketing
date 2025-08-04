@@ -32,41 +32,25 @@ export async function createSubscriptionCheckout({
 }: CreateSubscriptionOptions): Promise<Stripe.Checkout.Session> {
   const stripe = getStripe();
 
-  // Define plan pricing
-  const planPricing = {
-    starter: {
-      monthly: 2500, // $25.00 in cents
-      yearly: 22800, // $228.00 in cents (billed annually)
-    },
-  };
+  // Get Price ID based on billing cycle
+  const priceId =
+    billingCycle === "yearly"
+      ? process.env.STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID
+      : process.env.STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID;
 
-  const priceAmount =
-    planPricing[planName as keyof typeof planPricing]?.[billingCycle];
-
-  if (!priceAmount) {
+  if (!priceId) {
     throw new Error(
-      `Invalid plan or billing cycle: ${planName} ${billingCycle}`
+      `Missing Stripe Price ID for ${billingCycle} billing cycle. Please set STRIPE_SUBSCRIPTION_${billingCycle.toUpperCase()}_PRICE_ID environment variable.`
     );
   }
 
-  // Create checkout session with dynamic pricing
+  // Create checkout session with Price ID
   return await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     mode: "subscription",
     line_items: [
       {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: "Starter Plan",
-            description: "SMS marketing platform subscription",
-          },
-          unit_amount: priceAmount, // Use the calculated price amount
-          recurring: {
-            interval: billingCycle === "yearly" ? "year" : "month",
-            interval_count: 1,
-          },
-        },
+        price: priceId,
         quantity: 1,
       },
     ],

@@ -234,7 +234,7 @@ export default function SMSCommandSettings() {
             </p>
             <p>
               <Clock className="h-4 w-4 inline mr-1" />
-              Rate limit: 1 command per hour per business
+              Rate limit: 1 command per hour
             </p>
             <p>
               <Shield className="h-4 w-4 inline mr-1" />
