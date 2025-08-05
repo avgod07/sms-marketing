@@ -25,8 +25,6 @@ import TermsOfServicePage from "@/pages/terms";
 import Sidebar from "@/components/layout/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useSetupStatus } from "@/hooks/use-setup-status";
-import { useTimeout } from "@/hooks/use-timeout";
-import { TimeoutFallback } from "@/components/timeout-fallback";
 import PricingPage from "@/pages/pricing";
 
 function Router() {
@@ -34,11 +32,6 @@ function Router() {
   const { data: user, isLoading, isClerkAuthenticated } = useAuth();
   const { data: setupStatus, isLoading: setupLoading } = useSetupStatus(!!user);
   
-  // iOS-aware timeout: 8 seconds for iOS, 15 seconds for others
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const timeoutDelay = isIOS ? 8000 : 15000;
-  const hasTimedOut = useTimeout(timeoutDelay);
-
   const isAuthPage =
     location === "/login" ||
     location === "/signup" ||
@@ -49,8 +42,8 @@ function Router() {
   const isOnboardingPage = location === "/onboarding";
 
   useEffect(() => {
-    // Don't do anything while still loading (unless timed out)
-    if ((isLoading || setupLoading) && !hasTimedOut) return;
+    // Don't do anything while still loading
+    if (isLoading || setupLoading) return;
 
     // If user is authenticated and on auth page, redirect appropriately
     if (user && isClerkAuthenticated && isAuthPage) {
@@ -73,28 +66,20 @@ function Router() {
       navigate("/login");
       return;
     }
-  }, [isLoading, setupLoading, user, isClerkAuthenticated, isAuthPage, isPublicPage, isOnboardingPage, setupStatus, navigate, location, hasTimedOut]);
+  }, [isLoading, setupLoading, user, isClerkAuthenticated, isAuthPage, isPublicPage, isOnboardingPage, setupStatus, navigate, location]);
 
-  // Show loading state while determining auth status (unless timed out)
-  if ((isLoading || setupLoading) && !hasTimedOut) {
+  // Show loading state while determining auth status
+  if (isLoading || setupLoading) {
     return (
       <div className="flex h-screen bg-gray-50">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-2 text-gray-600">Loading...</p>
-            {isIOS && (
-              <p className="mt-1 text-xs text-gray-500">This may take a moment on mobile devices</p>
-            )}
           </div>
         </div>
       </div>
     );
-  }
-
-  // Show timeout fallback if authentication has timed out and user is not authenticated
-  if (hasTimedOut && !user) {
-    return <TimeoutFallback />;
   }
 
   return (
