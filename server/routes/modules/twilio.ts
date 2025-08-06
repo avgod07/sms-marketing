@@ -4,7 +4,7 @@ import { requireAuth } from "@clerk/express";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
 import { socketService } from "../../socket";
-import { storage, findBusinessIdByPhoneNumber } from "../../db/storage";
+import { storage } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
 import { z } from "zod";
 import {
@@ -24,129 +24,82 @@ import { UniversalMessageService } from "../../services/universal-message.js";
 const tfvRateLimiter = createTFVRateLimiter();
 
 export function registerTwilioRoutes(app: Express) {
-  // DEPRECATED: Old Twilio status webhook endpoint (unauthenticated - external Twilio calls)
-  // This endpoint has unreliable message matching logic and should not be used in production
-  // Use /api/webhooks/twilio/status-callback instead
-  app.post("/api/twilio/webhook", async (req, res) => {
-    try {
-      logError("DEPRECATED webhook endpoint called", {
-        url: "/api/twilio/webhook",
-        recommendation: "Use /api/webhooks/twilio/status-callback instead",
-      });
+  // Business-specific Twilio status callback using message SID (unauthenticated - external Twilio calls)
+  app.post(
+    "/api/webhooks/twilio/status-callback/:businessId",
+    async (req, res) => {
+      try {
+        const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
+          req.body as any;
 
-      const { AccountSid, MessageStatus, To } = req.body as any;
+        // Extract business ID directly from URL parameter - no database lookup needed!
+        const businessId = parseInt(req.params.businessId);
+        if (!businessId || isNaN(businessId)) {
+          logError("Invalid business ID in status callback URL", {
+            providedBusinessId: req.params.businessId,
+            AccountSid,
+            MessageSid,
+          });
+          return res.status(400).send("Invalid business ID");
+        }
 
-      // Find business by phone number since we're using a single Twilio account
-      let businessId = await findBusinessIdByPhoneNumber(To);
-      if (!businessId) {
-        logError("Unknown status webhook", { AccountSid, To });
-        return res.status(400).send("Unknown phone number");
-      }
+        // Validate Twilio signature using environment variable
+        const signature = req.get("x-twilio-signature") || "";
+        const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+        const token = process.env.TWILIO_AUTH_TOKEN;
+        if (!token) {
+          logError("TWILIO_AUTH_TOKEN not configured");
+          return res
+            .status(500)
+            .json({ message: "Server configuration error" });
+        }
+        const isValid = twilio.validateRequest(token, signature, url, req.body);
+        if (!isValid) {
+          return res.status(403).json({ message: "Invalid Twilio signature" });
+        }
 
-      // Validate Twilio signature using environment variable
-      const signature = req.get("x-twilio-signature") || "";
-      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-      const token = process.env.TWILIO_AUTH_TOKEN;
-      if (!token) {
-        logError("TWILIO_AUTH_TOKEN not configured");
-        return res.status(500).json({ message: "Server configuration error" });
-      }
-      const isValid = twilio.validateRequest(token, signature, url, req.body);
-      if (!isValid) {
-        return res.status(403).json({ message: "Invalid Twilio signature" });
-      }
+        if (!MessageSid) {
+          return res.status(400).send("Missing MessageSid");
+        }
 
-      let status = "sent";
-      if (MessageStatus === "delivered") status = "delivered";
-      else if (MessageStatus === "failed" || MessageStatus === "undelivered")
-        status = "failed";
+        let status = "sent";
+        if (MessageStatus === "delivered") status = "delivered";
+        else if (MessageStatus === "failed" || MessageStatus === "undelivered")
+          status = "failed";
 
-      const bizStore = storage.forBusiness(businessId);
-      const messages = await bizStore.getMessages();
-      const message = messages.find(
-        (m) =>
-          m.phoneNumber === To &&
-          m.status !== "delivered" &&
-          m.status !== "failed"
-      );
-      if (message) {
-        await bizStore.updateMessageStatus(
-          message.id,
+        const bizStore = storage.forBusiness(businessId);
+        const updated = await bizStore.updateMessageStatusBySid(
+          MessageSid,
           status,
-          status === "delivered" ? new Date() : undefined
+          ErrorCode ? parseInt(ErrorCode, 10) : undefined
         );
-      }
 
-      res.status(200).send("OK");
-    } catch (error) {
-      logError("Error processing Twilio webhook:", error);
-      res.status(500).json({ message: "Failed to process webhook" });
+        if (updated) {
+          socketService?.broadcast("message:status", updated, businessId);
+        }
+
+        res.status(200).send("OK");
+      } catch (error) {
+        logError("Error processing Twilio webhook:", error);
+        res.status(500).json({ message: "Failed to process webhook" });
+      }
     }
-  });
+  );
 
-  // New Twilio status callback using message SID (unauthenticated - external Twilio calls)
-  app.post("/api/webhooks/twilio/status-callback", async (req, res) => {
-    try {
-      const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
-        req.body as any;
-
-      // Find business by phone number since we're using a single Twilio account
-      let businessId = await findBusinessIdByPhoneNumber(To);
-      if (!businessId) {
-        logError("Unknown status webhook", { AccountSid, To });
-        return res.status(400).send("Unknown phone number");
-      }
-
-      // Validate Twilio signature using environment variable
-      const signature = req.get("x-twilio-signature") || "";
-      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-      const token = process.env.TWILIO_AUTH_TOKEN;
-      if (!token) {
-        logError("TWILIO_AUTH_TOKEN not configured");
-        return res.status(500).json({ message: "Server configuration error" });
-      }
-      const isValid = twilio.validateRequest(token, signature, url, req.body);
-      if (!isValid) {
-        return res.status(403).json({ message: "Invalid Twilio signature" });
-      }
-
-      if (!MessageSid) {
-        return res.status(400).send("Missing MessageSid");
-      }
-
-      let status = "sent";
-      if (MessageStatus === "delivered") status = "delivered";
-      else if (MessageStatus === "failed" || MessageStatus === "undelivered")
-        status = "failed";
-
-      const bizStore = storage.forBusiness(businessId);
-      const updated = await bizStore.updateMessageStatusBySid(
-        MessageSid,
-        status,
-        ErrorCode ? parseInt(ErrorCode, 10) : undefined
-      );
-
-      if (updated) {
-        socketService?.broadcast("message:status", updated, businessId);
-      }
-
-      res.status(200).send("OK");
-    } catch (error) {
-      logError("Error processing Twilio webhook:", error);
-      res.status(500).json({ message: "Failed to process webhook" });
-    }
-  });
-
-  // Inbound message webhook for all businesses (must remain unauthenticated for Twilio)
-  app.post("/webhooks/twilio-inbound", async (req, res) => {
+  // Business-specific inbound message webhook (must remain unauthenticated for Twilio)
+  app.post("/webhooks/twilio-inbound/:businessId", async (req, res) => {
     try {
       const { AccountSid, From, To, Body } = req.body as any;
 
-      // Find business by phone number since we're using a single Twilio account
-      let businessId = await findBusinessIdByPhoneNumber(To);
-      if (!businessId) {
-        logError("Unknown inbound message", { AccountSid, To });
-        return res.status(400).send("Unknown phone number");
+      // Extract business ID directly from URL parameter - no database lookup needed!
+      const businessId = parseInt(req.params.businessId);
+      if (!businessId || isNaN(businessId)) {
+        logError("Invalid business ID in webhook URL", {
+          providedBusinessId: req.params.businessId,
+          AccountSid,
+          To,
+        });
+        return res.status(400).send("Invalid business ID");
       }
 
       // Validate Twilio signature using environment variable
@@ -760,7 +713,8 @@ export function registerTwilioRoutes(app: Express) {
             await TwilioService.purchaseAndAssignNumber(
               tempCreds,
               phoneNumber,
-              webhookUrl
+              webhookUrl,
+              tempCreds.businessId
             );
 
           await biz.setPhoneNumbers([
@@ -859,13 +813,13 @@ export function registerTwilioRoutes(app: Express) {
           logError("Failed to fetch account info:", accountError);
         }
 
-        // Use environment variable for webhook URL, or skip in development
+        // Use environment variable for webhook URL, or auto-generate business-specific URL
         const webhookUrl =
           process.env.TWILIO_WEBHOOK_URL ||
           (process.env.NODE_ENV === "production"
-            ? `${req.protocol}://${req.get(
-                "host"
-              )}/api/webhooks/twilio/status-callback`
+            ? `${req.protocol}://${req.get("host")}/webhooks/twilio-inbound/${
+                business.id
+              }`
             : "");
 
         // Get or create messaging service SID

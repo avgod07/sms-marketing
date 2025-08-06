@@ -232,6 +232,7 @@ export class UniversalMessageService {
         campaignId: params.campaignId,
         messageType: params.messageType,
         mediaUrl: params.mediaUrl,
+        businessId: params.businessId,
       }
     );
 
@@ -289,15 +290,19 @@ export class UniversalMessageService {
     };
 
     // Send directly via Twilio
-    const result = await TwilioService.sendSMS(tempCreds, {
-      to: params.phoneNumber,
-      message: params.messageContent,
-      from: params.from || defaultFrom,
-      messagingServiceSid:
-        params.messagingServiceSid || messagingServiceSid || undefined,
-      contactId: params.contactId,
-      mediaUrl: params.mediaUrl,
-    });
+    const result = await TwilioService.sendSMS(
+      tempCreds,
+      {
+        to: params.phoneNumber,
+        message: params.messageContent,
+        from: params.from || defaultFrom,
+        messagingServiceSid:
+          params.messagingServiceSid || messagingServiceSid || undefined,
+        contactId: params.contactId,
+        mediaUrl: params.mediaUrl,
+      },
+      params.businessId
+    );
 
     if (result.success) {
       logInfo("Message sent directly (no credits)", {
@@ -368,15 +373,19 @@ export class UniversalMessageService {
     };
 
     // Send via Twilio
-    const result = await TwilioService.sendSMS(tempCreds, {
-      to: params.phoneNumber,
-      message: params.messageContent,
-      from: params.from || defaultFrom,
-      messagingServiceSid:
-        params.messagingServiceSid || messagingServiceSid || undefined,
-      contactId: params.contactId,
-      mediaUrl: params.mediaUrl,
-    });
+    const result = await TwilioService.sendSMS(
+      tempCreds,
+      {
+        to: params.phoneNumber,
+        message: params.messageContent,
+        from: params.from || defaultFrom,
+        messagingServiceSid:
+          params.messagingServiceSid || messagingServiceSid || undefined,
+        contactId: params.contactId,
+        mediaUrl: params.mediaUrl,
+      },
+      params.businessId
+    );
 
     if (result.success) {
       // Create message record

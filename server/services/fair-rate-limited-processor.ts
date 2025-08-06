@@ -469,6 +469,7 @@ export class FairRateLimitedProcessor {
             messagingServiceSid: messagingServiceSid ?? undefined,
             contactId: queuedMessage.contactId || undefined,
             messageType: queuedMessage.messageType,
+            businessId: business.id,
             ...(metadata as any),
           }
         );
@@ -499,13 +500,17 @@ export class FairRateLimitedProcessor {
           id: 0,
         };
 
-        result = await TwilioService.sendSMS(tempCreds, {
-          to: queuedMessage.phoneNumber,
-          message: queuedMessage.messageContent,
-          from: defaultFrom,
-          messagingServiceSid: messagingServiceSid ?? undefined,
-          contactId: queuedMessage.contactId || undefined,
-        });
+        result = await TwilioService.sendSMS(
+          tempCreds,
+          {
+            to: queuedMessage.phoneNumber,
+            message: queuedMessage.messageContent,
+            from: defaultFrom,
+            messagingServiceSid: messagingServiceSid ?? undefined,
+            contactId: queuedMessage.contactId || undefined,
+          },
+          business.id
+        );
 
         if (!result.success) {
           throw new Error(result.error || "Failed to send message directly");
@@ -571,6 +576,7 @@ export class FairRateLimitedProcessor {
           messageType: message.messageType,
           mediaUrl: message.mediaUrl,
           campaignId: message.campaignId,
+          businessId: business.id,
           ...(message.metadata || {}),
         }
       );
@@ -600,14 +606,18 @@ export class FairRateLimitedProcessor {
         id: 0,
       };
 
-      return await TwilioService.sendSMS(tempCreds, {
-        to: message.phoneNumber,
-        message: message.messageContent,
-        from: message.from || defaultFrom,
-        messagingServiceSid:
-          (message.messagingServiceSid || messagingServiceSid) ?? undefined,
-        contactId: message.contactId,
-      });
+      return await TwilioService.sendSMS(
+        tempCreds,
+        {
+          to: message.phoneNumber,
+          message: message.messageContent,
+          from: message.from || defaultFrom,
+          messagingServiceSid:
+            (message.messagingServiceSid || messagingServiceSid) ?? undefined,
+          contactId: message.contactId,
+        },
+        business.id
+      );
     }
   }
 

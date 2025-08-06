@@ -14,7 +14,6 @@ var mockStorage: any;
 var registerRoutes: any;
 var mockSendSMS: any;
 var mockFindCred: any;
-var mockFindBizId: any;
 var mockBroadcast: any;
 
 vi.mock("../config/db.config", () => ({
@@ -57,7 +56,6 @@ vi.mock("../db/storage", () => {
   };
   return {
     storage: mockStorage,
-    findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
   };
 });
 
@@ -266,10 +264,7 @@ describe("routes", () => {
   });
 
   it("handles inbound webhook and broadcasts message", async () => {
-    // Mock findBusinessIdByPhoneNumber to return business ID 1 for the test phone number
-    const { findBusinessIdByPhoneNumber } = await import("../db/storage");
-    vi.mocked(findBusinessIdByPhoneNumber).mockResolvedValue(1);
-
+    // Use business-specific webhook URL - no database lookup needed
     mockForBusiness.getContactByPhoneNumber = vi
       .fn()
       .mockResolvedValue(undefined);
@@ -286,7 +281,7 @@ describe("routes", () => {
     const app = await setupApp();
 
     const res = await request(app)
-      .post("/webhooks/twilio-inbound")
+      .post("/webhooks/twilio-inbound/1")
       .set("x-twilio-signature", "sig")
       .send({
         AccountSid: "AC123",
