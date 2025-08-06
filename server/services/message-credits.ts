@@ -19,6 +19,7 @@ export interface MessageCreditOptions {
   contactId?: number;
   campaignId?: number;
   messageType?: string;
+  businessId?: number;
 }
 
 export interface MessageCreditResult {
@@ -121,17 +122,21 @@ export class MessageCreditService {
       }
 
       // STEP 2: Send message to Twilio ONLY if user has credits
-      const twilioResult = await TwilioService.sendSMS(creds, {
-        to: options.to,
-        message: options.message,
-        from: options.from,
-        messagingServiceSid:
-          options.messagingServiceSid ||
-          (creds?.messagingServiceSid ?? undefined),
-        contactId: options.contactId,
-        campaignId: options.campaignId,
-        mediaUrl: options.mediaUrl, // Only include if present (for MMS)
-      });
+      const twilioResult = await TwilioService.sendSMS(
+        creds,
+        {
+          to: options.to,
+          message: options.message,
+          from: options.from,
+          messagingServiceSid:
+            options.messagingServiceSid ||
+            (creds?.messagingServiceSid ?? undefined),
+          contactId: options.contactId,
+          campaignId: options.campaignId,
+          mediaUrl: options.mediaUrl, // Only include if present (for MMS)
+        },
+        options.businessId
+      );
 
       // If Twilio failed, stop here - no billing needed
       if (!twilioResult.success) {

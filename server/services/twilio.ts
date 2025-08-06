@@ -51,7 +51,8 @@ export interface PhoneValidationResult {
 export class TwilioService {
   static async sendSMS(
     creds: TwilioCredential | undefined,
-    smsData: SMSMessage
+    smsData: SMSMessage,
+    businessId?: number
   ): Promise<SMSResult> {
     try {
       const client = getClient();
@@ -74,8 +75,8 @@ export class TwilioService {
       const baseUrl =
         process.env.TWILIO_WEBHOOK_BASE_URL ||
         (process.env.NODE_ENV === "production" ? process.env.BASE_URL : null);
-      if (baseUrl) {
-        params.statusCallback = `${baseUrl}/api/webhooks/twilio/status-callback`;
+      if (baseUrl && businessId) {
+        params.statusCallback = `${baseUrl}/api/webhooks/twilio/status-callback/${businessId}`;
       }
 
       const message = await client.messages.create(params);
@@ -168,7 +169,8 @@ export class TwilioService {
   static async purchaseAndAssignNumber(
     creds: TwilioCredential,
     phoneNumber: string,
-    webhookUrl: string
+    webhookUrl: string,
+    businessId?: number
   ): Promise<{ phoneSid: string; serviceSid: string }> {
     const client = getClient();
 
@@ -196,8 +198,23 @@ export class TwilioService {
 
       // Only set smsUrl if webhookUrl is provided (for production)
       if (webhookUrl) {
-        createParams.smsUrl = webhookUrl;
-        console.log(`📞 Setting webhook URL: ${webhookUrl}`);
+        // Generate business-specific webhook URL if businessId is provided
+        const finalWebhookUrl =
+          businessId &&
+          webhookUrl.includes("/webhooks/twilio-inbound") &&
+          !webhookUrl.includes(`/${businessId}`)
+            ? webhookUrl.replace(
+                "/webhooks/twilio-inbound",
+                `/webhooks/twilio-inbound/${businessId}`
+              )
+            : webhookUrl;
+
+        createParams.smsUrl = finalWebhookUrl;
+        console.log(
+          `📞 Setting webhook URL: ${finalWebhookUrl}${
+            businessId ? ` (business-specific for ID: ${businessId})` : ""
+          }`
+        );
       } else {
         console.log("⚠️ No webhook URL set (development mode)");
       }

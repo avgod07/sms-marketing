@@ -9,7 +9,6 @@ var registerRoutes: any;
 var mockForBusiness: any;
 var mockStorage: any;
 var mockFindCred: any;
-var mockFindBizId: any;
 
 vi.mock("./config/db.config", () => ({
   db: {
@@ -31,7 +30,6 @@ vi.mock("./db/storage", () => {
   };
   return {
     storage: mockStorage,
-    findBusinessIdByPhoneNumber: (mockFindBizId = vi.fn()),
   };
 });
 
@@ -95,8 +93,7 @@ describe("SocketService", () => {
   });
 
   it("broadcasts inbound webhook messages", async () => {
-    // Mock findBusinessIdByPhoneNumber to return business ID 1 for the test phone number
-    mockFindBizId.mockResolvedValue(1);
+    // Use business-specific webhook URL - no database lookup needed
     mockForBusiness.getContactByPhoneNumber.mockResolvedValue(undefined);
     mockForBusiness.createContact.mockResolvedValue({ id: 2 });
     const saved = {
@@ -115,7 +112,7 @@ describe("SocketService", () => {
     ws1.on("message", (data) => msgs.push(data.toString()));
 
     const res = await request(`http://localhost:${port}`)
-      .post("/webhooks/twilio-inbound")
+      .post("/webhooks/twilio-inbound/1")
       .set("x-twilio-signature", "sig")
       .send({
         AccountSid: "AC123",
@@ -135,8 +132,7 @@ describe("SocketService", () => {
   });
 
   it("broadcasts status callback updates", async () => {
-    // Mock findBusinessIdByPhoneNumber to return business ID 1 for the test phone number
-    mockFindBizId.mockResolvedValue(1);
+    // Use business-specific status callback URL - no database lookup needed
     const updated = { id: 5, status: "delivered" };
     mockForBusiness.updateMessageStatusBySid.mockResolvedValue(updated);
 
@@ -147,7 +143,7 @@ describe("SocketService", () => {
     ws1.on("message", (data) => msgs.push(data.toString()));
 
     const res = await request(`http://localhost:${port}`)
-      .post("/api/webhooks/twilio/status-callback")
+      .post("/api/webhooks/twilio/status-callback/1")
       .set("x-twilio-signature", "sig")
       .send({
         AccountSid: "AC123",

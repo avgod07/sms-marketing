@@ -479,6 +479,7 @@ export function registerCampaignRoutes(app: Express) {
             messagingServiceSid: messagingServiceSid ?? undefined,
             mediaUrl: mediaUrl || undefined,
             messageType: "campaign",
+            businessId: tempCreds.businessId,
           }
         );
 
