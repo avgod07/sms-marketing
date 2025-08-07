@@ -25,6 +25,7 @@ import {
 } from "@shared/api-types";
 import { CampaignSchedulingService } from "../../services/campaign-scheduling.js";
 import { QuietHoursCompliance } from "../../services/quiet-hours-compliance.js";
+import { UniversalMessageService } from "../../services/universal-message.js";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -447,68 +448,62 @@ export function registerCampaignRoutes(app: Express) {
           })
           .parse(req.body);
 
-        // Get messaging service SID and phone numbers
-        const messagingServiceSid = await biz.getMessagingServiceSid();
-        const numbers = await biz.getPhoneNumbers();
-        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-
-        if (!from || !process.env.TWILIO_ACCOUNT_SID) {
-          return res.status(400).json({
-            message: "Twilio not configured or no default phone number",
-          });
-        }
-
-        // Create a minimal creds object for compatibility
-        const tempCreds = {
+        // Send test message using UniversalMessageService with TCPA compliance and subaccount support
+        const result = await UniversalMessageService.sendMessage(biz, {
           businessId: (await biz.getBusiness()).id,
-          accountSid: process.env.TWILIO_ACCOUNT_SID,
-          messagingServiceSid: messagingServiceSid || null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          id: 0,
-        };
+          phoneNumber: phoneNumber,
+          messageContent: message,
+          messageType: "test",
+          mediaUrl: mediaUrl || undefined,
+        });
 
-        // Use MessageCreditService for consistent send-first-then-deduct approach
-        const result = await MessageCreditService.sendWithCreditDeduction(
-          biz,
-          tempCreds,
-          {
-            to: phoneNumber,
-            message: message,
-            from,
-            messagingServiceSid: messagingServiceSid ?? undefined,
-            mediaUrl: mediaUrl || undefined,
-            messageType: "campaign",
-            businessId: tempCreds.businessId,
-          }
-        );
-
-        if (result.success) {
-          // Create database record for test message to ensure credit-message alignment
-          const testMessage = await biz.createMessage({
-            phoneNumber: phoneNumber,
-            content: message,
-            status: result.success ? "sent" : "failed",
-            messageType: "test", // Use 'test' messageType for test messages
-            billingStatus: result.billingStatus,
-            messageSid: result.messageSid,
-            contactId: null, // Test messages don't need a real contact
-          });
+        if (result.status === "sent") {
+          // For test messages, we need to extract credit information from the message record
+          // Since UniversalMessageService doesn't return credit details directly
+          const credits = await biz.getCredits();
+          const creditCost = MessageCreditService.calculateCreditCost(
+            message,
+            !!mediaUrl
+          );
 
           res.status(200).json({
             success: true,
             message: "Test message sent successfully",
-            creditCost: result.creditCost,
-            remainingCredits: result.remainingCredits,
-            messageId: testMessage.id,
+            creditCost: creditCost,
+            remainingCredits: credits?.balance || 0,
+            messageId: result.messageId,
+          });
+        } else if (result.status === "queued") {
+          // Test message was queued due to quiet hours
+          const credits = await biz.getCredits();
+          const creditCost = MessageCreditService.calculateCreditCost(
+            message,
+            !!mediaUrl
+          );
+
+          res.status(200).json({
+            success: true,
+            message: "Test message queued for business hours compliance",
+            creditCost: creditCost,
+            remainingCredits: credits?.balance || 0,
+            messageId: result.messageId,
+            scheduledFor: result.scheduledFor,
+            queueId: result.queueId,
           });
         } else {
           res.status(400).json({
             success: false,
-            error: result.error || "Failed to send test message",
+            error: "Failed to send test message",
           });
         }
       } catch (error) {
+        if (error instanceof InsufficientCreditsError) {
+          return res.status(402).json({
+            success: false,
+            error: error.message,
+            code: "INSUFFICIENT_CREDITS",
+          });
+        }
         if (error instanceof z.ZodError) {
           return res
             .status(400)
