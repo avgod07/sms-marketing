@@ -14,14 +14,57 @@ if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
   );
 }
 
-// Single Twilio client instance for the entire application
-let twilioClient: twilio.Twilio | null = null;
+// Single Twilio client instance for the main account
+let mainTwilioClient: twilio.Twilio | null = null;
 
-function getClient(): twilio.Twilio {
-  if (!twilioClient) {
-    twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+// Cache for subaccount clients
+const subaccountClients = new Map<string, twilio.Twilio>();
+
+/**
+ * Get the main Twilio client (for account management operations)
+ */
+function getMainClient(): twilio.Twilio {
+  if (!mainTwilioClient) {
+    mainTwilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
   }
-  return twilioClient;
+  return mainTwilioClient;
+}
+
+/**
+ * Get a Twilio client for a specific subaccount
+ */
+function getSubaccountClient(
+  apiKeySid: string,
+  apiKeySecret: string,
+  subaccountSid: string
+): twilio.Twilio {
+  const clientKey = `${apiKeySid}:${subaccountSid}`;
+
+  if (!subaccountClients.has(clientKey)) {
+    const client = twilio(apiKeySid, apiKeySecret, {
+      accountSid: subaccountSid,
+    });
+    subaccountClients.set(clientKey, client);
+  }
+
+  return subaccountClients.get(clientKey)!;
+}
+
+/**
+ * Legacy function for backward compatibility - uses main client
+ * @deprecated Use getMainClient() or getSubaccountClient() instead
+ */
+function getClient(): twilio.Twilio {
+  return getMainClient();
+}
+
+export interface SubaccountCredentials {
+  subaccountSid: string;
+  apiKeySid: string;
+  apiKeySecret: string;
+  phoneNumber: string;
+  phoneNumberSid: string;
+  messagingServiceSid: string;
 }
 
 export interface SMSMessage {
@@ -48,7 +91,69 @@ export interface PhoneValidationResult {
   error?: string;
 }
 
+// Export client utilities for use in other services
+export { getMainClient, getSubaccountClient };
+
 export class TwilioService {
+  /**
+   * Send SMS using subaccount credentials
+   */
+  static async sendSMSWithSubaccount(
+    subaccountCreds: SubaccountCredentials,
+    smsData: SMSMessage,
+    businessId?: number
+  ): Promise<SMSResult> {
+    try {
+      const client = getSubaccountClient(
+        subaccountCreds.apiKeySid,
+        subaccountCreds.apiKeySecret,
+        subaccountCreds.subaccountSid
+      );
+
+      const params: any = {
+        body: smsData.message,
+        to: smsData.to,
+      };
+
+      // Use messaging service if available, otherwise use the subaccount's phone number
+      if (subaccountCreds.messagingServiceSid) {
+        params.messagingServiceSid = subaccountCreds.messagingServiceSid;
+      } else {
+        params.from = smsData.from || subaccountCreds.phoneNumber;
+      }
+
+      // Add media URL for MMS if provided
+      if (smsData.mediaUrl) {
+        params.mediaUrl = [smsData.mediaUrl];
+      }
+
+      // Add status callback to ensure webhooks go to the correct endpoint
+      const baseUrl =
+        process.env.TWILIO_WEBHOOK_BASE_URL ||
+        (process.env.NODE_ENV === "production" ? process.env.BASE_URL : null);
+      if (baseUrl && businessId) {
+        params.statusCallback = `${baseUrl}/api/webhooks/twilio/status-callback/${businessId}`;
+      }
+
+      const message = await client.messages.create(params);
+
+      return {
+        success: true,
+        messageSid: message.sid,
+      };
+    } catch (error: any) {
+      console.error("Twilio SMS Error (Subaccount):", error);
+      return {
+        success: false,
+        error: error.message || "Failed to send SMS",
+      };
+    }
+  }
+
+  /**
+   * Legacy method - uses main account credentials
+   * @deprecated Use sendSMSWithSubaccount for new implementations
+   */
   static async sendSMS(
     creds: TwilioCredential | undefined,
     smsData: SMSMessage,

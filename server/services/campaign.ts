@@ -50,9 +50,31 @@ export async function executeCampaign(
     }
 
     const business = await bizStorage.getBusiness();
-    const messagingServiceSid = await bizStorage.getMessagingServiceSid();
-    const numbers = await bizStorage.getPhoneNumbers();
-    const defaultNumber = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+    // Try to get subaccount credentials first
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
+    let messagingServiceSid: string | undefined;
+    let defaultNumber: string | undefined;
+
+    if (subaccountCreds && business.subaccountProvisioned) {
+      // Use subaccount credentials
+      messagingServiceSid = subaccountCreds.messagingServiceSid;
+      defaultNumber = subaccountCreds.phoneNumber;
+      logInfo("Using subaccount credentials for campaign", {
+        campaignId,
+        businessId: business.id,
+        subaccountSid: subaccountCreds.subaccountSid,
+      });
+    } else {
+      // Fallback to legacy credentials
+      messagingServiceSid = await bizStorage.getMessagingServiceSid();
+      const numbers = await bizStorage.getPhoneNumbers();
+      defaultNumber = numbers.find((n) => n.isDefault)?.phoneNumber;
+      logInfo("Using legacy credentials for campaign", {
+        campaignId,
+        businessId: business.id,
+      });
+    }
 
     logInfo("Starting campaign execution with new system", {
       campaignId,

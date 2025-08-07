@@ -117,16 +117,9 @@ export function registerContactRoutes(app: Express) {
 
         // Send initial message to the new contact with TCPA compliance
         try {
-          const messagingServiceSid = await biz.getMessagingServiceSid();
-          const numbers = await biz.getPhoneNumbers();
-          const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-
-          if (
-            from &&
-            process.env.TWILIO_ACCOUNT_SID &&
-            business.initialMessage
-          ) {
+          if (business.initialMessage) {
             // Send via UniversalMessageService with TCPA compliance
+            // UniversalMessageService will handle subaccount vs legacy credential selection
             const result = await UniversalMessageService.sendMessage(biz, {
               businessId: business.id,
               phoneNumber: contact.phoneNumber,

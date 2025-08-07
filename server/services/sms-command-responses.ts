@@ -316,29 +316,15 @@ Try again after ${nextSendFormatted}.`;
   ): Promise<void> {
     try {
       const business = await bizStore.getBusiness();
-      const numbers = await bizStore.getPhoneNumbers();
-      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-      const messagingServiceSid = await bizStore.getMessagingServiceSid();
-
-      if (!from && !messagingServiceSid) {
-        logError(
-          "No phone number or messaging service configured for business",
-          {
-            businessId: business.id,
-          }
-        );
-        return;
-      }
 
       // Send response via UniversalMessageService with TCPA compliance
+      // UniversalMessageService will handle subaccount vs legacy credential selection
       // SMS command responses are operational and should respect quiet hours
       const result = await UniversalMessageService.sendMessage(bizStore, {
         businessId: business.id,
         phoneNumber,
         messageContent: message,
         messageType: "sms_command_response",
-        from,
-        messagingServiceSid: messagingServiceSid ?? undefined,
       });
 
       if (result.status === "sent") {

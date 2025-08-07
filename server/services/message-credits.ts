@@ -1,6 +1,6 @@
 import { IStorage } from "../db/storage";
 import type { TwilioCredential } from "@shared/schema";
-import { TwilioService } from "./twilio";
+import { TwilioService, type SubaccountCredentials } from "./twilio";
 import { logInfo, logError } from "../utils/logger.util";
 
 export class InsufficientCreditsError extends Error {
@@ -224,6 +224,154 @@ export class MessageCreditService {
         to: options.to,
         error: error instanceof Error ? error.message : String(error),
         messageType: options.messageType,
+      });
+
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        creditCost,
+        remainingCredits: currentBalance,
+        billingStatus: "success", // No billing attempted
+      };
+    }
+  }
+
+  /**
+   * Send message with credit deduction using subaccount credentials
+   * This is the subaccount version of sendWithCreditDeduction
+   */
+  static async sendWithCreditDeductionSubaccount(
+    biz: IStorage,
+    subaccountCreds: SubaccountCredentials,
+    options: MessageCreditOptions
+  ): Promise<MessageCreditResult> {
+    // Determine credit cost based on accurate Twilio segmentation
+    const creditCost = calculateTwilioCreditCost(
+      options.message,
+      !!options.mediaUrl
+    );
+
+    // Get current credit balance for validation
+    const credits = await biz.getCredits();
+    const currentBalance = credits?.balance || 0;
+
+    try {
+      // STEP 1: CHECK CREDITS FIRST - CRITICAL BUSINESS PROTECTION
+      if (currentBalance < creditCost) {
+        throw new InsufficientCreditsError(
+          `Insufficient credits. Need ${creditCost}, have ${currentBalance}`
+        );
+      }
+
+      // STEP 2: Send message to Twilio via subaccount ONLY if user has credits
+      const twilioResult = await TwilioService.sendSMSWithSubaccount(
+        subaccountCreds,
+        {
+          to: options.to,
+          message: options.message,
+          from: options.from,
+          messagingServiceSid: options.messagingServiceSid,
+          contactId: options.contactId,
+          mediaUrl: options.mediaUrl,
+        },
+        options.businessId
+      );
+
+      // If Twilio failed, stop here - no billing needed
+      if (!twilioResult.success) {
+        return {
+          success: false,
+          error: twilioResult.error || "Failed to send message via subaccount",
+          creditCost,
+          remainingCredits: currentBalance,
+          billingStatus: "success", // No billing attempted
+        };
+      }
+
+      // STEP 3: Twilio succeeded - now attempt to deduct credits
+      try {
+        const messageTypeLabel = options.messageType || "regular";
+        const isMedia = !!options.mediaUrl;
+        const segments = isMedia ? 1 : creditCost;
+
+        const description = isMedia
+          ? `Sent MMS ${messageTypeLabel} message to ${options.to} (subaccount)`
+          : `Sent ${segments} SMS segment${
+              segments > 1 ? "s" : ""
+            } ${messageTypeLabel} message to ${options.to} (subaccount)`;
+
+        const updatedCredits = await biz.adjustCredits(
+          -creditCost,
+          isMedia ? "send_mms" : "send_sms",
+          description,
+          {
+            to: options.to,
+            contactId: options.contactId,
+            campaignId: options.campaignId,
+            messageType: options.messageType,
+            messageSid: twilioResult.messageSid,
+            segments: segments,
+            subaccountSid: subaccountCreds.subaccountSid,
+          }
+        );
+
+        logInfo(
+          "Message sent via subaccount and credits deducted successfully",
+          {
+            to: options.to,
+            creditCost,
+            remainingCredits: updatedCredits.balance,
+            messageSid: twilioResult.messageSid,
+            subaccountSid: subaccountCreds.subaccountSid,
+            messageType: options.messageType,
+          }
+        );
+
+        return {
+          success: true,
+          messageSid: twilioResult.messageSid,
+          creditCost,
+          remainingCredits: updatedCredits.balance,
+          billingStatus: "success",
+        };
+      } catch (creditError) {
+        // Message was sent but credit deduction failed
+        // This is a critical business error that needs attention
+        logError(
+          "CRITICAL: Message sent via subaccount but credit deduction failed",
+          {
+            to: options.to,
+            creditCost,
+            twilioMessageSid: twilioResult.messageSid,
+            creditError:
+              creditError instanceof Error
+                ? creditError.message
+                : String(creditError),
+            messageType: options.messageType,
+            subaccountSid: subaccountCreds.subaccountSid,
+          }
+        );
+
+        return {
+          success: true, // Message was sent successfully
+          messageSid: twilioResult.messageSid,
+          creditCost,
+          remainingCredits: currentBalance, // No change since deduction failed
+          billingStatus: "failed", // Mark billing as failed for review
+        };
+      }
+    } catch (error) {
+      // Pre-send validation failed or Twilio completely failed
+      if (error instanceof InsufficientCreditsError) {
+        throw error; // Re-throw credit errors for proper handling
+      }
+
+      logError("Message sending via subaccount failed before Twilio attempt", {
+        to: options.to,
+        error: error instanceof Error ? error.message : String(error),
+        messageType: options.messageType,
+        subaccountSid: subaccountCreds.subaccountSid,
       });
 
       return {

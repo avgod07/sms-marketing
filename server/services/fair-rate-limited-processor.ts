@@ -547,77 +547,146 @@ export class FairRateLimitedProcessor {
     message: QueuedMessage
   ): Promise<any> {
     const business = await bizStorage.getBusiness();
-    const messagingServiceSid = await bizStorage.getMessagingServiceSid();
-    const numbers = await bizStorage.getPhoneNumbers();
-    const defaultFrom = numbers.find((n: any) => n.isDefault)?.phoneNumber;
+
+    // Try to get subaccount credentials first
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
+    let messagingServiceSid: string | undefined;
+    let defaultFrom: string | undefined;
+
+    if (subaccountCreds && business.subaccountProvisioned) {
+      // Use subaccount credentials
+      messagingServiceSid = subaccountCreds.messagingServiceSid;
+      defaultFrom = subaccountCreds.phoneNumber;
+    } else {
+      // Fallback to legacy credentials
+      messagingServiceSid = await bizStorage.getMessagingServiceSid();
+      const numbers = await bizStorage.getPhoneNumbers();
+      defaultFrom = numbers.find((n: any) => n.isDefault)?.phoneNumber;
+    }
 
     const shouldUseCredits = this.shouldUseCredits(message.messageType);
 
     if (shouldUseCredits) {
-      const tempCreds = {
-        businessId: business.id,
-        accountSid: process.env.TWILIO_ACCOUNT_SID!,
-        messagingServiceSid: messagingServiceSid || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        id: 0,
-      };
+      if (subaccountCreds && business.subaccountProvisioned) {
+        // Use subaccount for credit-based messages
+        const result =
+          await MessageCreditService.sendWithCreditDeductionSubaccount(
+            bizStorage,
+            subaccountCreds,
+            {
+              to: message.phoneNumber,
+              message: message.messageContent,
+              from: message.from || defaultFrom,
+              messagingServiceSid:
+                (message.messagingServiceSid || messagingServiceSid) ??
+                undefined,
+              contactId: message.contactId,
+              messageType: message.messageType,
+              mediaUrl: message.mediaUrl,
+              campaignId: message.campaignId,
+              businessId: business.id,
+              ...(message.metadata || {}),
+            }
+          );
 
-      const result = await MessageCreditService.sendWithCreditDeduction(
-        bizStorage,
-        tempCreds,
-        {
-          to: message.phoneNumber,
-          message: message.messageContent,
-          from: message.from || defaultFrom,
-          messagingServiceSid:
-            (message.messagingServiceSid || messagingServiceSid) ?? undefined,
-          contactId: message.contactId,
-          messageType: message.messageType,
-          mediaUrl: message.mediaUrl,
-          campaignId: message.campaignId,
-          businessId: business.id,
-          ...(message.metadata || {}),
+        if (result.success) {
+          // Create message record
+          await bizStorage.createMessage({
+            phoneNumber: message.phoneNumber,
+            contactId: message.contactId,
+            content: message.messageContent,
+            status: "sent",
+            messageType: message.messageType,
+            billingStatus: result.billingStatus,
+            messageSid: result.messageSid,
+          });
         }
-      );
 
-      if (result.success) {
-        // Create message record
-        await bizStorage.createMessage({
-          phoneNumber: message.phoneNumber,
-          contactId: message.contactId,
-          content: message.messageContent,
-          status: "sent",
-          messageType: message.messageType,
-          billingStatus: result.billingStatus,
-          messageSid: result.messageSid,
-        });
+        return result;
+      } else {
+        // Fallback to legacy credit system
+        const tempCreds = {
+          businessId: business.id,
+          accountSid: process.env.TWILIO_ACCOUNT_SID!,
+          messagingServiceSid: messagingServiceSid || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          id: 0,
+        };
+
+        const result = await MessageCreditService.sendWithCreditDeduction(
+          bizStorage,
+          tempCreds,
+          {
+            to: message.phoneNumber,
+            message: message.messageContent,
+            from: message.from || defaultFrom,
+            messagingServiceSid:
+              (message.messagingServiceSid || messagingServiceSid) ?? undefined,
+            contactId: message.contactId,
+            messageType: message.messageType,
+            mediaUrl: message.mediaUrl,
+            campaignId: message.campaignId,
+            businessId: business.id,
+            ...(message.metadata || {}),
+          }
+        );
+
+        if (result.success) {
+          // Create message record
+          await bizStorage.createMessage({
+            phoneNumber: message.phoneNumber,
+            contactId: message.contactId,
+            content: message.messageContent,
+            status: "sent",
+            messageType: message.messageType,
+            billingStatus: result.billingStatus,
+            messageSid: result.messageSid,
+          });
+        }
+
+        return result;
       }
-
-      return result;
     } else {
       // Send without credits (operational messages)
-      const tempCreds = {
-        businessId: business.id,
-        accountSid: process.env.TWILIO_ACCOUNT_SID!,
-        messagingServiceSid: messagingServiceSid || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        id: 0,
-      };
+      if (subaccountCreds && business.subaccountProvisioned) {
+        // Use subaccount for operational messages
+        return await TwilioService.sendSMSWithSubaccount(
+          subaccountCreds,
+          {
+            to: message.phoneNumber,
+            message: message.messageContent,
+            from: message.from || defaultFrom,
+            messagingServiceSid:
+              (message.messagingServiceSid || messagingServiceSid) ?? undefined,
+            contactId: message.contactId,
+          },
+          business.id
+        );
+      } else {
+        // Fallback to legacy operational messages
+        const tempCreds = {
+          businessId: business.id,
+          accountSid: process.env.TWILIO_ACCOUNT_SID!,
+          messagingServiceSid: messagingServiceSid || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          id: 0,
+        };
 
-      return await TwilioService.sendSMS(
-        tempCreds,
-        {
-          to: message.phoneNumber,
-          message: message.messageContent,
-          from: message.from || defaultFrom,
-          messagingServiceSid:
-            (message.messagingServiceSid || messagingServiceSid) ?? undefined,
-          contactId: message.contactId,
-        },
-        business.id
-      );
+        return await TwilioService.sendSMS(
+          tempCreds,
+          {
+            to: message.phoneNumber,
+            message: message.messageContent,
+            from: message.from || defaultFrom,
+            messagingServiceSid:
+              (message.messagingServiceSid || messagingServiceSid) ?? undefined,
+            contactId: message.contactId,
+          },
+          business.id
+        );
+      }
     }
   }
 

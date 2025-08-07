@@ -3,6 +3,7 @@ import twilio from "twilio";
 import { requireAuth } from "@clerk/express";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
+import { TwilioSubaccountService } from "../../services/twilio-subaccount.js";
 import { socketService } from "../../socket";
 import { storage } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
@@ -783,12 +784,101 @@ export function registerTwilioRoutes(app: Express) {
 
         // Debug logging
         const business = await biz.getBusiness();
-        logError("Toll-free purchase attempt", {
+        logInfo("Toll-free purchase with subaccount provisioning", {
           rawPhoneNumber,
           normalizedPhoneNumber: phoneNumber,
           businessId: business.id,
         });
 
+        // 🚀 NEW: Try subaccount provisioning first
+        try {
+          // Get onboarding progress for subaccount provisioning
+          const onboardingProgress = await biz.getOnboardingProgress();
+
+          if (
+            onboardingProgress?.useCases &&
+            onboardingProgress?.monthlyVolume
+          ) {
+            logInfo("Starting subaccount provisioning", {
+              businessId: business.id,
+              businessName: business.name,
+            });
+
+            // Prepare business info from onboarding progress
+            const businessInfo = {
+              businessName: business.name,
+              websiteUrl: onboardingProgress.websiteUrl || undefined,
+              address1: onboardingProgress.address1 || undefined,
+              address2: onboardingProgress.address2 || undefined,
+              city: onboardingProgress.city || undefined,
+              state: onboardingProgress.state || undefined,
+              postalCode: onboardingProgress.postalCode || undefined,
+              country: onboardingProgress.country || "US",
+              firstName: onboardingProgress.firstName || undefined,
+              lastName: onboardingProgress.lastName || undefined,
+              email: onboardingProgress.email || undefined,
+              phoneNumber: onboardingProgress.phoneNumber || undefined,
+            };
+
+            // Use subaccount service for complete provisioning
+            const provisioningResult =
+              await TwilioSubaccountService.provisionBusinessSubaccount({
+                businessId: business.id,
+                businessInfo,
+                monthlyVolume: onboardingProgress.monthlyVolume,
+                useCases: onboardingProgress.useCases || [],
+                initialMessage:
+                  business.initialMessage || "Welcome! Reply STOP to opt out.",
+                storage: biz,
+              });
+
+            // Mark business as subaccount provisioned
+            await biz.updateBusiness({ subaccountProvisioned: true });
+
+            logInfo("Subaccount provisioning completed successfully", {
+              businessId: business.id,
+              subaccountSid: provisioningResult.subaccountSid,
+              phoneNumber: provisioningResult.phoneNumber,
+              tfvStatus: provisioningResult.tfvStatus,
+            });
+
+            return res.json({
+              phoneNumber: provisioningResult.phoneNumber,
+              phoneNumberSid: provisioningResult.phoneNumberSid,
+              messagingServiceSid: provisioningResult.messagingServiceSid,
+              tfvStatus: provisioningResult.tfvStatus,
+              tfvRequestId: provisioningResult.tfvRequestId,
+              verificationStatus: provisioningResult.tfvStatus,
+              message:
+                "Subaccount provisioned successfully with dedicated toll-free number",
+              subaccountProvisioned: true,
+              phoneSid: provisioningResult.phoneNumberSid,
+              isDefault: true,
+            });
+          } else {
+            logInfo(
+              "Subaccount provisioning skipped - missing onboarding data",
+              {
+                businessId: business.id,
+                hasUseCases: !!onboardingProgress?.useCases,
+                hasVolume: !!onboardingProgress?.monthlyVolume,
+              }
+            );
+          }
+        } catch (subaccountError) {
+          logError(
+            "Subaccount provisioning failed, falling back to legacy flow",
+            {
+              businessId: business.id,
+              error:
+                subaccountError instanceof Error
+                  ? subaccountError.message
+                  : String(subaccountError),
+            }
+          );
+        }
+
+        // FALLBACK: Use legacy main account flow
         // Check server-side Twilio configuration
         const accountSid = process.env.TWILIO_ACCOUNT_SID;
         const authToken = process.env.TWILIO_AUTH_TOKEN;
