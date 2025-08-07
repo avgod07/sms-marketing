@@ -110,6 +110,7 @@ export interface IStorage {
   ): Promise<TwilioSubaccount>;
   getSubaccountCredentials(): Promise<{
     subaccountSid: string;
+    subaccountAuthToken: string;
     apiKeySid: string;
     apiKeySecret: string;
     phoneNumber: string;
@@ -1430,6 +1431,7 @@ export class DatabaseStorage implements IStorage {
 
   async getSubaccountCredentials(): Promise<{
     subaccountSid: string;
+    subaccountAuthToken: string;
     apiKeySid: string;
     apiKeySecret: string;
     phoneNumber: string;
@@ -1444,6 +1446,9 @@ export class DatabaseStorage implements IStorage {
     // Decrypt the credentials
     return {
       subaccountSid: subaccount.subaccountSid,
+      subaccountAuthToken: EncryptionService.decrypt(
+        subaccount.subaccountAuthToken
+      ),
       apiKeySid: subaccount.apiKeySid,
       apiKeySecret: EncryptionService.decrypt(subaccount.apiKeySecret),
       phoneNumber: subaccount.phoneNumber,

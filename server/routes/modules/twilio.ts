@@ -44,19 +44,41 @@ export function registerTwilioRoutes(app: Express) {
           return res.status(400).send("Invalid business ID");
         }
 
-        // Validate Twilio signature using environment variable
+        // Validate Twilio signature using correct auth token (subaccount or main account)
         const signature = req.get("x-twilio-signature") || "";
         const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-        const token = process.env.TWILIO_AUTH_TOKEN;
-        if (!token) {
-          logError("TWILIO_AUTH_TOKEN not configured");
+
+        try {
+          const { getWebhookAuthToken } = await import(
+            "../../services/twilio.js"
+          );
+          const token = await getWebhookAuthToken(businessId);
+          const isValid = twilio.validateRequest(
+            token,
+            signature,
+            url,
+            req.body
+          );
+
+          if (!isValid) {
+            logError("Invalid Twilio signature for status callback", {
+              businessId,
+              MessageSid,
+              signature: signature.slice(0, 10) + "...", // Log partial signature for debugging
+            });
+            return res
+              .status(403)
+              .json({ message: "Invalid Twilio signature" });
+          }
+        } catch (error) {
+          logError("Failed to validate Twilio signature for status callback", {
+            businessId,
+            MessageSid,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return res
             .status(500)
-            .json({ message: "Server configuration error" });
-        }
-        const isValid = twilio.validateRequest(token, signature, url, req.body);
-        if (!isValid) {
-          return res.status(403).json({ message: "Invalid Twilio signature" });
+            .json({ message: "Signature validation error" });
         }
 
         if (!MessageSid) {
@@ -103,17 +125,34 @@ export function registerTwilioRoutes(app: Express) {
         return res.status(400).send("Invalid business ID");
       }
 
-      // Validate Twilio signature using environment variable
+      // Validate Twilio signature using correct auth token (subaccount or main account)
       const signature = req.get("x-twilio-signature") || "";
       const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-      const token = process.env.TWILIO_AUTH_TOKEN;
-      if (!token) {
-        logError("TWILIO_AUTH_TOKEN not configured");
-        return res.status(500).send("Server configuration error");
-      }
-      const valid = twilio.validateRequest(token, signature, url, req.body);
-      if (!valid) {
-        return res.status(403).send("Invalid Twilio signature");
+
+      try {
+        const { getWebhookAuthToken } = await import(
+          "../../services/twilio.js"
+        );
+        const token = await getWebhookAuthToken(businessId);
+        const valid = twilio.validateRequest(token, signature, url, req.body);
+
+        if (!valid) {
+          logError("Invalid Twilio signature for inbound message", {
+            businessId,
+            From,
+            To,
+            signature: signature.slice(0, 10) + "...", // Log partial signature for debugging
+          });
+          return res.status(403).send("Invalid Twilio signature");
+        }
+      } catch (error) {
+        logError("Failed to validate Twilio signature for inbound message", {
+          businessId,
+          From,
+          To,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return res.status(500).send("Signature validation error");
       }
 
       const bizStore = storage.forBusiness(businessId);

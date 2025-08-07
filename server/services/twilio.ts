@@ -60,6 +60,7 @@ function getClient(): twilio.Twilio {
 
 export interface SubaccountCredentials {
   subaccountSid: string;
+  subaccountAuthToken: string;
   apiKeySid: string;
   apiKeySecret: string;
   phoneNumber: string;
@@ -93,6 +94,75 @@ export interface PhoneValidationResult {
 
 // Export client utilities for use in other services
 export { getMainClient, getSubaccountClient };
+
+/**
+ * Get the correct auth token for webhook validation based on business
+ * @param businessId - Business ID from webhook URL
+ * @returns Auth token (main account or subaccount)
+ */
+export async function getWebhookAuthToken(businessId: number): Promise<string> {
+  try {
+    const { storage } = await import("../db/storage.js");
+    const { logInfo, logError } = await import("../utils/logger.util.js");
+
+    const bizStorage = storage.forBusiness(businessId);
+    const business = await bizStorage.getBusiness();
+
+    logInfo("Determining webhook auth token", {
+      businessId,
+      subaccountProvisioned: business.subaccountProvisioned,
+    });
+
+    // Check if business uses subaccount
+    if (business.subaccountProvisioned) {
+      const subaccountCreds = await bizStorage.getSubaccountCredentials();
+      if (subaccountCreds?.subaccountAuthToken) {
+        logInfo("Using subaccount auth token for webhook validation", {
+          businessId,
+          subaccountSid: subaccountCreds.subaccountSid,
+        });
+        return subaccountCreds.subaccountAuthToken;
+      } else {
+        logError(
+          "Subaccount provisioned but no credentials found, falling back to main account",
+          {
+            businessId,
+          }
+        );
+      }
+    }
+
+    // Fallback to main account token for legacy businesses or when subaccount creds unavailable
+    const mainToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!mainToken) {
+      throw new Error("TWILIO_AUTH_TOKEN not configured");
+    }
+
+    logInfo("Using main account auth token for webhook validation", {
+      businessId,
+      reason: business.subaccountProvisioned
+        ? "subaccount_creds_unavailable"
+        : "legacy_business",
+    });
+
+    return mainToken;
+  } catch (error) {
+    const { logError } = await import("../utils/logger.util.js");
+    logError("Failed to get webhook auth token, falling back to main account", {
+      businessId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    // Final fallback to main account token
+    const mainToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!mainToken) {
+      throw new Error(
+        "TWILIO_AUTH_TOKEN not configured and no fallback available"
+      );
+    }
+    return mainToken;
+  }
+}
 
 export class TwilioService {
   /**
