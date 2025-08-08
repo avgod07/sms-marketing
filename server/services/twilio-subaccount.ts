@@ -461,19 +461,19 @@ export class TwilioSubaccountService {
   }
 
   /**
-   * Map volume string to TFV format
+   * Map volume string to TFV format with comma-separated numbers for better Twilio compatibility
    */
   private static mapVolumeToTFVFormat(volume: string): string {
     const volumeMap: Record<string, string> = {
-      "Less than 1K": "1000",
-      "1K to 10K": "10000", // ✅ Match frontend exactly
-      "10K to 100K": "100000",
-      "100K to 500K": "500000",
-      "500K to 1M": "1000000",
-      "More than 1M+": "1000000", // ✅ Match frontend exactly
+      "Less than 1K": "1,000", // ✅ Comma format for readability
+      "1K to 10K": "10,000", // ✅ Comma format for readability
+      "10K to 100K": "100,000", // ✅ Comma format for readability
+      "100K to 500K": "500,000", // ✅ Comma format for readability
+      "500K to 1M": "1,000,000", // ✅ Comma format for readability
+      "More than 1M+": "1,000,000", // ✅ Comma format for readability
     };
 
-    return volumeMap[volume] || "10000";
+    return volumeMap[volume] || "10,000";
   }
 
   /**
@@ -522,7 +522,7 @@ export class TwilioSubaccountService {
     }
 
     // Validate volume format
-    const validVolumes = ["1000", "10000", "100000", "500000", "1000000"];
+    const validVolumes = ["1,000", "10,000", "100,000", "500,000", "1,000,000"];
     const volumeString = this.mapVolumeToTFVFormat(monthlyVolume);
     if (!validVolumes.includes(volumeString)) {
       throw new Error(

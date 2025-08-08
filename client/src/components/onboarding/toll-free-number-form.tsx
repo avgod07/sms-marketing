@@ -47,6 +47,7 @@ export default function TollFreeNumberForm({
       });
       return response.json();
     },
+    retry: false, // ✅ Disable auto-retry to prevent duplicate subaccount creation
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/setup/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/business/account-info"] });

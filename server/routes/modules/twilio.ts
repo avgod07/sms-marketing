@@ -916,15 +916,66 @@ export function registerTwilioRoutes(app: Express) {
             }
           );
 
-          // Return error instead of falling back to legacy
+          const errorMessage =
+            subaccountError instanceof Error
+              ? subaccountError.message
+              : String(subaccountError);
+
+          // ✅ Provide specific error messages for TFV-related failures
+          if (
+            errorMessage.includes("messageVolume") ||
+            errorMessage.includes("MessageVolume")
+          ) {
+            return res.status(400).json({
+              message:
+                "Invalid message volume format detected. Our team has been notified and this will be resolved shortly.",
+              error: "TFV_VOLUME_FORMAT_ERROR",
+              details: "Volume format validation failed",
+            });
+          }
+
+          if (
+            errorMessage.includes("externalReferenceId") ||
+            errorMessage.includes("external")
+          ) {
+            return res.status(400).json({
+              message: "Reference ID format error detected. Please try again.",
+              error: "TFV_REFERENCE_ID_ERROR",
+              details: "External reference ID validation failed",
+            });
+          }
+
+          if (
+            errorMessage.includes("phone number") &&
+            errorMessage.includes("not available")
+          ) {
+            return res.status(400).json({
+              message:
+                "The selected phone number is no longer available. Please refresh the page and select a different number.",
+              error: "PHONE_NUMBER_UNAVAILABLE",
+              details: errorMessage,
+            });
+          }
+
+          if (
+            errorMessage.includes("TFV") ||
+            errorMessage.includes("toll-free") ||
+            errorMessage.includes("verification")
+          ) {
+            return res.status(500).json({
+              message:
+                "Toll-free verification setup encountered an issue. Please try again or contact support if the problem persists.",
+              error: "TFV_SUBMISSION_ERROR",
+              details: errorMessage,
+            });
+          }
+
+          // ✅ Generic error for other cases with more helpful message
           return res.status(500).json({
             message:
-              "Phone number provisioning failed. Please try again or contact support.",
+              "Phone number setup encountered an issue. Please try again in a few moments or contact support if the problem persists.",
             error: "PROVISIONING_FAILED",
-            details:
-              subaccountError instanceof Error
-                ? subaccountError.message
-                : String(subaccountError),
+            details: errorMessage,
           });
         }
 
