@@ -845,7 +845,10 @@ export function registerTwilioRoutes(app: Express) {
 
             // Prepare business info from onboarding progress
             const businessInfo = {
-              businessName: business.name,
+              businessName:
+                onboardingProgress.businessName ||
+                business.name ||
+                `Business-${business.id}`,
               websiteUrl: onboardingProgress.websiteUrl || undefined,
               address1: onboardingProgress.address1 || undefined,
               address2: onboardingProgress.address2 || undefined,
