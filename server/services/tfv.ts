@@ -13,19 +13,20 @@ export interface TFVRegistrationResult {
 }
 
 // Map existing use cases to TFV categories
+// Updated for 2025 Twilio TFV compliance - using only verified categories
 function mapUseCaseToTFVCategory(useCase: string): string {
   const useCaseMap: Record<string, string> = {
     MARKETING: "MARKETING",
-    CUSTOMER_SUPPORT: "TWO_WAY",
-    NOTIFICATIONS: "MIXED",
-    REMINDERS: "MIXED",
+    CUSTOMER_SUPPORT: "CUSTOMER_CARE",
+    NOTIFICATIONS: "CUSTOMER_CARE", // Changed from MIXED to CUSTOMER_CARE
+    REMINDERS: "CUSTOMER_CARE", // Changed from MIXED to CUSTOMER_CARE
     PROMOTIONS: "MARKETING",
-    APPOINTMENT_REMINDERS: "MIXED",
-    ORDER_UPDATES: "MIXED",
-    TRANSACTIONAL: "MIXED",
+    APPOINTMENT_REMINDERS: "CUSTOMER_CARE", // Changed from MIXED to CUSTOMER_CARE
+    ORDER_UPDATES: "CUSTOMER_CARE", // Changed from MIXED to CUSTOMER_CARE
+    TRANSACTIONAL: "CUSTOMER_CARE", // Changed from MIXED to CUSTOMER_CARE
   };
 
-  return useCaseMap[useCase] || "MIXED";
+  return useCaseMap[useCase] || "OTHER"; // Changed from MIXED to OTHER
 }
 
 // Map volume ranges to TFV expected format
@@ -231,7 +232,7 @@ export async function submitTollFreeVerification(
         .join(", ")
         .toLowerCase()} purposes with expected monthly volume of ${config.volume.toLowerCase()}. Primary category: ${notificationType}.`,
       productionMessageSample: messageSamples[0],
-      optInType: "VERBAL",
+      optInType: "WEB_FORM",
       businessStreetAddress: businessAddress?.address1 || business.name,
       businessCity: businessAddress?.city || "San Francisco",
       businessState: businessAddress?.state || "CA",
@@ -263,7 +264,7 @@ export async function submitTollFreeVerification(
         productionMessageSample: messageSamples[0],
         // Note: Twilio TFV only accepts one production message sample
         // Additional samples are included in additionalInformation
-        optInType: "VERBAL", // Twilio expects VERBAL for website-based opt-ins
+        optInType: "WEB_FORM", // Updated for 2025: WEB_FORM is more accurate for web-based platforms
         additionalInformation: additionalInfo,
         businessStreetAddress: businessAddress?.address1 || business.name, // Use real address or fallback to business name
         businessStreetAddress2: businessAddress?.address2 || "",

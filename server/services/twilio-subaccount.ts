@@ -371,12 +371,22 @@ export class TwilioSubaccountService {
     // Generate comprehensive TFV-compliant descriptions
     const compliantUseCaseDescriptions =
       this.mapUseCasesToCompliantDescriptions(useCases);
+
+    // Extract just the category names for useCaseCategories field
+    const useCaseCategories = compliantUseCaseDescriptions.map(
+      (description) => {
+        // Extract the category name before the first " - "
+        const categoryMatch = description.match(/^([A-Z_]+)\s*-/);
+        return categoryMatch ? categoryMatch[1] : "OTHER";
+      }
+    );
+
     const optInFlowDescription = this.generateOptInFlowDescription();
     const messageSamples = this.generateUniversalMessageSamples(
       businessInfo.businessName
     );
 
-    // Create comprehensive use case summary
+    // Create comprehensive use case summary with detailed descriptions
     const useCaseSummary = `This toll-free number will be used for the following business communications: ${compliantUseCaseDescriptions.join(
       ". "
     )}. Monthly message volume: ${monthlyVolume}. All recipients have provided explicit opt-in consent as detailed in our opt-in workflow.`;
@@ -387,9 +397,10 @@ export class TwilioSubaccountService {
       phoneNumberSid,
       externalReferenceId,
       volumeString,
-      useCaseCount: compliantUseCaseDescriptions.length,
+      useCaseCount: useCaseCategories.length,
       messageSampleCount: messageSamples.length,
       useCases,
+      useCaseCategories, // Log the extracted categories
       hasBusinessEmail: !!businessInfo.email,
       hasBusinessAddress: !!(
         businessInfo.address1 &&
@@ -423,8 +434,8 @@ export class TwilioSubaccountService {
           // ✅ PHONE NUMBER (Required)
           tollfreePhoneNumberSid: phoneNumberSid,
 
-          // ✅ USE CASES (Updated with detailed descriptions)
-          useCaseCategories: compliantUseCaseDescriptions,
+          // ✅ USE CASES (Fixed: Use simple category names, not detailed descriptions)
+          useCaseCategories: useCaseCategories,
           useCaseSummary: useCaseSummary,
 
           // ✅ MESSAGE SAMPLES (Universal examples)
