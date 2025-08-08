@@ -66,10 +66,43 @@ export class TwilioSubaccountService {
       storage,
     } = params;
 
+    // Validate input parameters at the start
+    if (!businessId || businessId <= 0) {
+      throw new Error("Invalid businessId provided");
+    }
+
+    if (!businessInfo?.businessName?.trim()) {
+      throw new Error("Business name is required for subaccount provisioning");
+    }
+
+    if (!monthlyVolume?.trim()) {
+      throw new Error("Monthly volume is required for subaccount provisioning");
+    }
+
+    if (!useCases?.length) {
+      throw new Error("Use cases are required for subaccount provisioning");
+    }
+
+    if (!initialMessage?.trim()) {
+      throw new Error(
+        "Initial message is required for subaccount provisioning"
+      );
+    }
+
+    if (!storage) {
+      throw new Error(
+        "Storage instance is required for subaccount provisioning"
+      );
+    }
+
     try {
       logInfo("Starting subaccount provisioning", {
         businessId,
         businessName: businessInfo.businessName,
+        monthlyVolume,
+        useCasesCount: useCases.length,
+        hasWebsite: !!businessInfo.websiteUrl,
+        hasEmail: !!businessInfo.email,
       });
 
       // Step 1: Create Twilio Subaccount
@@ -87,7 +120,7 @@ export class TwilioSubaccountService {
       const phoneNumber = await this.purchaseTollFreeNumber(
         subaccount.sid,
         apiKey,
-        businessId
+        businessInfo.phoneNumber || "" // Pass the user's selected phone number
       );
       logInfo("Phone number purchased", {
         phoneNumber: phoneNumber.phoneNumber,
@@ -115,7 +148,8 @@ export class TwilioSubaccountService {
           businessInfo,
           monthlyVolume,
           useCases,
-          initialMessage
+          initialMessage,
+          businessId
         );
         logInfo("TFV submitted", { tfvRequestId: tfvResult.requestId });
       }
@@ -199,12 +233,12 @@ export class TwilioSubaccountService {
   }
 
   /**
-   * Purchase a toll-free number for the subaccount
+   * Purchase a specific toll-free number in the subaccount
    */
   private static async purchaseTollFreeNumber(
     subaccountSid: string,
     apiKey: ApiKeyResult,
-    businessId: number
+    selectedPhoneNumber: string // ✅ User's exact choice from frontend
   ): Promise<PhoneNumberResult> {
     const subaccountClient = getSubaccountClient(
       apiKey.sid,
@@ -212,54 +246,47 @@ export class TwilioSubaccountService {
       subaccountSid
     );
 
-    // Search for available toll-free numbers
-    const availableNumbers = await subaccountClient.api.v2010
-      .accounts(subaccountSid)
-      .availablePhoneNumbers("US")
-      .tollFree.list({ limit: 5 });
+    logInfo("Purchasing specific toll-free number", {
+      subaccountSid,
+      selectedPhoneNumber,
+    });
 
-    if (availableNumbers.length === 0) {
-      throw new Error("No toll-free numbers available");
-    }
-
-    // Construct webhook URLs using the same pattern as legacy system
-    const baseUrl =
-      process.env.TWILIO_WEBHOOK_BASE_URL ||
-      (process.env.NODE_ENV === "production" ? process.env.BASE_URL : null);
-
-    const createParams: any = {
-      phoneNumber: availableNumbers[0].phoneNumber,
-    };
-
-    // Only set webhook URLs in production (same pattern as legacy system)
-    if (baseUrl) {
-      createParams.smsUrl = `${baseUrl}/webhooks/twilio-inbound/${businessId}`;
-      createParams.statusCallback = `${baseUrl}/api/webhooks/twilio/status-callback/${businessId}`;
-
-      logInfo("Setting webhook URLs for subaccount phone number", {
-        businessId,
-        subaccountSid,
-        phoneNumber: availableNumbers[0].phoneNumber,
-        smsUrl: createParams.smsUrl,
-        statusCallback: createParams.statusCallback,
+    try {
+      // ✅ Purchase the EXACT number user selected
+      const phoneNumber = await subaccountClient.incomingPhoneNumbers.create({
+        phoneNumber: selectedPhoneNumber,
       });
-    } else {
-      logInfo("No webhook URLs set (development mode)", {
-        businessId,
+
+      logInfo("Successfully purchased selected phone number", {
+        phoneNumberSid: phoneNumber.sid,
+        phoneNumber: phoneNumber.phoneNumber,
         subaccountSid,
-        phoneNumber: availableNumbers[0].phoneNumber,
       });
+
+      return {
+        phoneNumber: phoneNumber.phoneNumber,
+        sid: phoneNumber.sid,
+      };
+    } catch (error) {
+      logError("Failed to purchase selected phone number", {
+        selectedPhoneNumber,
+        subaccountSid,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Provide specific error message for better UX
+      if (error instanceof Error && error.message.includes("not available")) {
+        throw new Error(
+          `The selected phone number ${selectedPhoneNumber} is no longer available. Please select a different number.`
+        );
+      }
+
+      throw new Error(
+        `Failed to purchase phone number ${selectedPhoneNumber}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
-
-    // Purchase the number with webhook configuration
-    const phoneNumber = await subaccountClient.api.v2010
-      .accounts(subaccountSid)
-      .incomingPhoneNumbers.create(createParams);
-
-    return {
-      sid: phoneNumber.sid,
-      phoneNumber: phoneNumber.phoneNumber,
-    };
   }
 
   /**
@@ -304,44 +331,115 @@ export class TwilioSubaccountService {
     businessInfo: BusinessInfo,
     monthlyVolume: string,
     useCases: string[],
-    initialMessage: string
+    initialMessage: string,
+    businessId: number
   ): Promise<TFVResult> {
+    // First validate all required parameters
+    this.validateTFVSubmission({
+      businessInfo,
+      monthlyVolume,
+      useCases,
+      initialMessage,
+    });
+
     const subaccountClient = getSubaccountClient(
       apiKey.sid,
       apiKey.secret,
       subaccountSid
     );
 
-    const tfvRequest =
-      await subaccountClient.messaging.v1.tollfreeVerifications.create({
-        businessName: businessInfo.businessName,
-        businessWebsite: businessInfo.websiteUrl || "",
-        businessStreetAddress: businessInfo.address1 || "",
-        businessStreetAddress2: businessInfo.address2 || "",
-        businessCity: businessInfo.city || "",
-        businessStateProvinceRegion: businessInfo.state || "",
-        businessPostalCode: businessInfo.postalCode || "",
-        businessCountry: businessInfo.country || "US",
-        businessContactFirstName: businessInfo.firstName || "",
-        businessContactLastName: businessInfo.lastName || "",
-        businessContactEmail: businessInfo.email || "",
-        businessContactPhone: businessInfo.phoneNumber || "",
-        notificationEmail: businessInfo.email || "", // Required field
-        tollfreePhoneNumberSid: phoneNumber,
-        useCaseCategories: useCases,
-        useCaseSummary: `Monthly volume: ${monthlyVolume}. Use cases: ${useCases.join(
-          ", "
-        )}`,
-        productionMessageSample: initialMessage,
-        optInImageUrls: [], // Add if you have opt-in screenshots
-        optInType: "VERBAL", // or 'WEB_FORM' based on your flow
-        messageVolume: this.mapVolumeToTFVFormat(monthlyVolume),
+    // Get phone number SID for external reference ID
+    const phoneNumbers = await subaccountClient.api.v2010
+      .accounts(subaccountSid)
+      .incomingPhoneNumbers.list({ phoneNumber });
+
+    if (phoneNumbers.length === 0) {
+      throw new Error(
+        `Phone number ${phoneNumber} not found in subaccount ${subaccountSid}`
+      );
+    }
+
+    const phoneNumberSid = phoneNumbers[0].sid;
+    const externalReferenceId = this.generateExternalReferenceId(
+      businessId,
+      phoneNumberSid
+    );
+
+    const volumeString = this.mapVolumeToTFVFormat(monthlyVolume);
+
+    // Log TFV submission details for debugging
+    logInfo("TFV submission details", {
+      subaccountSid,
+      phoneNumber,
+      phoneNumberSid,
+      businessId,
+      businessName: businessInfo.businessName,
+      businessWebsite: businessInfo.websiteUrl,
+      messageVolume: volumeString,
+      externalReferenceId,
+      useCases,
+      hasBusinessEmail: !!businessInfo.email,
+      hasBusinessAddress: !!(
+        businessInfo.address1 &&
+        businessInfo.city &&
+        businessInfo.state
+      ),
+    });
+
+    try {
+      const tfvRequest =
+        await subaccountClient.messaging.v1.tollfreeVerifications.create({
+          businessName: businessInfo.businessName,
+          businessWebsite: businessInfo.websiteUrl || "",
+          businessStreetAddress: businessInfo.address1 || "",
+          businessStreetAddress2: businessInfo.address2 || "",
+          businessCity: businessInfo.city || "",
+          businessStateProvinceRegion: businessInfo.state || "",
+          businessPostalCode: businessInfo.postalCode || "",
+          businessCountry: businessInfo.country || "US",
+          businessContactFirstName: businessInfo.firstName || "",
+          businessContactLastName: businessInfo.lastName || "",
+          businessContactEmail: businessInfo.email || "",
+          businessContactPhone: businessInfo.phoneNumber || "",
+          notificationEmail: businessInfo.email || "", // Required field
+          tollfreePhoneNumberSid: phoneNumberSid, // Use SID, not phone number
+          useCaseCategories: useCases,
+          useCaseSummary: `Monthly volume: ${monthlyVolume}. Use cases: ${useCases.join(
+            ", "
+          )}`,
+          productionMessageSample: initialMessage,
+          optInImageUrls: [], // Add if you have opt-in screenshots
+          optInType: "VERBAL", // or 'WEB_FORM' based on your flow
+          messageVolume: volumeString,
+          externalReferenceId: externalReferenceId, // ✅ Use compliant external reference ID
+        });
+
+      logInfo("TFV submission successful", {
+        tfvSid: tfvRequest.sid,
+        status: tfvRequest.status,
+        externalReferenceId,
+        subaccountSid,
       });
 
-    return {
-      requestId: tfvRequest.sid,
-      status: tfvRequest.status,
-    };
+      return {
+        requestId: tfvRequest.sid,
+        status: tfvRequest.status,
+      };
+    } catch (error: any) {
+      logError("TFV submission failed", {
+        subaccountSid,
+        phoneNumber,
+        businessName: businessInfo.businessName,
+        error: error.message,
+        code: error.code,
+        status: error.status,
+        moreInfo: error.moreInfo,
+        externalReferenceId,
+      });
+      throw new Error(
+        `TFV submission failed: ${error.message || "Unknown error"}`
+      );
+    }
   }
 
   /**
@@ -368,16 +466,71 @@ export class TwilioSubaccountService {
   private static mapVolumeToTFVFormat(volume: string): string {
     const volumeMap: Record<string, string> = {
       "Less than 1K": "1000",
-      "1K - 10K": "10000",
-      "10K - 100K": "100000",
-      "100K - 250K": "250000",
-      "250K - 500K": "500000",
-      "500K - 750K": "750000",
-      "750K - 1M": "1000000",
-      "More than 1M": "1000000",
+      "1K to 10K": "10000", // ✅ Match frontend exactly
+      "10K to 100K": "100000",
+      "100K to 500K": "500000",
+      "500K to 1M": "1000000",
+      "More than 1M+": "1000000", // ✅ Match frontend exactly
     };
 
     return volumeMap[volume] || "10000";
+  }
+
+  /**
+   * Generate short external reference ID compliant with Twilio's 50-char limit
+   */
+  private static generateExternalReferenceId(
+    businessId: number,
+    phoneNumberSid: string
+  ): string {
+    const phoneLast8 = phoneNumberSid.slice(-8);
+    const externalRefId = `notiflow-biz${businessId}-${phoneLast8}`;
+
+    // Validate length to ensure compliance
+    if (externalRefId.length > 50) {
+      throw new Error(
+        `External reference ID too long: ${externalRefId.length} chars (max: 50)`
+      );
+    }
+
+    return externalRefId;
+  }
+
+  /**
+   * Validate TFV submission parameters
+   */
+  private static validateTFVSubmission(params: {
+    businessInfo: BusinessInfo;
+    monthlyVolume: string;
+    useCases: string[];
+    initialMessage: string;
+  }): void {
+    const { businessInfo, monthlyVolume, useCases, initialMessage } = params;
+
+    const missing: string[] = [];
+
+    if (!businessInfo.businessName?.trim()) missing.push("business name");
+    if (!businessInfo.websiteUrl?.trim()) missing.push("business website");
+    if (!monthlyVolume?.trim()) missing.push("monthly volume");
+    if (!useCases?.length) missing.push("use cases");
+    if (!initialMessage?.trim()) missing.push("initial message");
+
+    if (missing.length > 0) {
+      throw new Error(
+        `TFV submission missing required fields: ${missing.join(", ")}`
+      );
+    }
+
+    // Validate volume format
+    const validVolumes = ["1000", "10000", "100000", "500000", "1000000"];
+    const volumeString = this.mapVolumeToTFVFormat(monthlyVolume);
+    if (!validVolumes.includes(volumeString)) {
+      throw new Error(
+        `Invalid volume format: ${volumeString}. Must be one of: ${validVolumes.join(
+          ", "
+        )}`
+      );
+    }
   }
 
   /**
