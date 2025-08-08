@@ -66,16 +66,20 @@ import {
   type InsertSmsCommandPending,
   messageQueue,
   type MessageQueue,
+  twilioSubaccounts,
+  type TwilioSubaccount,
+  type InsertTwilioSubaccount,
 } from "@shared/schema";
 import type {
   ContactRedemption,
   CampaignWithQueue,
   RecentCampaign,
 } from "@shared/api-types";
-import { db } from "../config/db.config";
+import { db } from "../config/db.config.js";
 import { eq, desc, asc, count, sql, and } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
 import { logError } from "../utils/logger.util";
+import { EncryptionService } from "../utils/encryption.util.js";
 
 export interface IStorage {
   forBusiness(businessId: number): IStorage;
@@ -95,6 +99,25 @@ export interface IStorage {
   getMessagingServiceSid(): Promise<string | undefined>;
   setMessagingServiceSid(serviceSid: string): Promise<Business>;
   ensureMessagingServiceSid(): Promise<string>;
+
+  // Twilio Subaccounts
+  getTwilioSubaccount(): Promise<TwilioSubaccount | null>;
+  createTwilioSubaccount(
+    data: InsertTwilioSubaccount
+  ): Promise<TwilioSubaccount>;
+  updateTwilioSubaccount(
+    updates: Partial<InsertTwilioSubaccount>
+  ): Promise<TwilioSubaccount>;
+  getSubaccountCredentials(): Promise<{
+    subaccountSid: string;
+    subaccountAuthToken: string;
+    apiKeySid: string;
+    apiKeySecret: string;
+    phoneNumber: string;
+    phoneNumberSid: string;
+    messagingServiceSid: string;
+  } | null>;
+
   getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
   setPhoneNumbers(
     numbers: InsertBusinessPhoneNumber[]
@@ -1350,6 +1373,88 @@ export class DatabaseStorage implements IStorage {
     // If none exists, we need to create one via the Twilio service
     // This will be called from the routes where we have access to the Twilio client
     throw new Error("No messaging service SID found - needs to be created");
+  }
+
+  async getTwilioSubaccount(): Promise<TwilioSubaccount | null> {
+    const businessId = this.requireBusinessId();
+    const [subaccount] = await db
+      .select()
+      .from(twilioSubaccounts)
+      .where(eq(twilioSubaccounts.businessId, businessId));
+    return subaccount || null;
+  }
+
+  async createTwilioSubaccount(
+    data: InsertTwilioSubaccount
+  ): Promise<TwilioSubaccount> {
+    const businessId = this.requireBusinessId();
+
+    // Encrypt sensitive data before storing
+    const encryptedData = {
+      ...data,
+      subaccountAuthToken: EncryptionService.encrypt(data.subaccountAuthToken),
+      apiKeySecret: EncryptionService.encrypt(data.apiKeySecret),
+    };
+
+    const [subaccount] = await db
+      .insert(twilioSubaccounts)
+      .values({ ...encryptedData, businessId })
+      .returning();
+    return subaccount;
+  }
+
+  async updateTwilioSubaccount(
+    updates: Partial<InsertTwilioSubaccount>
+  ): Promise<TwilioSubaccount> {
+    const businessId = this.requireBusinessId();
+
+    // Encrypt sensitive fields if they're being updated
+    const encryptedUpdates = { ...updates };
+    if (updates.subaccountAuthToken) {
+      encryptedUpdates.subaccountAuthToken = EncryptionService.encrypt(
+        updates.subaccountAuthToken
+      );
+    }
+    if (updates.apiKeySecret) {
+      encryptedUpdates.apiKeySecret = EncryptionService.encrypt(
+        updates.apiKeySecret
+      );
+    }
+
+    const [subaccount] = await db
+      .update(twilioSubaccounts)
+      .set(encryptedUpdates)
+      .where(eq(twilioSubaccounts.businessId, businessId))
+      .returning();
+    return subaccount;
+  }
+
+  async getSubaccountCredentials(): Promise<{
+    subaccountSid: string;
+    subaccountAuthToken: string;
+    apiKeySid: string;
+    apiKeySecret: string;
+    phoneNumber: string;
+    phoneNumberSid: string;
+    messagingServiceSid: string;
+  } | null> {
+    const subaccount = await this.getTwilioSubaccount();
+    if (!subaccount) {
+      return null;
+    }
+
+    // Decrypt the credentials
+    return {
+      subaccountSid: subaccount.subaccountSid,
+      subaccountAuthToken: EncryptionService.decrypt(
+        subaccount.subaccountAuthToken
+      ),
+      apiKeySid: subaccount.apiKeySid,
+      apiKeySecret: EncryptionService.decrypt(subaccount.apiKeySecret),
+      phoneNumber: subaccount.phoneNumber,
+      phoneNumberSid: subaccount.phoneNumberSid,
+      messagingServiceSid: subaccount.messagingServiceSid,
+    };
   }
 
   async getPhoneNumbers(): Promise<BusinessPhoneNumber[]> {

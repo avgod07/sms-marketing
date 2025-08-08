@@ -16,8 +16,8 @@ import { UniversalMessageService } from "../../services/universal-message.js";
 export function registerPublicRoutes(app: Express) {
   const publicContactRateLimiter = createRateLimiter({
     windowMs: 60_000,
-    max: 5,
-  }); // 5 contacts per minute per IP
+    max: 100,
+  }); // 100 contacts per minute per business
 
   const publicContactSchema = insertContactSchema.extend({
     businessId: z.number().positive("Business ID must be a positive number"),
@@ -110,17 +110,9 @@ export function registerPublicRoutes(app: Express) {
 
         // Send initial message to the new contact with TCPA compliance
         try {
-          const messagingServiceSid =
-            await contactStore.getMessagingServiceSid();
-          const numbers = await contactStore.getPhoneNumbers();
-          const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-
-          if (
-            from &&
-            process.env.TWILIO_ACCOUNT_SID &&
-            business.initialMessage
-          ) {
+          if (business.initialMessage) {
             // Send via UniversalMessageService with TCPA compliance
+            // UniversalMessageService will handle subaccount vs legacy credential selection
             const result = await UniversalMessageService.sendMessage(
               contactStore,
               {

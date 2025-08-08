@@ -86,17 +86,19 @@ function generateSampleMessages(useCases: string[]): string[] {
 async function createClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const businessProfileSid = process.env.TWILIO_BUSINESS_PROFILE_SID;
+  // TODO: Uncomment for manual Trust Hub Business Profile management
+  // const businessProfileSid = process.env.TWILIO_BUSINESS_PROFILE_SID;
 
   if (!accountSid || !authToken) {
     throw new Error("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set");
   }
 
-  if (!businessProfileSid) {
-    throw new Error(
-      "TWILIO_BUSINESS_PROFILE_SID must be set for TFV submissions"
-    );
-  }
+  // TODO: Uncomment to require pre-created Business Profile
+  // if (!businessProfileSid) {
+  //   throw new Error(
+  //     "TWILIO_BUSINESS_PROFILE_SID must be set for TFV submissions"
+  //   );
+  // }
 
   return twilio(accountSid, authToken);
 }
@@ -158,11 +160,12 @@ export async function submitTollFreeVerification(
     const notificationEmail = businessEmail || "support@notiflow.com";
 
     // ✅ VALIDATE REQUIRED FIELDS BEFORE SUBMISSION (PREVENTS API FAILURES)
-    if (!process.env.TWILIO_BUSINESS_PROFILE_SID) {
-      throw new Error(
-        "TWILIO_BUSINESS_PROFILE_SID environment variable is required for TFV submissions"
-      );
-    }
+    // TODO: Uncomment to require Business Profile SID
+    // if (!process.env.TWILIO_BUSINESS_PROFILE_SID) {
+    //   throw new Error(
+    //     "TWILIO_BUSINESS_PROFILE_SID environment variable is required for TFV submissions"
+    //   );
+    // }
 
     if (!business.name || business.name.trim().length === 0) {
       throw new Error("Business name is required for TFV submission");
@@ -271,7 +274,8 @@ export async function submitTollFreeVerification(
         messageVolume: expectedVolume.toString(),
         tollfreePhoneNumberSid: phoneNumberSid, // Phone number SID from Twilio
         optInImageUrls: optInImageUrls,
-        customerProfileSid: process.env.TWILIO_BUSINESS_PROFILE_SID!, // Business Profile SID
+        // TODO: Uncomment to use pre-created Business Profile
+        // customerProfileSid: process.env.TWILIO_BUSINESS_PROFILE_SID!, // Business Profile SID
 
         // Optional but recommended for tracking
         externalReferenceId: `notiflow-business-${businessId}-${phoneNumberSid}`,

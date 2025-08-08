@@ -3,6 +3,7 @@ import twilio from "twilio";
 import { requireAuth } from "@clerk/express";
 import { normalizePhoneNumber } from "../../utils/normalize.util.js";
 import { TwilioService } from "../../services/twilio.js";
+import { TwilioSubaccountService } from "../../services/twilio-subaccount.js";
 import { socketService } from "../../socket";
 import { storage } from "../../db/storage";
 import { logError } from "../../utils/logger.util";
@@ -43,19 +44,41 @@ export function registerTwilioRoutes(app: Express) {
           return res.status(400).send("Invalid business ID");
         }
 
-        // Validate Twilio signature using environment variable
+        // Validate Twilio signature using correct auth token (subaccount or main account)
         const signature = req.get("x-twilio-signature") || "";
         const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-        const token = process.env.TWILIO_AUTH_TOKEN;
-        if (!token) {
-          logError("TWILIO_AUTH_TOKEN not configured");
+
+        try {
+          const { getWebhookAuthToken } = await import(
+            "../../services/twilio.js"
+          );
+          const token = await getWebhookAuthToken(businessId);
+          const isValid = twilio.validateRequest(
+            token,
+            signature,
+            url,
+            req.body
+          );
+
+          if (!isValid) {
+            logError("Invalid Twilio signature for status callback", {
+              businessId,
+              MessageSid,
+              signature: signature.slice(0, 10) + "...", // Log partial signature for debugging
+            });
+            return res
+              .status(403)
+              .json({ message: "Invalid Twilio signature" });
+          }
+        } catch (error) {
+          logError("Failed to validate Twilio signature for status callback", {
+            businessId,
+            MessageSid,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return res
             .status(500)
-            .json({ message: "Server configuration error" });
-        }
-        const isValid = twilio.validateRequest(token, signature, url, req.body);
-        if (!isValid) {
-          return res.status(403).json({ message: "Invalid Twilio signature" });
+            .json({ message: "Signature validation error" });
         }
 
         if (!MessageSid) {
@@ -102,17 +125,34 @@ export function registerTwilioRoutes(app: Express) {
         return res.status(400).send("Invalid business ID");
       }
 
-      // Validate Twilio signature using environment variable
+      // Validate Twilio signature using correct auth token (subaccount or main account)
       const signature = req.get("x-twilio-signature") || "";
       const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-      const token = process.env.TWILIO_AUTH_TOKEN;
-      if (!token) {
-        logError("TWILIO_AUTH_TOKEN not configured");
-        return res.status(500).send("Server configuration error");
-      }
-      const valid = twilio.validateRequest(token, signature, url, req.body);
-      if (!valid) {
-        return res.status(403).send("Invalid Twilio signature");
+
+      try {
+        const { getWebhookAuthToken } = await import(
+          "../../services/twilio.js"
+        );
+        const token = await getWebhookAuthToken(businessId);
+        const valid = twilio.validateRequest(token, signature, url, req.body);
+
+        if (!valid) {
+          logError("Invalid Twilio signature for inbound message", {
+            businessId,
+            From,
+            To,
+            signature: signature.slice(0, 10) + "...", // Log partial signature for debugging
+          });
+          return res.status(403).send("Invalid Twilio signature");
+        }
+      } catch (error) {
+        logError("Failed to validate Twilio signature for inbound message", {
+          businessId,
+          From,
+          To,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return res.status(500).send("Signature validation error");
       }
 
       const bizStore = storage.forBusiness(businessId);
@@ -783,12 +823,101 @@ export function registerTwilioRoutes(app: Express) {
 
         // Debug logging
         const business = await biz.getBusiness();
-        logError("Toll-free purchase attempt", {
+        logInfo("Toll-free purchase with subaccount provisioning", {
           rawPhoneNumber,
           normalizedPhoneNumber: phoneNumber,
           businessId: business.id,
         });
 
+        // 🚀 NEW: Try subaccount provisioning first
+        try {
+          // Get onboarding progress for subaccount provisioning
+          const onboardingProgress = await biz.getOnboardingProgress();
+
+          if (
+            onboardingProgress?.useCases &&
+            onboardingProgress?.monthlyVolume
+          ) {
+            logInfo("Starting subaccount provisioning", {
+              businessId: business.id,
+              businessName: business.name,
+            });
+
+            // Prepare business info from onboarding progress
+            const businessInfo = {
+              businessName: business.name,
+              websiteUrl: onboardingProgress.websiteUrl || undefined,
+              address1: onboardingProgress.address1 || undefined,
+              address2: onboardingProgress.address2 || undefined,
+              city: onboardingProgress.city || undefined,
+              state: onboardingProgress.state || undefined,
+              postalCode: onboardingProgress.postalCode || undefined,
+              country: onboardingProgress.country || "US",
+              firstName: onboardingProgress.firstName || undefined,
+              lastName: onboardingProgress.lastName || undefined,
+              email: onboardingProgress.email || undefined,
+              phoneNumber: onboardingProgress.phoneNumber || undefined,
+            };
+
+            // Use subaccount service for complete provisioning
+            const provisioningResult =
+              await TwilioSubaccountService.provisionBusinessSubaccount({
+                businessId: business.id,
+                businessInfo,
+                monthlyVolume: onboardingProgress.monthlyVolume,
+                useCases: onboardingProgress.useCases || [],
+                initialMessage:
+                  business.initialMessage || "Welcome! Reply STOP to opt out.",
+                storage: biz,
+              });
+
+            // Mark business as subaccount provisioned
+            await biz.updateBusiness({ subaccountProvisioned: true });
+
+            logInfo("Subaccount provisioning completed successfully", {
+              businessId: business.id,
+              subaccountSid: provisioningResult.subaccountSid,
+              phoneNumber: provisioningResult.phoneNumber,
+              tfvStatus: provisioningResult.tfvStatus,
+            });
+
+            return res.json({
+              phoneNumber: provisioningResult.phoneNumber,
+              phoneNumberSid: provisioningResult.phoneNumberSid,
+              messagingServiceSid: provisioningResult.messagingServiceSid,
+              tfvStatus: provisioningResult.tfvStatus,
+              tfvRequestId: provisioningResult.tfvRequestId,
+              verificationStatus: provisioningResult.tfvStatus,
+              message:
+                "Subaccount provisioned successfully with dedicated toll-free number",
+              subaccountProvisioned: true,
+              phoneSid: provisioningResult.phoneNumberSid,
+              isDefault: true,
+            });
+          } else {
+            logInfo(
+              "Subaccount provisioning skipped - missing onboarding data",
+              {
+                businessId: business.id,
+                hasUseCases: !!onboardingProgress?.useCases,
+                hasVolume: !!onboardingProgress?.monthlyVolume,
+              }
+            );
+          }
+        } catch (subaccountError) {
+          logError(
+            "Subaccount provisioning failed, falling back to legacy flow",
+            {
+              businessId: business.id,
+              error:
+                subaccountError instanceof Error
+                  ? subaccountError.message
+                  : String(subaccountError),
+            }
+          );
+        }
+
+        // FALLBACK: Use legacy main account flow
         // Check server-side Twilio configuration
         const accountSid = process.env.TWILIO_ACCOUNT_SID;
         const authToken = process.env.TWILIO_AUTH_TOKEN;

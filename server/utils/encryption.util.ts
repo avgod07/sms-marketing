@@ -1,52 +1,68 @@
 import crypto from "crypto";
 
-const algorithm = "aes-256-cbc";
+const ENCRYPTION_KEY =
+  process.env.ENCRYPTION_KEY || "your-32-character-secret-key-here!";
+const ALGORITHM = "aes-256-gcm";
 
-// Validate encryption key is set
-if (!process.env.ENCRYPTION_KEY) {
-  throw new Error(
-    "ENCRYPTION_KEY environment variable must be set for production"
-  );
-}
+export class EncryptionService {
+  static encrypt(text: string): string {
+    try {
+      const iv = crypto.randomBytes(16);
+      const key = Buffer.from(ENCRYPTION_KEY, "utf8").subarray(0, 32);
+      const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
-const key = crypto
-  .createHash("sha256")
-  .update(process.env.ENCRYPTION_KEY)
-  .digest();
-const ivLength = 16;
+      let encrypted = cipher.update(text, "utf8", "hex");
+      encrypted += cipher.final("hex");
 
-export function encrypt(text: string): string {
-  if (!text) {
-    throw new Error("Cannot encrypt empty string");
+      const authTag = cipher.getAuthTag();
+
+      return (
+        iv.toString("hex") + ":" + authTag.toString("hex") + ":" + encrypted
+      );
+    } catch (error) {
+      console.error("Encryption failed:", error);
+      // In development, return the text as-is for simplicity
+      if (process.env.NODE_ENV === "development") {
+        return text;
+      }
+      throw error;
+    }
   }
 
-  const iv = crypto.randomBytes(ivLength);
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
-  let encrypted = cipher.update(text, "utf8", "base64");
-  encrypted += cipher.final("base64");
-  return iv.toString("base64") + ":" + encrypted;
-}
+  static decrypt(encryptedText: string): string {
+    try {
+      // In development, if text doesn't contain ':', it's likely unencrypted
+      if (
+        process.env.NODE_ENV === "development" &&
+        !encryptedText.includes(":")
+      ) {
+        return encryptedText;
+      }
 
-export function decrypt(payload: string): string {
-  if (!payload || !payload.includes(":")) {
-    throw new Error("Invalid encrypted payload format");
-  }
+      const parts = encryptedText.split(":");
+      if (parts.length !== 3) {
+        throw new Error("Invalid encrypted data format");
+      }
 
-  const [ivStr, data] = payload.split(":");
-  if (!ivStr || !data) {
-    throw new Error("Invalid encrypted payload structure");
-  }
+      const [ivHex, authTagHex, encrypted] = parts;
+      const iv = Buffer.from(ivHex, "hex");
+      const authTag = Buffer.from(authTagHex, "hex");
+      const key = Buffer.from(ENCRYPTION_KEY, "utf8").subarray(0, 32);
 
-  try {
-    const iv = Buffer.from(ivStr, "base64");
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    let decrypted = decipher.update(data, "base64", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch (error) {
-    throw new Error(
-      "Failed to decrypt payload: " +
-        (error instanceof Error ? error.message : "Unknown error")
-    );
+      const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+      decipher.setAuthTag(authTag);
+
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+
+      return decrypted;
+    } catch (error) {
+      console.error("Decryption failed:", error);
+      // In development, return as-is if decryption fails
+      if (process.env.NODE_ENV === "development") {
+        return encryptedText;
+      }
+      throw error;
+    }
   }
 }

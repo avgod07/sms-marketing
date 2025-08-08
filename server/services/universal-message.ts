@@ -195,7 +195,7 @@ export class UniversalMessageService {
   }
 
   /**
-   * Send message using credit deduction system
+   * Send message with credit deduction (enhanced with subaccount support)
    * @param bizStorage - Business storage instance
    * @param params - Message parameters
    */
@@ -204,69 +204,125 @@ export class UniversalMessageService {
     params: SendMessageParams
   ): Promise<SendMessageResult> {
     const business = await bizStorage.getBusiness();
-    const messagingServiceSid = await bizStorage.getMessagingServiceSid();
-    const numbers = await bizStorage.getPhoneNumbers();
-    const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-    // Create credentials object
-    const tempCreds = {
-      businessId: business.id,
-      accountSid: process.env.TWILIO_ACCOUNT_SID!,
-      messagingServiceSid: messagingServiceSid || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      id: 0,
-    };
+    // Try to use subaccount credentials first
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
 
-    // Send with credit deduction
-    const result = await MessageCreditService.sendWithCreditDeduction(
-      bizStorage,
-      tempCreds,
-      {
-        to: params.phoneNumber,
-        message: params.messageContent,
-        from: params.from || defaultFrom,
-        messagingServiceSid:
-          params.messagingServiceSid || messagingServiceSid || undefined,
-        contactId: params.contactId,
-        campaignId: params.campaignId,
-        messageType: params.messageType,
-        mediaUrl: params.mediaUrl,
-        businessId: params.businessId,
+    if (subaccountCreds && business.subaccountProvisioned) {
+      // Use subaccount for credit-based messages
+      const result =
+        await MessageCreditService.sendWithCreditDeductionSubaccount(
+          bizStorage,
+          subaccountCreds,
+          {
+            to: params.phoneNumber,
+            message: params.messageContent,
+            from: params.from,
+            messagingServiceSid: params.messagingServiceSid,
+            contactId: params.contactId,
+            campaignId: params.campaignId,
+            messageType: params.messageType,
+            mediaUrl: params.mediaUrl,
+            businessId: params.businessId,
+          }
+        );
+
+      if (result.success) {
+        // Create message record
+        await bizStorage.createMessage({
+          phoneNumber: params.phoneNumber,
+          contactId: params.contactId,
+          content: params.messageContent,
+          status: "sent",
+          messageType: params.messageType,
+          billingStatus: result.billingStatus,
+          messageSid: result.messageSid,
+          campaignId: params.campaignId,
+        });
+
+        logInfo("Message sent immediately with credits via subaccount", {
+          businessId: params.businessId,
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+          creditCost: result.creditCost,
+          subaccountSid: subaccountCreds.subaccountSid,
+        });
+
+        return {
+          status: "sent",
+          messageId: result.messageSid,
+        };
+      } else {
+        throw new Error(
+          result.error || "Failed to send message via subaccount"
+        );
       }
-    );
-
-    if (result.success) {
-      // Create message record
-      await bizStorage.createMessage({
-        phoneNumber: params.phoneNumber,
-        contactId: params.contactId,
-        content: params.messageContent,
-        status: "sent",
-        messageType: params.messageType,
-        billingStatus: result.billingStatus,
-        messageSid: result.messageSid,
-        campaignId: params.campaignId,
-      });
-
-      logInfo("Message sent immediately with credits", {
-        businessId: params.businessId,
-        messageType: params.messageType,
-        messageSid: result.messageSid,
-        creditCost: result.creditCost,
-      });
-
-      return {
-        status: "sent",
-        messageId: result.messageSid,
-      };
     } else {
-      throw new Error(result.error || "Failed to send message");
+      // Fallback to legacy method for businesses without subaccounts
+      const messagingServiceSid = await bizStorage.getMessagingServiceSid();
+      const numbers = await bizStorage.getPhoneNumbers();
+      const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+      // Create credentials object
+      const tempCreds = {
+        businessId: business.id,
+        accountSid: process.env.TWILIO_ACCOUNT_SID!,
+        messagingServiceSid: messagingServiceSid || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: 0,
+      };
+
+      // Send with credit deduction
+      const result = await MessageCreditService.sendWithCreditDeduction(
+        bizStorage,
+        tempCreds,
+        {
+          to: params.phoneNumber,
+          message: params.messageContent,
+          from: params.from || defaultFrom,
+          messagingServiceSid:
+            params.messagingServiceSid || messagingServiceSid || undefined,
+          contactId: params.contactId,
+          campaignId: params.campaignId,
+          messageType: params.messageType,
+          mediaUrl: params.mediaUrl,
+          businessId: params.businessId,
+        }
+      );
+
+      if (result.success) {
+        // Create message record
+        await bizStorage.createMessage({
+          phoneNumber: params.phoneNumber,
+          contactId: params.contactId,
+          content: params.messageContent,
+          status: "sent",
+          messageType: params.messageType,
+          billingStatus: result.billingStatus,
+          messageSid: result.messageSid,
+          campaignId: params.campaignId,
+        });
+
+        logInfo("Message sent immediately with credits via legacy", {
+          businessId: params.businessId,
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+          creditCost: result.creditCost,
+        });
+
+        return {
+          status: "sent",
+          messageId: result.messageSid,
+        };
+      } else {
+        throw new Error(result.error || "Failed to send message");
+      }
     }
   }
 
   /**
-   * Send message directly without credit deduction (for system messages)
+   * Send message directly without credit deduction (enhanced with subaccount support)
    * @param bizStorage - Business storage instance
    * @param params - Message parameters
    */
@@ -275,48 +331,87 @@ export class UniversalMessageService {
     params: SendMessageParams
   ): Promise<SendMessageResult> {
     const business = await bizStorage.getBusiness();
-    const messagingServiceSid = await bizStorage.getMessagingServiceSid();
-    const numbers = await bizStorage.getPhoneNumbers();
-    const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-    // Create credentials object
-    const tempCreds = {
-      businessId: business.id,
-      accountSid: process.env.TWILIO_ACCOUNT_SID!,
-      messagingServiceSid: messagingServiceSid || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      id: 0,
-    };
+    // Try to use subaccount credentials first
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
 
-    // Send directly via Twilio
-    const result = await TwilioService.sendSMS(
-      tempCreds,
-      {
-        to: params.phoneNumber,
-        message: params.messageContent,
-        from: params.from || defaultFrom,
-        messagingServiceSid:
-          params.messagingServiceSid || messagingServiceSid || undefined,
-        contactId: params.contactId,
-        mediaUrl: params.mediaUrl,
-      },
-      params.businessId
-    );
+    if (subaccountCreds && business.subaccountProvisioned) {
+      // Use subaccount for free messages
+      const result = await TwilioService.sendSMSWithSubaccount(
+        subaccountCreds,
+        {
+          to: params.phoneNumber,
+          message: params.messageContent,
+          from: params.from,
+          messagingServiceSid: params.messagingServiceSid,
+          contactId: params.contactId,
+          mediaUrl: params.mediaUrl,
+        },
+        params.businessId
+      );
 
-    if (result.success) {
-      logInfo("Message sent directly (no credits)", {
-        businessId: params.businessId,
-        messageType: params.messageType,
-        messageSid: result.messageSid,
-      });
+      if (result.success) {
+        logInfo("Message sent directly via subaccount (no credits)", {
+          businessId: params.businessId,
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+          subaccountSid: subaccountCreds.subaccountSid,
+        });
 
-      return {
-        status: "sent",
-        messageId: result.messageSid,
-      };
+        return {
+          status: "sent",
+          messageId: result.messageSid,
+        };
+      } else {
+        throw new Error(
+          result.error || "Failed to send message via subaccount"
+        );
+      }
     } else {
-      throw new Error(result.error || "Failed to send message");
+      // Fallback to legacy method for businesses without subaccounts
+      const messagingServiceSid = await bizStorage.getMessagingServiceSid();
+      const numbers = await bizStorage.getPhoneNumbers();
+      const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+      // Create credentials object
+      const tempCreds = {
+        businessId: business.id,
+        accountSid: process.env.TWILIO_ACCOUNT_SID!,
+        messagingServiceSid: messagingServiceSid || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: 0,
+      };
+
+      // Send directly via Twilio
+      const result = await TwilioService.sendSMS(
+        tempCreds,
+        {
+          to: params.phoneNumber,
+          message: params.messageContent,
+          from: params.from || defaultFrom,
+          messagingServiceSid:
+            params.messagingServiceSid || messagingServiceSid || undefined,
+          contactId: params.contactId,
+          mediaUrl: params.mediaUrl,
+        },
+        params.businessId
+      );
+
+      if (result.success) {
+        logInfo("Message sent directly via legacy (no credits)", {
+          businessId: params.businessId,
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+        });
+
+        return {
+          status: "sent",
+          messageId: result.messageSid,
+        };
+      } else {
+        throw new Error(result.error || "Failed to send message");
+      }
     }
   }
 
@@ -359,58 +454,108 @@ export class UniversalMessageService {
     params: SendMessageParams
   ): Promise<SendMessageResult> {
     const business = await bizStorage.getBusiness();
-    const messagingServiceSid = await bizStorage.getMessagingServiceSid();
-    const numbers = await bizStorage.getPhoneNumbers();
-    const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
 
-    const tempCreds = {
-      businessId: business.id,
-      accountSid: process.env.TWILIO_ACCOUNT_SID!,
-      messagingServiceSid: messagingServiceSid || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      id: 0,
-    };
+    // Try to use subaccount credentials first
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
 
-    // Send via Twilio
-    const result = await TwilioService.sendSMS(
-      tempCreds,
-      {
-        to: params.phoneNumber,
-        message: params.messageContent,
-        from: params.from || defaultFrom,
-        messagingServiceSid:
-          params.messagingServiceSid || messagingServiceSid || undefined,
-        contactId: params.contactId,
-        mediaUrl: params.mediaUrl,
-      },
-      params.businessId
-    );
+    if (subaccountCreds && business.subaccountProvisioned) {
+      // Use subaccount for sending
+      const result = await TwilioService.sendSMSWithSubaccount(
+        subaccountCreds,
+        {
+          to: params.phoneNumber,
+          message: params.messageContent,
+          from: params.from,
+          messagingServiceSid: params.messagingServiceSid,
+          contactId: params.contactId,
+          mediaUrl: params.mediaUrl,
+        },
+        params.businessId
+      );
 
-    if (result.success) {
-      // Create message record
-      await bizStorage.createMessage({
-        phoneNumber: params.phoneNumber,
-        contactId: params.contactId,
-        content: params.messageContent,
-        status: "sent",
-        messageType: params.messageType,
-        messageSid: result.messageSid,
-        campaignId: params.campaignId,
-      });
+      if (result.success) {
+        // Create message record
+        await bizStorage.createMessage({
+          phoneNumber: params.phoneNumber,
+          contactId: params.contactId,
+          content: params.messageContent,
+          status: "sent",
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+          campaignId: params.campaignId,
+        });
 
-      logInfo("Committed message sent via Twilio", {
-        businessId: params.businessId,
-        messageType: params.messageType,
-        messageSid: result.messageSid,
-      });
+        logInfo("Message sent via subaccount", {
+          businessId: params.businessId,
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+          subaccountSid: subaccountCreds.subaccountSid,
+        });
 
-      return {
-        status: "sent",
-        messageId: result.messageSid,
-      };
+        return {
+          status: "sent",
+          messageId: result.messageSid,
+        };
+      } else {
+        throw new Error(
+          result.error || "Failed to send message via subaccount"
+        );
+      }
     } else {
-      throw new Error(result.error || "Failed to send message via Twilio");
+      // Fallback to legacy method for businesses without subaccounts
+      const messagingServiceSid = await bizStorage.getMessagingServiceSid();
+      const numbers = await bizStorage.getPhoneNumbers();
+      const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
+
+      const tempCreds = {
+        businessId: business.id,
+        accountSid: process.env.TWILIO_ACCOUNT_SID!,
+        messagingServiceSid: messagingServiceSid || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: 0,
+      };
+
+      // Send via legacy Twilio method
+      const result = await TwilioService.sendSMS(
+        tempCreds,
+        {
+          to: params.phoneNumber,
+          message: params.messageContent,
+          from: params.from || defaultFrom,
+          messagingServiceSid:
+            params.messagingServiceSid || messagingServiceSid || undefined,
+          contactId: params.contactId,
+          mediaUrl: params.mediaUrl,
+        },
+        params.businessId
+      );
+
+      if (result.success) {
+        // Create message record
+        await bizStorage.createMessage({
+          phoneNumber: params.phoneNumber,
+          contactId: params.contactId,
+          content: params.messageContent,
+          status: "sent",
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+          campaignId: params.campaignId,
+        });
+
+        logInfo("Message sent via legacy method", {
+          businessId: params.businessId,
+          messageType: params.messageType,
+          messageSid: result.messageSid,
+        });
+
+        return {
+          status: "sent",
+          messageId: result.messageSid,
+        };
+      } else {
+        throw new Error(result.error || "Failed to send message via Twilio");
+      }
     }
   }
 

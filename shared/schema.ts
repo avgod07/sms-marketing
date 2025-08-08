@@ -18,20 +18,22 @@ import { z } from "zod";
 export const businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  timezone: text("timezone").notNull().default("America/New_York"),
+  initialMessage: text("initial_message"),
   plan: text("plan").notNull().default("free_trial"), // 'free_trial', 'starter', 'cancelled'
+  subaccountProvisioned: boolean("subaccount_provisioned")
+    .default(false)
+    .notNull(),
   trialEndsAt: timestamp("trial_ends_at"),
   trialUsed: boolean("trial_used").default(false).notNull(),
   trialVoidedAt: timestamp("trial_voided_at"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
-  initialMessage: text("initial_message"),
   messagingServiceSid: varchar("messaging_service_sid", { length: 64 }),
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
-  timezone: varchar("timezone", { length: 50 })
-    .notNull()
-    .default("America/New_York"),
   timezoneUpdatedAt: timestamp("timezone_updated_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const contacts = pgTable(
@@ -527,6 +529,37 @@ export const committedMessages = pgTable(
   ]
 );
 
+export const twilioSubaccounts = pgTable(
+  "twilio_subaccounts",
+  {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id")
+      .references(() => businesses.id, { onDelete: "cascade" })
+      .notNull()
+      .unique(),
+    subaccountSid: varchar("subaccount_sid", { length: 34 }).notNull().unique(),
+    subaccountAuthToken: text("subaccount_auth_token").notNull(), // encrypted
+    apiKeySid: varchar("api_key_sid", { length: 34 }).notNull(),
+    apiKeySecret: text("api_key_secret").notNull(), // encrypted
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    phoneNumberSid: varchar("phone_number_sid", { length: 34 }).notNull(),
+    messagingServiceSid: varchar("messaging_service_sid", {
+      length: 34,
+    }).notNull(),
+    tfvRequestId: varchar("tfv_request_id", { length: 34 }),
+    tfvStatus: varchar("tfv_status", { length: 20 })
+      .default("pending")
+      .notNull(),
+    status: varchar("status", { length: 20 }).default("active").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("twilio_subaccounts_business_id_idx").on(table.businessId),
+    index("twilio_subaccounts_subaccount_sid_idx").on(table.subaccountSid),
+  ]
+);
+
 // Relations
 export const contactsRelations = relations(contacts, ({ many }) => ({
   messages: many(messages),
@@ -564,6 +597,7 @@ export const businessesRelations = relations(businesses, ({ many }) => ({
   creditTransactions: many(creditTransactions),
   onboardingProgress: many(onboardingProgress),
   subscriptionEvents: many(subscriptionEvents),
+  twilioSubaccounts: many(twilioSubaccounts),
 }));
 
 // Insert schemas
@@ -747,6 +781,15 @@ export const insertMessageQueueSchema = createInsertSchema(messageQueue).omit({
   sentAt: true,
 });
 
+export const insertTwilioSubaccountSchema = createInsertSchema(
+  twilioSubaccounts
+).omit({
+  id: true,
+  businessId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
@@ -835,4 +878,9 @@ export type InsertCommittedMessage = typeof committedMessages.$inferInsert;
 export type SmsCommandPending = typeof smsCommandPending.$inferSelect;
 export type InsertSmsCommandPending = z.infer<
   typeof insertSmsCommandPendingSchema
+>;
+
+export type TwilioSubaccount = typeof twilioSubaccounts.$inferSelect;
+export type InsertTwilioSubaccount = z.infer<
+  typeof insertTwilioSubaccountSchema
 >;

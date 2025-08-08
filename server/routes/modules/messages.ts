@@ -141,11 +141,8 @@ export function registerMessageRoutes(app: Express) {
           return res.status(400).json({ message: "Contact is inactive" });
         }
 
-        const messagingServiceSid = await biz.getMessagingServiceSid();
-        const numbers = await biz.getPhoneNumbers();
-        const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-
         // Send message using UniversalMessageService with TCPA compliance
+        // UniversalMessageService will handle subaccount vs legacy credential selection
         const result = await UniversalMessageService.sendMessage(biz, {
           businessId: (await biz.getBusiness()).id,
           phoneNumber: validatedData.phoneNumber,

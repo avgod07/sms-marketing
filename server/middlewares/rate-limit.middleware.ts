@@ -10,8 +10,8 @@ export function createRateLimiter(options: { windowMs: number; max: number }) {
 
   return function rateLimiter(req: Request, res: Response, next: NextFunction) {
     const userId = (req as any).user?.id || "anonymous";
-    const code = req.params.code || "global";
-    const key = `${userId}:${code}`;
+    const businessId = req.body?.businessId || req.params.code || "global";
+    const key = `${userId}:${businessId}`;
     const now = Date.now();
     const attempt = attempts.get(key) || { timestamps: [] };
     attempt.timestamps = attempt.timestamps.filter((ts) => now - ts < windowMs);
