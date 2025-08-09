@@ -485,17 +485,9 @@ export class TwilioSubaccountService {
           // ✅ VOLUME (Fixed format)
           messageVolume: volumeString,
 
-          // ✅ ADDITIONAL INFORMATION (Fixed: Single line, no line breaks + SANITIZED)
-          additionalInformation: sanitizeText(
-            `Additional opt-in details: ${optInFlowDescription
-              .replace(/\n/g, " ")
-              .replace(/\r/g, " ")
-              .trim()}. Additional message samples: ${messageSamples
-              .slice(1)
-              .join(
-                ", "
-              )}. All messages include clear opt-out instructions and comply with messaging best practices.`
-          ),
+          // ✅ ADDITIONAL INFORMATION (Plain static string - matching Twilio documentation)
+          additionalInformation:
+            "Compliant SMS messaging platform with proper opt-in procedures",
 
           // ✅ TRACKING (Compliant external reference)
           externalReferenceId: externalReferenceId,

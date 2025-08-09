@@ -1398,33 +1398,23 @@ export function registerTwilioRoutes(app: Express) {
     async (req, res) => {
       try {
         const { biz } = await getBizForRequest(req);
-        const { phoneNumberSid } = z
-          .object({
-            phoneNumberSid: z.string(),
-          })
-          .parse(req.body);
 
         const business = await biz.getBusiness();
-        const config = await biz.getTwilioA2PConfig();
-        const numbers = await biz.getPhoneNumbers();
 
-        if (!config) {
+        // ✅ USE TWILIOSUBACCOUNTS AS SINGLE SOURCE OF TRUTH
+        const subaccount = await biz.getTwilioSubaccount();
+
+        if (!subaccount) {
           return res.status(400).json({
-            message: "Missing A2P config - complete onboarding first",
+            message: "No Twilio subaccount found - complete onboarding first",
           });
         }
 
-        // Find the phone number record
-        const phoneRecord = numbers.find((n) => n.phoneSid === phoneNumberSid);
-        if (!phoneRecord) {
-          return res.status(400).json({ message: "Phone number not found" });
-        }
-
-        // Check if already submitted
-        if (phoneRecord.tfvSid) {
+        // Check if TFV already submitted
+        if (subaccount.tfvRequestId) {
           return res.json({
-            tfvSid: phoneRecord.tfvSid,
-            status: phoneRecord.verificationStatus || "pending",
+            tfvSid: subaccount.tfvRequestId,
+            status: subaccount.tfvStatus || "pending",
           });
         }
 
@@ -1434,22 +1424,20 @@ export function registerTwilioRoutes(app: Express) {
         let businessEmail: string | undefined;
         let businessAddress: any;
         let businessWebsiteUrl: string | undefined;
-        let businessContact: any; // ✅ ADD CONTACT INFO EXTRACTION
+        let businessContact: any;
+
         try {
           const onboardingProgress = await biz.getOnboardingProgress();
           businessEmail = onboardingProgress?.email || undefined;
           businessWebsiteUrl = onboardingProgress?.websiteUrl || undefined;
 
-          // Extract contact information from onboarding progress - ✅ NEW
+          // Extract contact information from onboarding progress
           if (onboardingProgress?.firstName && onboardingProgress?.lastName) {
             businessContact = {
               firstName: onboardingProgress.firstName,
               lastName: onboardingProgress.lastName,
-              email:
-                onboardingProgress.email ||
-                businessEmail ||
-                "support@notiflow.com",
-              phoneNumber: onboardingProgress.phoneNumber || "+14155551234",
+              email: onboardingProgress.email || businessEmail,
+              phoneNumber: onboardingProgress.phoneNumber,
             };
           }
 
@@ -1470,11 +1458,26 @@ export function registerTwilioRoutes(app: Express) {
             };
           }
         } catch (e) {
-          // No onboarding progress, fallbacks will be used
+          // No onboarding progress
+        }
+
+        // Validate required data
+        if (!businessEmail || !businessAddress || !businessContact) {
+          return res.status(400).json({
+            message:
+              "Missing required business information - complete onboarding first",
+          });
+        }
+
+        const config = await biz.getTwilioA2PConfig();
+        if (!config) {
+          return res.status(400).json({
+            message: "Missing A2P config - complete onboarding first",
+          });
         }
 
         const result = await submitTollFreeVerification(
-          phoneNumberSid,
+          subaccount.phoneNumberSid,
           business,
           config,
           business.id,
@@ -1482,15 +1485,14 @@ export function registerTwilioRoutes(app: Express) {
           businessEmail,
           businessAddress,
           businessWebsiteUrl,
-          businessContact // ✅ PASS CONTACT INFO
+          businessContact
         );
 
-        // Update phone number with TFV info
-        await biz.updatePhoneNumberTFV(
-          phoneRecord.id,
-          result.tfvSid,
-          result.status
-        );
+        // ✅ UPDATE SUBACCOUNT WITH TFV INFO
+        await biz.updateTwilioSubaccount({
+          tfvRequestId: result.tfvSid,
+          tfvStatus: result.status,
+        });
 
         res.json({
           tfvSid: result.tfvSid,
@@ -1498,7 +1500,9 @@ export function registerTwilioRoutes(app: Express) {
         });
       } catch (error) {
         logError("Error submitting TFV:", error);
-        res.status(500).json({ message: "Failed to submit TFV" });
+        res
+          .status(500)
+          .json({ message: "Failed to submit TFV", error: String(error) });
       }
     }
   );
