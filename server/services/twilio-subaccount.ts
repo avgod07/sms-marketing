@@ -426,7 +426,7 @@ export class TwilioSubaccountService {
           businessCity: businessInfo.city || "",
           businessStateProvinceRegion: businessInfo.state || "",
           businessPostalCode: businessInfo.postalCode || "",
-          businessCountry: businessInfo.country || "US",
+          businessCountry: "US", // Hardcoded to US since we only support United States
 
           // ✅ BUSINESS CONTACT (Required)
           businessContactFirstName: businessInfo.firstName || "",

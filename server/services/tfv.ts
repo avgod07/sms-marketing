@@ -271,7 +271,7 @@ export async function submitTollFreeVerification(
         businessCity: businessAddress?.city || "San Francisco", // Use real city or fallback
         businessStateProvinceRegion: businessAddress?.state || "CA",
         businessPostalCode: businessAddress?.postalCode || "94105",
-        businessCountry: businessAddress?.country || "US",
+        businessCountry: "US", // Hardcoded to US since we only support United States
         messageVolume: expectedVolume.toString(),
         tollfreePhoneNumberSid: phoneNumberSid, // Phone number SID from Twilio
         optInImageUrls: optInImageUrls,
