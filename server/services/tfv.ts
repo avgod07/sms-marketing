@@ -297,7 +297,9 @@ export async function submitTollFreeVerification(
         // Note: Twilio TFV only accepts one production message sample
         // Additional samples are included in additionalInformation
         optInType: "WEB_FORM", // Updated for 2025: WEB_FORM is more accurate for web-based platforms
-        additionalInformation: sanitizeText(additionalInfo),
+        // ✅ ADDITIONAL INFORMATION (Plain static string - matching Twilio documentation)
+        additionalInformation:
+          "Compliant messaging platform with proper opt-in procedures",
         businessStreetAddress: sanitizeText(businessAddress.address1), // Real address (validated above)
         businessStreetAddress2: businessAddress.address2 || "",
         businessCity: sanitizeText(businessAddress.city), // Real city (validated above)
