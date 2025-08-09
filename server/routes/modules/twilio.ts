@@ -863,6 +863,7 @@ export function registerTwilioRoutes(app: Express) {
             };
 
             // Use subaccount service for complete provisioning
+            const baseUrl = `${req.protocol}://${req.get("host")}`;
             const provisioningResult =
               await TwilioSubaccountService.provisionBusinessSubaccount({
                 businessId: business.id,
@@ -872,6 +873,7 @@ export function registerTwilioRoutes(app: Express) {
                 initialMessage:
                   business.initialMessage || "Welcome! Reply STOP to opt out.",
                 storage: biz,
+                baseUrl,
               });
 
             // Mark business as subaccount provisioned

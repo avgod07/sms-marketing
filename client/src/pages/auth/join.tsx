@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { handleApiError } from "@/lib/handleApiError";
 import { PhoneInput, normalizePhoneNumber } from "@/components/ui/phone-input";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Shield, CheckCircle2, MapPin, Globe } from "lucide-react";
+import { MessageSquare, Shield, CheckCircle2, MapPin, Globe, AlertTriangle } from "lucide-react";
 
 interface JoinPageProps {
   params: {
@@ -26,6 +26,11 @@ interface BusinessInfo {
   state?: string;
   country?: string;
   isAcceptingContacts: boolean;
+  tfvStatus: {
+    isVerified: boolean;
+    status: string;
+    hasPhoneNumbers: boolean;
+  };
 }
 
 export default function JoinPage({ params }: JoinPageProps) {
@@ -155,6 +160,10 @@ export default function JoinPage({ params }: JoinPageProps) {
 
   const isFormValid = firstName && lastName && phoneNumber && hasConsented;
   const businessName = businessInfo?.businessName || "this business";
+  
+  // Check if TFV is verified to allow contact creation
+  const canCreateContact = businessInfo?.tfvStatus?.isVerified || false;
+  const isButtonDisabled = !isFormValid || joinMutation.isPending || !canCreateContact;
   const location = [businessInfo?.city, businessInfo?.state].filter(Boolean).join(", ");
 
   return (
@@ -288,10 +297,26 @@ export default function JoinPage({ params }: JoinPageProps) {
               </div>
             </div>
 
+            {/* TFV Warning Message */}
+            {!canCreateContact && businessInfo?.tfvStatus && (
+              <div className="flex items-start space-x-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-800">
+                    New contacts cannot be created at this time
+                  </p>
+                  <p className="text-amber-700 mt-1">
+                    This business is completing their messaging verification. 
+                    Please check back in a few days.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <Button 
               type="submit" 
               className="w-full h-11 text-base font-medium" 
-              disabled={!isFormValid || joinMutation.isPending}
+              disabled={isButtonDisabled}
             >
               {joinMutation.isPending ? "Joining..." : `Join ${businessName}`}
             </Button>

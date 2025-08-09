@@ -50,6 +50,9 @@ export function registerPublicRoutes(app: Express) {
       // Get onboarding progress for additional business info
       const progress = await contactStore.getOnboardingProgress();
 
+      // Get TFV verification status for frontend form logic
+      const tfvStatus = await contactStore.getTFVVerificationStatus();
+
       res.json({
         businessName:
           business.name || progress?.businessName || "This Business",
@@ -58,6 +61,11 @@ export function registerPublicRoutes(app: Express) {
         state: progress?.state || null,
         country: progress?.country || null,
         isAcceptingContacts: true,
+        tfvStatus: {
+          isVerified: tfvStatus.isVerified,
+          status: tfvStatus.status,
+          hasPhoneNumbers: tfvStatus.hasPhoneNumbers,
+        },
       });
     } catch (error) {
       logError("Error fetching public business info:", error);

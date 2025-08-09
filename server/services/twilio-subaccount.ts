@@ -56,6 +56,7 @@ export class TwilioSubaccountService {
     useCases: string[];
     initialMessage: string;
     storage: IStorage;
+    baseUrl: string;
   }): Promise<ProvisioningResult> {
     const {
       businessId,
@@ -64,6 +65,7 @@ export class TwilioSubaccountService {
       useCases,
       initialMessage,
       storage,
+      baseUrl,
     } = params;
 
     // Validate input parameters at the start
@@ -149,7 +151,8 @@ export class TwilioSubaccountService {
           monthlyVolume,
           useCases,
           initialMessage,
-          businessId
+          businessId,
+          baseUrl
         );
         logInfo("TFV submitted", { tfvRequestId: tfvResult.requestId });
       }
@@ -332,7 +335,8 @@ export class TwilioSubaccountService {
     monthlyVolume: string,
     useCases: string[],
     initialMessage: string,
-    businessId: number
+    businessId: number,
+    baseUrl: string
   ): Promise<TFVResult> {
     // First validate all required parameters
     this.validateTFVSubmission({
@@ -443,7 +447,7 @@ export class TwilioSubaccountService {
 
           // ✅ OPT-IN INFORMATION (Comprehensive description)
           optInType: "WEB_FORM", // More accurate than VERBAL for web-based platform
-          optInImageUrls: [], // Can be added later if screenshots available
+          optInImageUrls: [`${baseUrl}/join/${businessId}`], // Real join page URL for TFV review
 
           // ✅ VOLUME (Fixed format)
           messageVolume: volumeString,
