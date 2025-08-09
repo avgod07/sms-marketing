@@ -157,8 +157,46 @@ export async function submitTollFreeVerification(
   const optInImageUrls = [`${baseUrl}/join/${businessId}`];
 
   try {
-    // Use provided business email or fallback
-    const notificationEmail = businessEmail || "support@notiflow.com";
+    // ✅ STRICT VALIDATION - NO FAKE DATA ALLOWED
+    if (!businessEmail?.trim()) {
+      throw new Error("Business email is required for TFV submission");
+    }
+
+    if (
+      !businessAddress?.address1?.trim() ||
+      !businessAddress?.city?.trim() ||
+      !businessAddress?.state?.trim() ||
+      !businessAddress?.postalCode?.trim()
+    ) {
+      throw new Error(
+        "Complete business address is required for TFV submission"
+      );
+    }
+
+    if (
+      !businessContact?.firstName?.trim() ||
+      !businessContact?.lastName?.trim() ||
+      !businessContact?.email?.trim() ||
+      !businessContact?.phoneNumber?.trim()
+    ) {
+      throw new Error(
+        "Complete business contact information is required for TFV submission"
+      );
+    }
+
+    // Use provided business email (required)
+    const notificationEmail = businessEmail;
+
+    // ✅ SANITIZE TEXT FIELDS TO PREVENT ENCODING ISSUES
+    const sanitizeText = (text: string): string => {
+      return text
+        .trim()
+        .replace(/[""'']/g, '"') // Replace smart quotes with regular quotes
+        .replace(/[–—]/g, "-") // Replace em dashes with regular hyphens
+        .replace(/[…]/g, "...") // Replace ellipsis with periods
+        .replace(/[\u2000-\u206F\u2E00-\u2E7F]/g, " ") // Replace unusual spaces/punctuation
+        .replace(/[^\x20-\x7E\u00A0-\u00FF]/g, ""); // Remove non-printable characters except basic Latin
+    };
 
     // ✅ VALIDATE REQUIRED FIELDS BEFORE SUBMISSION (PREVENTS API FAILURES)
     // TODO: Uncomment to require Business Profile SID
@@ -189,32 +227,25 @@ export async function submitTollFreeVerification(
     if (businessContact?.phoneNumber) {
       const phoneRegex = /^\+1[0-9]{10}$/; // E.164 format for US numbers
       if (!phoneRegex.test(businessContact.phoneNumber)) {
-        logInfo("Invalid business contact phone format, using fallback", {
-          providedPhone: businessContact.phoneNumber,
-          fallbackPhone: "+14155551234",
-        });
-        businessContact.phoneNumber = "+14155551234"; // Use fallback for invalid format
+        throw new Error(
+          `Invalid business contact phone number format: ${businessContact.phoneNumber}. Must be E.164 format (e.g., +15551234567)`
+        );
       }
     }
 
-    // Create comprehensive additional information including extra samples
+    // Create comprehensive additional information including extra samples (Fixed: Single line format)
     let additionalInfo = `This business operates a compliant SMS marketing platform. Customers opt-in via our web form at ${baseUrl}/join/${businessId}. All messages include clear opt-out instructions and STOP to unsubscribe functionality.`;
 
     // Include additional message samples if we have more than one
     if (messageSamples.length > 1) {
-      additionalInfo += `\n\nAdditional Message Examples:\n`;
+      additionalInfo += ` Additional Message Examples: `;
       messageSamples.slice(1, 3).forEach((sample, index) => {
-        additionalInfo += `${index + 2}. "${sample}"\n`;
+        additionalInfo += `${index + 2}. "${sample}" `;
       });
     }
 
-    // ✅ ENHANCE ADDITIONAL INFO WITH MORE COMPLIANCE DETAILS
-    additionalInfo += `\n\nCompliance Information:\n`;
-    additionalInfo += `- Double opt-in process: Users must confirm subscription via web form\n`;
-    additionalInfo += `- Clear unsubscribe instructions: All messages include "Text STOP to unsubscribe"\n`;
-    additionalInfo += `- Immediate opt-out processing: STOP messages processed automatically\n`;
-    additionalInfo += `- Business verification: All business information verified during onboarding\n`;
-    additionalInfo += `- Message volume monitoring: Volume tracking prevents spam\n`;
+    // ✅ ENHANCE ADDITIONAL INFO WITH MORE COMPLIANCE DETAILS (Fixed: Single line format)
+    additionalInfo += ` Compliance Information: Double opt-in process via web form, clear unsubscribe instructions in all messages, immediate STOP processing, verified business information during onboarding, monitored message volume to prevent spam.`;
 
     // Log TFV submission data being sent to Twilio
     logInfo("TFV submission data", {
@@ -246,31 +277,32 @@ export async function submitTollFreeVerification(
     // Submit TFV application with all required fields
     const verification = await client.messaging.v1.tollfreeVerifications.create(
       {
-        businessName: business.name,
+        businessName: sanitizeText(business.name),
         businessWebsite: businessWebsiteUrl || `${baseUrl}/join/${businessId}`, // Use real business website or fallback to join page
         notificationEmail: notificationEmail, // Business notification email
 
-        // Required business contact information (FROM OFFICIAL TWILIO DOCS) - ✅ USE REAL DATA
-        businessContactFirstName: businessContact?.firstName || "Business", // Use real first name
-        businessContactLastName: businessContact?.lastName || "Owner", // Use real last name
-        businessContactEmail:
-          businessContact?.email || businessEmail || "support@notiflow.com", // Use real contact email
-        businessContactPhone: businessContact?.phoneNumber || "+14155551234", // Use real contact phone
+        // Required business contact information (FROM OFFICIAL TWILIO DOCS) - ✅ USE REAL DATA ONLY + SANITIZED
+        businessContactFirstName: sanitizeText(businessContact.firstName), // Real first name (validated above)
+        businessContactLastName: sanitizeText(businessContact.lastName), // Real last name (validated above)
+        businessContactEmail: businessContact.email, // Real contact email (validated above)
+        businessContactPhone: businessContact.phoneNumber, // Real contact phone (validated above)
 
         useCaseCategories: config.useCases.map(mapUseCaseToTFVCategory),
-        useCaseSummary: `Business using SMS for ${config.useCases
-          .join(", ")
-          .toLowerCase()} purposes with expected monthly volume of ${config.volume.toLowerCase()}. Primary category: ${notificationType}.`,
-        productionMessageSample: messageSamples[0],
+        useCaseSummary: sanitizeText(
+          `Business using SMS for ${config.useCases
+            .join(", ")
+            .toLowerCase()} purposes with expected monthly volume of ${config.volume.toLowerCase()}. Primary category: ${notificationType}.`
+        ),
+        productionMessageSample: sanitizeText(messageSamples[0]),
         // Note: Twilio TFV only accepts one production message sample
         // Additional samples are included in additionalInformation
         optInType: "WEB_FORM", // Updated for 2025: WEB_FORM is more accurate for web-based platforms
-        additionalInformation: additionalInfo,
-        businessStreetAddress: businessAddress?.address1 || business.name, // Use real address or fallback to business name
-        businessStreetAddress2: businessAddress?.address2 || "",
-        businessCity: businessAddress?.city || "San Francisco", // Use real city or fallback
-        businessStateProvinceRegion: businessAddress?.state || "CA",
-        businessPostalCode: businessAddress?.postalCode || "94105",
+        additionalInformation: sanitizeText(additionalInfo),
+        businessStreetAddress: sanitizeText(businessAddress.address1), // Real address (validated above)
+        businessStreetAddress2: businessAddress.address2 || "",
+        businessCity: sanitizeText(businessAddress.city), // Real city (validated above)
+        businessStateProvinceRegion: sanitizeText(businessAddress.state), // Real state (validated above)
+        businessPostalCode: sanitizeText(businessAddress.postalCode), // Real postal code (validated above)
         businessCountry: "US", // Hardcoded to US since we only support United States
         messageVolume: expectedVolume.toString(),
         tollfreePhoneNumberSid: phoneNumberSid, // Phone number SID from Twilio

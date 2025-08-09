@@ -338,7 +338,40 @@ export class TwilioSubaccountService {
     businessId: number,
     baseUrl: string
   ): Promise<TFVResult> {
-    // First validate all required parameters
+    // ✅ STRICT VALIDATION - NO FAKE DATA ALLOWED
+    const missingFields: string[] = [];
+
+    if (!businessInfo.businessName?.trim()) missingFields.push("businessName");
+    if (!businessInfo.websiteUrl?.trim()) missingFields.push("websiteUrl");
+    if (!businessInfo.address1?.trim()) missingFields.push("address1");
+    if (!businessInfo.city?.trim()) missingFields.push("city");
+    if (!businessInfo.state?.trim()) missingFields.push("state");
+    if (!businessInfo.postalCode?.trim()) missingFields.push("postalCode");
+    if (!businessInfo.firstName?.trim()) missingFields.push("firstName");
+    if (!businessInfo.lastName?.trim()) missingFields.push("lastName");
+    if (!businessInfo.email?.trim()) missingFields.push("email");
+    if (!businessInfo.phoneNumber?.trim()) missingFields.push("phoneNumber");
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `TFV submission requires complete business information. Missing: ${missingFields.join(
+          ", "
+        )}. Please complete onboarding first.`
+      );
+    }
+
+    // ✅ SANITIZE TEXT FIELDS TO PREVENT ENCODING ISSUES
+    const sanitizeText = (text: string): string => {
+      return text
+        .trim()
+        .replace(/[""'']/g, '"') // Replace smart quotes with regular quotes
+        .replace(/[–—]/g, "-") // Replace em dashes with regular hyphens
+        .replace(/[…]/g, "...") // Replace ellipsis with periods
+        .replace(/[\u2000-\u206F\u2E00-\u2E7F]/g, " ") // Replace unusual spaces/punctuation
+        .replace(/[^\x20-\x7E\u00A0-\u00FF]/g, ""); // Remove non-printable characters except basic Latin
+    };
+
+    // Validate required parameters
     this.validateTFVSubmission({
       businessInfo,
       monthlyVolume,
@@ -416,34 +449,34 @@ export class TwilioSubaccountService {
     try {
       const tfvRequest =
         await subaccountClient.messaging.v1.tollfreeVerifications.create({
-          // ✅ BUSINESS INFORMATION (Required)
-          businessName: businessInfo.businessName,
-          businessWebsite:
-            businessInfo.websiteUrl ||
-            `https://notiflow.com/business/${businessId}`,
-          businessStreetAddress: businessInfo.address1 || "",
+          // ✅ BUSINESS INFORMATION (Required - STRICT VALIDATION + SANITIZED)
+          businessName: sanitizeText(businessInfo.businessName),
+          businessWebsite: businessInfo.websiteUrl!, // Real website required by TFV pre-check
+
+          // ✅ BUSINESS ADDRESS (Required - NO FALLBACKS + SANITIZED)
+          businessStreetAddress: sanitizeText(businessInfo.address1!), // Required by middleware
           businessStreetAddress2: businessInfo.address2 || "",
-          businessCity: businessInfo.city || "",
-          businessStateProvinceRegion: businessInfo.state || "",
-          businessPostalCode: businessInfo.postalCode || "",
+          businessCity: sanitizeText(businessInfo.city!), // Required by middleware
+          businessStateProvinceRegion: sanitizeText(businessInfo.state!), // Required by middleware
+          businessPostalCode: sanitizeText(businessInfo.postalCode!), // Required by middleware
           businessCountry: "US", // Hardcoded to US since we only support United States
 
-          // ✅ BUSINESS CONTACT (Required)
-          businessContactFirstName: businessInfo.firstName || "",
-          businessContactLastName: businessInfo.lastName || "",
-          businessContactEmail: businessInfo.email || "",
-          businessContactPhone: businessInfo.phoneNumber || "",
-          notificationEmail: businessInfo.email || "", // Required field
+          // ✅ BUSINESS CONTACT (Required - NO FALLBACKS + SANITIZED)
+          businessContactFirstName: sanitizeText(businessInfo.firstName!), // Required by middleware
+          businessContactLastName: sanitizeText(businessInfo.lastName!), // Required by middleware
+          businessContactEmail: businessInfo.email!, // Required by middleware
+          businessContactPhone: businessInfo.phoneNumber!, // Required by middleware
+          notificationEmail: businessInfo.email!, // Required field
 
           // ✅ PHONE NUMBER (Required)
           tollfreePhoneNumberSid: phoneNumberSid,
 
-          // ✅ USE CASES (Fixed: Use simple category names, not detailed descriptions)
+          // ✅ USE CASES (Fixed: Use simple category names, not detailed descriptions + SANITIZED)
           useCaseCategories: useCaseCategories,
-          useCaseSummary: useCaseSummary,
+          useCaseSummary: sanitizeText(useCaseSummary),
 
-          // ✅ MESSAGE SAMPLES (Universal examples)
-          productionMessageSample: messageSamples[0],
+          // ✅ MESSAGE SAMPLES (Universal examples + SANITIZED)
+          productionMessageSample: sanitizeText(messageSamples[0]),
 
           // ✅ OPT-IN INFORMATION (Comprehensive description)
           optInType: "WEB_FORM", // More accurate than VERBAL for web-based platform
@@ -452,14 +485,17 @@ export class TwilioSubaccountService {
           // ✅ VOLUME (Fixed format)
           messageVolume: volumeString,
 
-          // ✅ ADDITIONAL INFORMATION (All message samples + opt-in description)
-          additionalInformation: `OPT-IN WORKFLOW: ${optInFlowDescription}
-
-ADDITIONAL MESSAGE SAMPLES: ${messageSamples
-            .slice(1)
-            .join(
-              " | "
-            )}. All messages include clear opt-out instructions and comply with messaging best practices.`,
+          // ✅ ADDITIONAL INFORMATION (Fixed: Single line, no line breaks + SANITIZED)
+          additionalInformation: sanitizeText(
+            `Additional opt-in details: ${optInFlowDescription
+              .replace(/\n/g, " ")
+              .replace(/\r/g, " ")
+              .trim()}. Additional message samples: ${messageSamples
+              .slice(1)
+              .join(
+                ", "
+              )}. All messages include clear opt-out instructions and comply with messaging best practices.`
+          ),
 
           // ✅ TRACKING (Compliant external reference)
           externalReferenceId: externalReferenceId,
