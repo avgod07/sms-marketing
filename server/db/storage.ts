@@ -78,7 +78,7 @@ import type {
 import { db } from "../config/db.config.js";
 import { eq, desc, asc, count, sql, and } from "drizzle-orm";
 import { normalizePhoneNumber } from "../utils/normalize.util";
-import { logError } from "../utils/logger.util";
+import { logError, logInfo } from "../utils/logger.util";
 import { EncryptionService } from "../utils/encryption.util.js";
 
 export interface IStorage {
@@ -1508,12 +1508,16 @@ export class DatabaseStorage implements IStorage {
     pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }>;
   }> {
     const businessId = this.requireBusinessId();
-    const phoneNumbers = await db
-      .select()
-      .from(businessPhoneNumbers)
-      .where(eq(businessPhoneNumbers.businessId, businessId));
 
-    if (phoneNumbers.length === 0) {
+    // ✅ USE TWILIOSUBACCOUNTS TABLE AS SINGLE SOURCE OF TRUTH
+    const subaccount = await db
+      .select()
+      .from(twilioSubaccounts)
+      .where(eq(twilioSubaccounts.businessId, businessId))
+      .limit(1);
+
+    // If no subaccount exists, business has no phone numbers
+    if (subaccount.length === 0) {
       return {
         isVerified: false,
         status: "no_phone_numbers",
@@ -1522,34 +1526,33 @@ export class DatabaseStorage implements IStorage {
       };
     }
 
-    // Check if any phone number is verified - USE CORRECT TWILIO STATUS VALUES
-    const verifiedNumbers = phoneNumbers.filter(
-      (phone) => phone.verificationStatus === "TWILIO_APPROVED" // ✅ CORRECT
-    );
+    const subaccountData = subaccount[0];
 
-    const pendingTFVs = phoneNumbers
-      .filter(
-        (phone) => phone.tfvSid && phone.verificationStatus === "PENDING_REVIEW"
-      ) // ✅ CORRECT
-      .map((phone) => ({
-        tfvSid: phone.tfvSid!,
-        phoneNumber: phone.phoneNumber,
-      }));
+    // Check verification status from subaccount TFV status
+    const isVerified = subaccountData.tfvStatus === "TWILIO_APPROVED";
 
-    // Business is considered verified if at least one phone number is verified
-    const isVerified = verifiedNumbers.length > 0;
-
-    let status = "PENDING_REVIEW"; // ✅ CORRECT
-    if (isVerified) {
-      status = "TWILIO_APPROVED"; // ✅ CORRECT
-    } else if (
-      phoneNumbers.some(
-        (phone) => phone.verificationStatus === "TWILIO_REJECTED"
-      ) // ✅ CORRECT
+    // Prepare pending TFVs array
+    const pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }> = [];
+    if (
+      subaccountData.tfvRequestId &&
+      subaccountData.tfvStatus === "PENDING_REVIEW"
     ) {
-      status = "TWILIO_REJECTED"; // ✅ CORRECT
-    } else if (phoneNumbers.some((phone) => phone.tfvSid)) {
-      status = "PENDING_REVIEW"; // ✅ CORRECT
+      pendingTFVs.push({
+        tfvSid: subaccountData.tfvRequestId,
+        phoneNumber: subaccountData.phoneNumber,
+      });
+    }
+
+    // Determine overall status based on subaccount TFV status
+    let status = subaccountData.tfvStatus;
+
+    // Map internal status to expected API status values
+    if (status === "TWILIO_APPROVED") {
+      status = "TWILIO_APPROVED";
+    } else if (status === "TWILIO_REJECTED") {
+      status = "TWILIO_REJECTED";
+    } else if (status === "PENDING_REVIEW" || status === "pending") {
+      status = "PENDING_REVIEW";
     } else {
       status = "not_submitted";
     }
@@ -1564,44 +1567,58 @@ export class DatabaseStorage implements IStorage {
 
   async refreshTFVStatusFromTwilio(): Promise<void> {
     const businessId = this.requireBusinessId();
-    const phoneNumbers = await db
+
+    // ✅ USE TWILIOSUBACCOUNTS TABLE AS SINGLE SOURCE OF TRUTH
+    const subaccount = await db
       .select()
-      .from(businessPhoneNumbers)
-      .where(eq(businessPhoneNumbers.businessId, businessId));
+      .from(twilioSubaccounts)
+      .where(eq(twilioSubaccounts.businessId, businessId))
+      .limit(1);
 
-    // Import getTollFreeVerificationStatus dynamically to avoid circular dependencies
-    const { getTollFreeVerificationStatus } = await import(
-      "../services/tfv.js"
-    );
+    if (subaccount.length === 0) {
+      return; // No subaccount to refresh
+    }
 
-    for (const phoneNumber of phoneNumbers) {
-      if (
-        phoneNumber.tfvSid &&
-        phoneNumber.verificationStatus === "PENDING_REVIEW"
-      ) {
-        // ✅ CORRECT
-        try {
-          const tfvStatus = await getTollFreeVerificationStatus(
-            phoneNumber.tfvSid
-          );
+    const subaccountData = subaccount[0];
 
-          // Only update if status has changed
-          if (tfvStatus.status !== phoneNumber.verificationStatus) {
-            await db
-              .update(businessPhoneNumbers)
-              .set({
-                verificationStatus: tfvStatus.status,
-                updatedAt: new Date(),
-              })
-              .where(eq(businessPhoneNumbers.id, phoneNumber.id));
-          }
-        } catch (error) {
-          logError(
-            `Failed to refresh TFV status for ${phoneNumber.tfvSid}:`,
-            error
-          );
-          // Continue with other phone numbers even if one fails
+    // Only refresh if we have a TFV request ID and status is pending
+    if (
+      subaccountData.tfvRequestId &&
+      (subaccountData.tfvStatus === "PENDING_REVIEW" ||
+        subaccountData.tfvStatus === "pending")
+    ) {
+      try {
+        // Import getTollFreeVerificationStatus dynamically to avoid circular dependencies
+        const { getTollFreeVerificationStatus } = await import(
+          "../services/tfv.js"
+        );
+
+        const tfvStatus = await getTollFreeVerificationStatus(
+          subaccountData.tfvRequestId
+        );
+
+        // Only update if status has changed
+        if (tfvStatus.status !== subaccountData.tfvStatus) {
+          await db
+            .update(twilioSubaccounts)
+            .set({
+              tfvStatus: tfvStatus.status,
+              updatedAt: new Date(),
+            })
+            .where(eq(twilioSubaccounts.businessId, businessId));
+
+          logInfo("TFV status updated", {
+            businessId,
+            tfvRequestId: subaccountData.tfvRequestId,
+            oldStatus: subaccountData.tfvStatus,
+            newStatus: tfvStatus.status,
+          });
         }
+      } catch (error) {
+        logError(
+          `Failed to refresh TFV status for business ${businessId}, TFV ID ${subaccountData.tfvRequestId}:`,
+          error
+        );
       }
     }
   }

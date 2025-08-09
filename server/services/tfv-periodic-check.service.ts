@@ -1,9 +1,8 @@
 import { db } from "../config/db.config";
-import { businesses, businessPhoneNumbers } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { businesses, twilioSubaccounts } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { storage } from "../db/storage";
 import { logInfo, logError } from "../utils/logger.util";
-import { sql } from "drizzle-orm";
 
 /**
  * Service to periodically check TFV status for all businesses
@@ -34,7 +33,7 @@ export class TFVPeriodicCheckService {
     try {
       logInfo("Starting periodic TFV status check for all businesses");
 
-      // Get all businesses that have phone numbers with pending TFV verifications
+      // ✅ GET ALL BUSINESSES WITH PENDING TFV FROM TWILIOSUBACCOUNTS TABLE
       const businessesWithPendingTFV = await db
         .select({
           businessId: businesses.id,
@@ -42,17 +41,16 @@ export class TFVPeriodicCheckService {
         })
         .from(businesses)
         .innerJoin(
-          businessPhoneNumbers,
-          eq(businesses.id, businessPhoneNumbers.businessId)
+          twilioSubaccounts,
+          eq(businesses.id, twilioSubaccounts.businessId)
         )
         .where(
           and(
-            eq(businessPhoneNumbers.verificationStatus, "PENDING_REVIEW"), // ✅ CORRECT TWILIO STATUS
-            // Only check businesses with TFV SIDs
-            sql`${businessPhoneNumbers.tfvSid} IS NOT NULL`
+            eq(twilioSubaccounts.tfvStatus, "PENDING_REVIEW"), // Check subaccount TFV status
+            // Only check businesses with TFV request IDs
+            sql`${twilioSubaccounts.tfvRequestId} IS NOT NULL`
           )
-        )
-        .groupBy(businesses.id, businesses.name);
+        );
 
       logInfo(
         `Found ${businessesWithPendingTFV.length} businesses with pending TFV verifications`
