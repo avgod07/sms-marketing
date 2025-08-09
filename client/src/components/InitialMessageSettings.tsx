@@ -20,6 +20,12 @@ export default function InitialMessageSettings() {
   const [isDirty, setIsDirty] = useState(false);
   const complianceText = "Reply STOP to opt out, HELP for help. Msg & data rates may apply. Msg frequency varies.";
 
+  // Utility function to strip compliance text from stored message for clean editing
+  const stripComplianceText = (message: string): string => {
+    if (!message) return "";
+    return message.replace(` ${complianceText}`, "").trim();
+  };
+
   // Query to get current initial message
   const { data: messageData, isLoading, error } = useQuery<InitialMessageData>({
     queryKey: ["/api/business/initial-message"],
@@ -31,7 +37,8 @@ export default function InitialMessageSettings() {
 
   useEffect(() => {
     if (messageData) {
-      setMessage(messageData.initialMessage || "");
+      // Strip compliance text for clean editing in textarea
+      setMessage(stripComplianceText(messageData.initialMessage || ""));
       setIsDirty(false);
     }
   }, [messageData]);
@@ -67,7 +74,9 @@ export default function InitialMessageSettings() {
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setMessage(value);
-    setIsDirty(value !== (messageData?.initialMessage || ""));
+    // Compare against the stripped version of the original message
+    const originalUserMessage = stripComplianceText(messageData?.initialMessage || "");
+    setIsDirty(value !== originalUserMessage);
   };
 
   const handleSave = () => {
