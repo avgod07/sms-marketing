@@ -31,7 +31,6 @@ tar --exclude='node_modules' \
     --exclude='README.md' \
     --exclude='LICENSE' \
     --exclude='AGENTS.md' \
-    --exclude='.replit' \
     --exclude='DEPLOYMENT_GUIDE.md' \
     --exclude='deploy.sh' \
     --exclude='teardown.sh' \
