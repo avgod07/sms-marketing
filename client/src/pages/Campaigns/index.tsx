@@ -23,7 +23,9 @@ import { handleApiError } from "@/lib/handleApiError";
 
 export default function Campaigns() {
   const [deletingCampaign, setDeletingCampaign] = useState<CampaignWithQueue | null>(null);
+  const [cancellingCampaign, setCancellingCampaign] = useState<CampaignWithQueue | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
   const { toast } = useToast();
   const { data: user } = useAuth();
 
@@ -59,15 +61,53 @@ export default function Campaigns() {
     },
   });
 
-
+  const cancelCampaignMutation = useMutation({
+    mutationFn: () =>
+      apiRequest({
+        method: "DELETE",
+        url: `/api/campaigns/${cancellingCampaign!.id}/schedule`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/stats"] });
+      setIsCancelOpen(false);
+      setCancellingCampaign(null);
+      toast({ title: "Campaign Cancelled" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: handleApiError(error),
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleDelete = (campaign: CampaignWithQueue) => {
     setDeletingCampaign(campaign);
     setIsDeleteOpen(true);
   };
 
+  const handleCancel = (campaign: CampaignWithQueue) => {
+    setCancellingCampaign(campaign);
+    setIsCancelOpen(true);
+  };
+
+  const handleReschedule = (campaign: CampaignWithQueue) => {
+    // TODO: Implement reschedule modal
+    toast({ 
+      title: "Coming Soon", 
+      description: "Reschedule functionality will be available soon.",
+      variant: "default"
+    });
+  };
+
   const confirmDelete = () => {
     deleteCampaignMutation.mutate();
+  };
+
+  const confirmCancel = () => {
+    cancelCampaignMutation.mutate();
   };
 
   const stats = [
@@ -162,14 +202,37 @@ export default function Campaigns() {
             </div>
           </CardHeader>
           <CardContent>
-            <CampaignTable
-              campaigns={campaigns || []}
+            <CampaignTable 
+              campaigns={campaigns || []} 
               isLoading={campaignsLoading}
               onDelete={handleDelete}
+              onCancel={handleCancel}
+              onReschedule={handleReschedule}
             />
           </CardContent>
         </Card>
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Campaign</AlertDialogTitle>
+          </AlertDialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">
+            Are you sure you want to cancel {cancellingCampaign?.name}? 
+            {cancellingCampaign?.status === "scheduled" 
+              ? " This will prevent the campaign from being sent at the scheduled time."
+              : " This will stop any pending messages from being sent."}
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Campaign</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel} className="bg-amber-600 hover:bg-amber-700">
+              Cancel Campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

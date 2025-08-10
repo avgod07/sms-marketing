@@ -796,7 +796,13 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
-export type CampaignStatus = "in_progress" | "completed" | "failed";
+export type CampaignStatus =
+  | "in_progress"
+  | "processing"
+  | "completed"
+  | "scheduled"
+  | "cancelled"
+  | "failed";
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
