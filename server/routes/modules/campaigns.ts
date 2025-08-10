@@ -718,8 +718,6 @@ export function registerCampaignRoutes(app: Express) {
     requireActiveSubscription,
     async (req, res) => {
       try {
-        const { biz } = await getBizForRequest(req);
-
         const validateRequestSchema = z.object({
           scheduledSendTime: z
             .string()
@@ -730,6 +728,7 @@ export function registerCampaignRoutes(app: Express) {
 
         const { scheduledSendTime } = validateRequestSchema.parse(req.body);
         const scheduledDate = new Date(scheduledSendTime);
+        const { biz } = await getBizForRequest(req);
         const business = await biz.getBusiness();
 
         const validation = CampaignSchedulingService.validateScheduleTime(
