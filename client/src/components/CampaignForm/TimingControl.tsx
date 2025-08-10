@@ -62,70 +62,13 @@ export function TimingControl({
           scheduledSendTime: scheduledTime.toISOString()
         }
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to validate schedule time';
-        
-        // Handle specific error types
-        if (response.status === 403) {
-          try {
-            const errorData = JSON.parse(errorText);
-            if (errorData.code === 'TFV_NOT_VERIFIED') {
-              errorMessage = errorData.message || 'Business verification required. Messaging features will be available once your verification is approved.';
-            } else {
-              errorMessage = errorData.message || 'Access denied. Please check your account permissions.';
-            }
-          } catch {
-            errorMessage = 'Access denied. Please check your account permissions.';
-          }
-        } else if (response.status === 401) {
-          errorMessage = 'Session expired. Please refresh the page and try again.';
-        } else if (response.status === 404) {
-          errorMessage = 'Business configuration not found. Please contact support.';
-        } else if (response.status === 500) {
-          errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
-        } else {
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.message || errorMessage;
-          } catch {
-            // If not JSON, use the text response or default message
-            errorMessage = errorText || errorMessage;
-          }
-        }
-        
-        throw new Error(`${response.status}: ${errorMessage}`);
-      }
-      
       const result = await response.json();
       setValidation(result);
     } catch (error) {
-      console.error('Schedule validation failed:', error);
-      
-      // Extract meaningful error message
-      let errorMessage = 'Failed to validate schedule time';
-      if (error instanceof Error) {
-        if (error.message.includes('Network error') || error.message.includes('fetch')) {
-          errorMessage = 'Connection issue. Please check your internet connection and try again.';
-        } else if (error.message.includes('403:')) {
-          // Extract TFV or permission error message
-          errorMessage = error.message.split(':', 2)[1]?.trim() || 'Access denied. Please check your account permissions.';
-        } else if (error.message.includes('401:')) {
-          errorMessage = 'Session expired. Please refresh the page and try again.';
-        } else if (error.message.includes('404:')) {
-          errorMessage = 'Business configuration not found. Please contact support.';
-        } else if (error.message.includes('500:')) {
-          errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
-        } else if (error.message.includes(':')) {
-          // Extract message after status code
-          errorMessage = error.message.split(':', 2)[1]?.trim() || errorMessage;
-        }
-      }
-      
+      console.error('Failed to validate schedule time:', error);
       setValidation({
         isValid: false,
-        errors: [errorMessage]
+        errors: ['Failed to validate schedule time']
       });
     } finally {
       setValidationLoading(false);
