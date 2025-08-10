@@ -26,7 +26,6 @@ import {
 import { CampaignSchedulingService } from "../../services/campaign-scheduling.js";
 import { QuietHoursCompliance } from "../../services/quiet-hours-compliance.js";
 import { UniversalMessageService } from "../../services/universal-message.js";
-import { logInfo } from "../../utils/logger.util";
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -719,12 +718,6 @@ export function registerCampaignRoutes(app: Express) {
     requireActiveSubscription,
     async (req, res) => {
       try {
-        // Add detailed logging for debugging
-        logInfo("Schedule validation request", {
-          userId: req.auth?.userId,
-          data: req.body,
-        });
-
         const validateRequestSchema = z.object({
           scheduledSendTime: z
             .string()
@@ -735,25 +728,8 @@ export function registerCampaignRoutes(app: Express) {
 
         const { scheduledSendTime } = validateRequestSchema.parse(req.body);
         const scheduledDate = new Date(scheduledSendTime);
-
-        // Validate that the date is actually valid
-        if (isNaN(scheduledDate.getTime())) {
-          return res.status(400).json({
-            message: "Invalid date provided",
-            code: "INVALID_DATE",
-          });
-        }
-
         const { biz } = await getBizForRequest(req);
         const business = await biz.getBusiness();
-
-        if (!business) {
-          return res.status(404).json({
-            message:
-              "Business configuration not found. Please complete your onboarding.",
-            code: "BUSINESS_NOT_FOUND",
-          });
-        }
 
         const validation = CampaignSchedulingService.validateScheduleTime(
           scheduledDate,
@@ -764,45 +740,12 @@ export function registerCampaignRoutes(app: Express) {
       } catch (error) {
         if (error instanceof z.ZodError) {
           return res.status(400).json({
-            message: "Invalid request format. Please check your date and time.",
+            message: "Validation error",
             errors: error.errors.map((e) => e.message),
-            code: "VALIDATION_ERROR",
           });
         }
-
-        // Log the error for debugging
         logError("Error validating schedule time:", error);
-
-        // Handle specific error types
-        if (error instanceof Error) {
-          if (
-            error.message.includes("Business not found") ||
-            error.message.includes("getBizForRequest")
-          ) {
-            return res.status(404).json({
-              message:
-                "Business configuration not found. Please complete your onboarding.",
-              code: "BUSINESS_NOT_FOUND",
-            });
-          }
-
-          if (
-            error.message.includes("timezone") ||
-            error.message.includes("moment")
-          ) {
-            return res.status(400).json({
-              message:
-                "Invalid timezone configuration. Please check your business settings.",
-              code: "TIMEZONE_ERROR",
-            });
-          }
-        }
-
-        // Generic server error
-        res.status(500).json({
-          message: "Unable to validate schedule time. Please try again.",
-          code: "VALIDATION_ERROR",
-        });
+        res.status(500).json({ message: "Failed to validate schedule time" });
       }
     }
   );
