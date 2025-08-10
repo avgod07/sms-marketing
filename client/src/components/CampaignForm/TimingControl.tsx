@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Clock, Calendar, AlertTriangle, Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -105,12 +104,7 @@ export function TimingControl({
     });
   };
 
-  const handleNotesChange = (notes: string) => {
-    onChange({
-      ...value,
-      scheduleNotes: notes || undefined
-    });
-  };
+
 
   const getDefaultScheduleTime = () => {
     const now = new Date();
@@ -254,7 +248,7 @@ export function TimingControl({
               {/* Countdown Display */}
               {value.scheduledTime && (
                 <div className="mt-1 text-sm text-gray-500">
-                  Will send {formatCountdown(value.scheduledTime)} • {timezone}
+                  Will send {formatCountdown(value.scheduledTime)}
                 </div>
               )}
             </div>
@@ -279,21 +273,7 @@ export function TimingControl({
               </div>
             </div>
 
-            {/* Schedule Notes */}
-            <div>
-              <Label htmlFor="scheduleNotes" className="text-sm font-medium">
-                Notes (Optional)
-              </Label>
-                              <Textarea
-                  id="scheduleNotes"
-                  value={value.scheduleNotes || ""}
-                  onChange={(e) => handleNotesChange(e.target.value)}
-                  disabled={disabled}
-                  placeholder="Add any notes about this scheduled campaign..."
-                  className="mt-1"
-                  rows={2}
-                />
-            </div>
+
 
             {/* Validation Results */}
             {validationLoading && (
