@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { handleApiError } from "@/lib/handleApiError";
 import { useBusinessHours } from "@/hooks/use-business-hours";
 import type { SchedulingValidationResult } from "@shared/api-types";
 import type { BusinessHoursCheck } from "@/services/business-hours";
@@ -66,9 +67,10 @@ export function TimingControl({
       setValidation(result);
     } catch (error) {
       console.error('Failed to validate schedule time:', error);
+      const errorMessage = handleApiError(error, 'Failed to validate schedule time');
       setValidation({
         isValid: false,
-        errors: ['Failed to validate schedule time']
+        errors: [errorMessage]
       });
     } finally {
       setValidationLoading(false);
