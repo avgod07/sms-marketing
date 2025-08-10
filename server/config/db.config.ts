@@ -3,7 +3,7 @@ const { Pool } = pg;
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
-import { logInfo, logError, logWarn } from "../utils/logger.util";
+import { logInfo, logError, logWarn, logDebug } from "../utils/logger.util";
 import { readFileSync } from "fs";
 
 if (!process.env.DATABASE_URL) {
@@ -57,23 +57,19 @@ export const pool = new Pool(poolConfig);
 
 // Connection pool event monitoring
 pool.on("connect", (client) => {
-  logInfo(
+  logDebug(
     `Database connection established. Pool size: ${pool.totalCount}/${pool.totalCount}`
   );
 });
 
-pool.on("acquire", (client) => {
-  logInfo(
-    `Database connection acquired. Available: ${pool.idleCount}/${pool.totalCount}`
-  );
-});
+// Removed the "acquire" event logging as it floods the logs with every database query
 
 pool.on("error", (err, client) => {
   logError(`Database pool error: ${err.message}`, { error: err });
 });
 
 pool.on("remove", (client) => {
-  logInfo(
+  logDebug(
     `Database connection removed. Pool size: ${pool.totalCount}/${pool.totalCount}`
   );
 });
