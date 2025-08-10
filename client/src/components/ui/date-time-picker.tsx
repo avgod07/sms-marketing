@@ -116,11 +116,7 @@ export function DateTimePicker({
 
   const formatDateTime = (date: Date) => {
     try {
-      const baseFormat = format(date, "PPP 'at' h:mm a");
-      if (timezone) {
-        return `${baseFormat} (${timezone})`;
-      }
-      return baseFormat;
+      return format(date, "PPP 'at' h:mm a");
     } catch {
       return "Invalid date";
     }
@@ -219,12 +215,7 @@ export function DateTimePicker({
               </div>
             </div>
 
-            {/* Timezone Display */}
-            {timezone && (
-              <div className="text-sm text-muted-foreground">
-                Timezone: {timezone}
-              </div>
-            )}
+
 
             {/* Action Buttons */}
             <div className="flex justify-between">
