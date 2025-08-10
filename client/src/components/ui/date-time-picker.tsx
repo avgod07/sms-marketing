@@ -152,17 +152,24 @@ export function DateTimePicker({
             {value ? formatDateTime(value) : placeholder}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <div className="p-4 space-y-4">
-            {/* Quick Select Options */}
-            <div className="space-y-2">
+        <PopoverContent 
+          className="w-auto p-0 max-w-[420px] sm:max-w-[380px] max-h-[85vh] overflow-hidden" 
+          align="start"
+          side="bottom"
+          sideOffset={8}
+          avoidCollisions={true}
+          collisionPadding={16}
+        >
+          <div className="p-3 sm:p-4 space-y-3 max-h-[calc(85vh-2rem)] overflow-y-auto">
+            {/* Quick Select Options - Always visible at top */}
+            <div className="space-y-2 flex-shrink-0">
               <Label className="text-sm font-medium">Quick Select</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickSelect(1)}
-                  className="text-xs"
+                  className="text-xs h-8"
                 >
                   In 1 hour
                 </Button>
@@ -170,7 +177,7 @@ export function DateTimePicker({
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickSelect(24)}
-                  className="text-xs"
+                  className="text-xs h-8"
                 >
                   Tomorrow
                 </Button>
@@ -178,7 +185,7 @@ export function DateTimePicker({
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickSelect(168)}
-                  className="text-xs"
+                  className="text-xs h-8"
                 >
                   Next week
                 </Button>
@@ -186,91 +193,90 @@ export function DateTimePicker({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const monday = new Date();
-                    const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
-                    const nextMonday = addDays(monday, daysUntilMonday);
-                    const mondayAt9AM = setHours(setMinutes(nextMonday, 0), 9);
-                    setSelectedDate(mondayAt9AM);
-                    setSelectedHour('09');
-                    setSelectedMinute('00');
-                    setSelectedPeriod('AM');
-                    onChange(mondayAt9AM);
-                    setIsOpen(false);
+                    const nextMonday = addDays(new Date(), ((1 + 7 - new Date().getDay()) % 7));
+                    const scheduled = setMinutes(setHours(nextMonday, 9), 0);
+                    handleDateSelect(scheduled);
                   }}
-                  className="text-xs"
+                  className="text-xs h-8"
                 >
-                  Next Monday 9 AM
+                  Mon 9 AM
                 </Button>
               </div>
             </div>
 
-            {/* Calendar */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Date</Label>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateSelect}
-                disabled={(date) => {
-                  if (minDate && date < minDate) return true;
-                  if (maxDate && date > maxDate) return true;
-                  return date < new Date(new Date().setHours(0, 0, 0, 0));
-                }}
-                initialFocus
-              />
+            {/* Scrollable Content */}
+            <div className="space-y-3 overflow-y-auto flex-1">
+              {/* Calendar */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Date</Label>
+                <div className="flex justify-center">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={handleDateSelect}
+                    disabled={(date) => {
+                      if (minDate && date < minDate) return true;
+                      if (maxDate && date > maxDate) return true;
+                      return date < new Date(new Date().setHours(0, 0, 0, 0));
+                    }}
+                    initialFocus
+                    className="rounded-md border"
+                  />
+                </div>
+              </div>
+
+              {/* Time Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Time</Label>
+                <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Select value={selectedHour} onValueChange={(value) => handleTimeChange(value, selectedMinute, selectedPeriod)}>
+                    <SelectTrigger className="w-16 sm:w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hourOptions.map((hour) => (
+                        <SelectItem key={hour} value={hour}>
+                          {hour}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-muted-foreground text-sm">:</span>
+                  <Select value={selectedMinute} onValueChange={(value) => handleTimeChange(selectedHour, value, selectedPeriod)}>
+                    <SelectTrigger className="w-16 sm:w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {minuteOptions.map((minute) => (
+                        <SelectItem key={minute} value={minute}>
+                          {minute}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedPeriod} onValueChange={(value) => handleTimeChange(selectedHour, selectedMinute, value)}>
+                    <SelectTrigger className="w-16 sm:w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AM">AM</SelectItem>
+                      <SelectItem value="PM">PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Timezone Display */}
+              {timezone && (
+                <div className="text-xs sm:text-sm text-muted-foreground text-center">
+                  Timezone: {timezone}
+                </div>
+              )}
             </div>
 
-            {/* Time Selection */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Time</Label>
-              <div className="flex items-center space-x-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <Select value={selectedHour} onValueChange={(value) => handleTimeChange(value, selectedMinute, selectedPeriod)}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hourOptions.map((hour) => (
-                      <SelectItem key={hour} value={hour}>
-                        {hour}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-muted-foreground">:</span>
-                <Select value={selectedMinute} onValueChange={(value) => handleTimeChange(selectedHour, value, selectedPeriod)}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {minuteOptions.map((minute) => (
-                      <SelectItem key={minute} value={minute}>
-                        {minute}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={selectedPeriod} onValueChange={(value) => handleTimeChange(selectedHour, selectedMinute, value)}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AM">AM</SelectItem>
-                    <SelectItem value="PM">PM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Timezone Display */}
-            {timezone && (
-              <div className="text-sm text-muted-foreground">
-                Timezone: {timezone}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex justify-between">
+            {/* Action Buttons - Always visible at bottom */}
+            <div className="flex justify-between pt-2 border-t flex-shrink-0 gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -279,6 +285,7 @@ export function DateTimePicker({
                   onChange(undefined);
                   setIsOpen(false);
                 }}
+                className="flex-1 sm:flex-none"
               >
                 Clear
               </Button>
@@ -286,6 +293,7 @@ export function DateTimePicker({
                 size="sm"
                 onClick={() => setIsOpen(false)}
                 disabled={!selectedDate}
+                className="flex-1 sm:flex-none"
               >
                 Done
               </Button>
