@@ -152,58 +152,15 @@ export function DateTimePicker({
             {value ? formatDateTime(value) : placeholder}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <div className="p-4 space-y-4">
-            {/* Quick Select Options */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Quick Select</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickSelect(1)}
-                  className="text-xs"
-                >
-                  In 1 hour
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickSelect(24)}
-                  className="text-xs"
-                >
-                  Tomorrow
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickSelect(168)}
-                  className="text-xs"
-                >
-                  Next week
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const monday = new Date();
-                    const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
-                    const nextMonday = addDays(monday, daysUntilMonday);
-                    const mondayAt9AM = setHours(setMinutes(nextMonday, 0), 9);
-                    setSelectedDate(mondayAt9AM);
-                    setSelectedHour('09');
-                    setSelectedMinute('00');
-                    setSelectedPeriod('AM');
-                    onChange(mondayAt9AM);
-                    setIsOpen(false);
-                  }}
-                  className="text-xs"
-                >
-                  Next Monday 9 AM
-                </Button>
-              </div>
-            </div>
-
+        <PopoverContent 
+          className="w-auto p-0 max-h-[400px] overflow-y-auto" 
+          align="start"
+          side="bottom"
+          sideOffset={8}
+          collisionPadding={10}
+          avoidCollisions={true}
+        >
+          <div className="p-4 space-y-3">
             {/* Calendar */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Date</Label>
