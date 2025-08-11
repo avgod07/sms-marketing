@@ -151,10 +151,10 @@ export function DateTimePicker({
         <PopoverContent 
           className="w-auto p-0 max-h-[400px] overflow-y-auto" 
           align="start"
-          side="bottom"
+          side="top"
           sideOffset={8}
           collisionPadding={10}
-          avoidCollisions={true}
+          avoidCollisions={false}
         >
           <div className="p-4 space-y-3">
             {/* Calendar */}
