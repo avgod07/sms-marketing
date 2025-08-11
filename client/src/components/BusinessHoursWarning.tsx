@@ -75,7 +75,7 @@ export default function BusinessHoursWarning({ onHoursCheck }: BusinessHoursWarn
     <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-md border border-amber-200 mb-6">
       <Clock className="h-4 w-4" />
       <span className="flex-1">
-        <span className="font-medium">Outside business hours</span> • Messages will be scheduled for {nextBusinessTime}
+        <span className="font-medium">Outside business hours (8 AM - 8 PM)</span> • Schedule your message or return at 8:00 AM
       </span>
       <button 
         onClick={() => window.open(getTimezoneSettingsLink(), '_blank')}

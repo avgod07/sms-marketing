@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import CampaignForm from "@/components/CampaignForm";
 import SmsPreview from "@/components/CampaignForm/SmsPreview";
 import TestMessageModal from "@/components/CampaignForm/TestMessageModal";
-import BusinessHoursWarning from "@/components/BusinessHoursWarning";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
@@ -182,7 +182,6 @@ export default function NewCampaignPage() {
       {/* Content */}
       <div className="p-8 bg-gray-50 min-h-screen">
         <div className="max-w-4xl mx-auto">
-          {!disabled && <BusinessHoursWarning />}
           {disabled && (
             <Alert className="mb-6 bg-yellow-50 border-yellow-400 text-yellow-700">
               <AlertTitle>Finish Setup</AlertTitle>
