@@ -13,11 +13,11 @@ export class QuietHoursCompliance {
    * - help_response: Customer service requirement (same as STOP)
    * - individual: One-to-one conversational messages (customer service)
    * - sms_command_response: Operational feedback (error messages, confirmations)
+   * - test: Campaign testing and validation (operational)
    *
    * QUEUED (respect business hours 8 AM - 8 PM):
    * - campaign: Mass marketing messages (TCPA compliance)
    * - welcome: Auto-welcome messages (marketing)
-   * - test: Test messages
    *
    * @param businessTimezone - Business timezone (e.g., 'America/New_York')
    * @param messageType - Type of message being sent
@@ -44,6 +44,11 @@ export class QuietHoursCompliance {
 
     // CRITICAL EXCEPTION: SMS command responses MUST send immediately (operational feedback)
     if (messageType === "sms_command_response") {
+      return true;
+    }
+
+    // TESTING EXCEPTION: Test messages send immediately (campaign validation)
+    if (messageType === "test") {
       return true;
     }
 
