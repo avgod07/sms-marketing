@@ -199,10 +199,7 @@ export function TimingControl({
           {/* Business Hours Warning */}
           {!canCreateImmediate && (
             <div className="ml-7 text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-              ⏰ <strong>Outside business hours</strong> • Current business time: {hoursCheck?.currentTime}
-              {hoursCheck?.nextBusinessHour && (
-                <> • Next available: {hoursCheck.nextBusinessHour}</>
-              )}
+              ⏰ <strong>Outside business hours (8 AM - 8 PM)</strong> • Schedule your message or return at 8:00 AM
             </div>
           )}
 
