@@ -34,6 +34,17 @@ export function TFVStatusBanner() {
           message: "Your business verification is under review. This process typically takes 2-5 business days.",
           action: "Messaging is temporarily restricted. Contact support if you have questions.",
         };
+      case "IN_REVIEW":  // ✅ NEW TWILIO STATUS - ACTIVELY BEING REVIEWED
+        return {
+          icon: Clock,
+          bgColor: "bg-blue-50",
+          borderColor: "border-blue-200",
+          textColor: "text-blue-800",
+          iconColor: "text-blue-600",
+          title: "Business Verification In Progress",
+          message: "Great news! Your verification is actively being reviewed by our team.",
+          action: "This typically completes within 1-3 business days. We'll notify you once approved.",
+        };
       case "TWILIO_REJECTED":  // ✅ CORRECT TWILIO STATUS
         return {
           icon: XCircle,
@@ -134,6 +145,14 @@ export function TFVStatusIndicator() {
           bgColor: "bg-yellow-100",
           text: "Pending",
           tooltip: "Verification pending - messaging restricted",
+        };
+      case "IN_REVIEW":  // ✅ NEW TWILIO STATUS - ACTIVELY BEING REVIEWED
+        return {
+          icon: Clock,
+          color: "text-blue-600",
+          bgColor: "bg-blue-100",
+          text: "In Review",
+          tooltip: "Verification in progress - messaging restricted",
         };
       case "TWILIO_REJECTED":  // ✅ CORRECT TWILIO STATUS
         return {

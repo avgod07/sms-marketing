@@ -1535,7 +1535,8 @@ export class DatabaseStorage implements IStorage {
     const pendingTFVs: Array<{ tfvSid: string; phoneNumber: string }> = [];
     if (
       subaccountData.tfvRequestId &&
-      subaccountData.tfvStatus === "PENDING_REVIEW"
+      (subaccountData.tfvStatus === "PENDING_REVIEW" ||
+        subaccountData.tfvStatus === "IN_REVIEW")
     ) {
       pendingTFVs.push({
         tfvSid: subaccountData.tfvRequestId,
@@ -1551,7 +1552,11 @@ export class DatabaseStorage implements IStorage {
       status = "TWILIO_APPROVED";
     } else if (status === "TWILIO_REJECTED") {
       status = "TWILIO_REJECTED";
-    } else if (status === "PENDING_REVIEW" || status === "pending") {
+    } else if (status === "PENDING_REVIEW") {
+      status = "PENDING_REVIEW";
+    } else if (status === "IN_REVIEW") {
+      status = "IN_REVIEW"; // ✅ KEEP TWILIO'S IN_REVIEW STATUS
+    } else if (status === "pending") {
       status = "PENDING_REVIEW";
     } else {
       status = "not_submitted";
@@ -1585,6 +1590,7 @@ export class DatabaseStorage implements IStorage {
     if (
       subaccountData.tfvRequestId &&
       (subaccountData.tfvStatus === "PENDING_REVIEW" ||
+        subaccountData.tfvStatus === "IN_REVIEW" ||
         subaccountData.tfvStatus === "pending")
     ) {
       try {

@@ -77,6 +77,12 @@ export async function requirePublicTFVVerification(
           guidance =
             "Verification typically takes 2-5 business days. Please check back later.";
           break;
+        case "IN_REVIEW": // ✅ NEW TWILIO STATUS - ACTIVELY BEING REVIEWED
+          message =
+            "This business is temporarily unable to accept new contacts while verification is actively being reviewed.";
+          guidance =
+            "Verification typically completes within 1-3 business days. Please check back later.";
+          break;
         case "TWILIO_REJECTED": // ✅ CORRECT TWILIO STATUS
           message = "This business is currently unable to accept new contacts.";
           guidance = "Please contact the business directly for assistance.";

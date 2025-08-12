@@ -68,6 +68,12 @@ export async function requireTFVVerification(
           guidance =
             "This process typically takes 2-5 business days. Contact support through the Help tab if you need assistance.";
           break;
+        case "IN_REVIEW": // ✅ NEW TWILIO STATUS - ACTIVELY BEING REVIEWED
+          message =
+            "Great news! Your business verification is actively being reviewed by our team. Messaging features will be available once approved.";
+          guidance =
+            "This typically completes within 1-3 business days. Contact support through the Help tab if you need assistance.";
+          break;
         case "TWILIO_REJECTED": // ✅ CORRECT TWILIO STATUS
           message =
             "Your business verification requires additional review. Please contact our support team for assistance.";
