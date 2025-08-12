@@ -41,6 +41,7 @@ export default function JoinPage({ params }: JoinPageProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [hasConsented, setHasConsented] = useState(false);
+  const [hasMarketingConsent, setHasMarketingConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   // Fetch business information
@@ -158,7 +159,7 @@ export default function JoinPage({ params }: JoinPageProps) {
     );
   }
 
-  const isFormValid = firstName && lastName && phoneNumber && hasConsented;
+  const isFormValid = firstName && lastName && phoneNumber && hasConsented && hasMarketingConsent;
   const businessName = businessInfo?.businessName || "this business";
   
   // Check if TFV is verified to allow contact creation
@@ -270,8 +271,14 @@ export default function JoinPage({ params }: JoinPageProps) {
               />
             </div>
 
-            {/* Consent checkbox */}
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            {/* TCPA-Compliant Dual Consent Section */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+              <div className="text-sm font-medium text-gray-900 mb-3">
+                <Shield className="w-4 h-4 inline mr-2" />
+                Text Message Consent (Both Required)
+              </div>
+
+              {/* Service Messages Consent */}
               <div className="flex items-start space-x-3">
                 <Checkbox
                   id="consent"
@@ -281,18 +288,38 @@ export default function JoinPage({ params }: JoinPageProps) {
                 />
                 <div className="text-sm leading-relaxed">
                   <Label htmlFor="consent" className="cursor-pointer">
-                    I agree to receive text messages from <strong>{businessName}</strong> at the number provided. 
+                    <span className="font-medium">Service Messages (Required):</span><br />
+                    I agree to receive transactional text messages from <strong>{businessName}</strong> including 
+                    account notifications, service updates, appointment reminders, and customer service communications. 
                     I understand these messages may be sent using an automatic telephone dialing system. 
-                    Message frequency varies. Message and data rates may apply. 
-                    Consent is not required to make a purchase or use services.
+                    Message and data rates may apply.
+                  </Label>
+                </div>
+              </div>
+
+              {/* Marketing Messages Consent */}
+              <div className="flex items-start space-x-3 border-t border-gray-200 pt-3">
+                <Checkbox
+                  id="marketingConsent"
+                  checked={hasMarketingConsent}
+                  onCheckedChange={(checked) => setHasMarketingConsent(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="text-sm leading-relaxed">
+                  <Label htmlFor="marketingConsent" className="cursor-pointer">
+                    <span className="font-medium">Marketing Messages (Required):</span><br />
+                    I agree to receive marketing and promotional text messages from <strong>{businessName}</strong> including 
+                    sales alerts, special offers, and promotional content. I understand these messages may be sent 
+                    using an automatic telephone dialing system. Message and data rates may apply.
                   </Label>
                 </div>
               </div>
               
-              <div className="text-xs text-gray-600 space-y-1">
+              <div className="text-xs text-gray-600 space-y-1 border-t border-gray-200 pt-3">
+                <p><strong>Important:</strong> Both consents are required to proceed</p>
                 <p>• Reply STOP to opt out at any time</p>
                 <p>• Reply HELP for customer support</p>
-                <p>• View our <a href="/privacy" className="underline">Privacy Policy</a> and <a href="/terms" className="underline">Terms of Service</a></p>
+                <p>• View our <a href="/privacy" className="underline hover:text-blue-600">Privacy Policy</a> and <a href="/terms" className="underline hover:text-blue-600">Terms of Service</a></p>
                 <p>• Your information will not be shared with third parties</p>
               </div>
             </div>

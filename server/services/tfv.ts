@@ -297,9 +297,9 @@ export async function submitTollFreeVerification(
         // Note: Twilio TFV only accepts one production message sample
         // Additional samples are included in additionalInformation
         optInType: "WEB_FORM", // Updated for 2025: WEB_FORM is more accurate for web-based platforms
-        // ✅ ADDITIONAL INFORMATION (Plain static string - matching Twilio documentation)
+        // ✅ ADDITIONAL INFORMATION (Comprehensive system documentation - 482 chars)
         additionalInformation:
-          "Compliant messaging platform with proper opt-in procedures",
+          "Express written consent via dual-checkbox web form: separate service and marketing consents, both start unchecked. Welcome message sent with STOP/HELP instructions. Customers can text STOP (immediate removal) or HELP (support info). All responses instant and free per TCPA. Marketing consent covers sales alerts, offers, promotional content. Complete opt-in/opt-out infrastructure ensures full compliance.",
         businessStreetAddress: sanitizeText(businessAddress.address1), // Real address (validated above)
         businessStreetAddress2: businessAddress.address2 || "",
         businessCity: sanitizeText(businessAddress.city), // Real city (validated above)
