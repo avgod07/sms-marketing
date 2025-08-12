@@ -386,7 +386,9 @@ export function registerTwilioRoutes(app: Express) {
         return res.status(400).json({ message: "TFV SID required" });
       }
 
-      const status = await getTollFreeVerificationStatus(tfvSid);
+      const { biz } = await getBizForRequest(req);
+      const business = await biz.getBusiness();
+      const status = await getTollFreeVerificationStatus(tfvSid, business.id);
       res.json(status);
     } catch (error) {
       logError("Error checking TFV status:", error);

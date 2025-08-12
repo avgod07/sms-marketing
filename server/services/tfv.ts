@@ -348,11 +348,71 @@ export async function submitTollFreeVerification(
   }
 }
 
-export async function getTollFreeVerificationStatus(tfvSid: string): Promise<{
+export async function getTollFreeVerificationStatus(
+  tfvSid: string,
+  businessId: number
+): Promise<{
   status: string;
   rejectionReason?: string;
 }> {
-  const client = await createClient();
+  let client: twilio.Twilio;
+
+  // Business-aware credential routing
+  try {
+    const { storage } = await import("../db/storage.js");
+    const bizStorage = storage.forBusiness(businessId);
+    const business = await bizStorage.getBusiness();
+
+    if (business.subaccountProvisioned) {
+      const subaccountCreds = await bizStorage.getSubaccountCredentials();
+      if (subaccountCreds) {
+        // Use subaccount client for TFV status check
+        const { getSubaccountClient } = await import("./twilio.js");
+        client = getSubaccountClient(
+          subaccountCreds.apiKeySid,
+          subaccountCreds.apiKeySecret,
+          subaccountCreds.subaccountSid
+        );
+
+        logInfo("Using subaccount credentials for TFV status check", {
+          businessId,
+          subaccountSid: subaccountCreds.subaccountSid,
+          tfvSid,
+        });
+      } else {
+        // Subaccount provisioned but no credentials found, fallback to main
+        client = await createClient();
+        logInfo(
+          "Subaccount provisioned but no credentials found, using main account for TFV status check",
+          {
+            businessId,
+            tfvSid,
+          }
+        );
+      }
+    } else {
+      // Legacy business, use main account
+      client = await createClient();
+      logInfo(
+        "Using main account credentials for legacy business TFV status check",
+        {
+          businessId,
+          tfvSid,
+        }
+      );
+    }
+  } catch (error) {
+    // Error in credential resolution, fallback to main account
+    client = await createClient();
+    logInfo(
+      "Error resolving credentials, falling back to main account for TFV status check",
+      {
+        businessId,
+        tfvSid,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
 
   try {
     const verification = await client.messaging.v1
@@ -364,6 +424,7 @@ export async function getTollFreeVerificationStatus(tfvSid: string): Promise<{
       tfvSid,
       status: verification.status || "PENDING_REVIEW", // ✅ CORRECT DEFAULT
       rejectionReason: verification.rejectionReason || undefined,
+      businessId,
     });
 
     return {
@@ -376,6 +437,7 @@ export async function getTollFreeVerificationStatus(tfvSid: string): Promise<{
       error: error.message,
       code: error.code,
       status: error.status,
+      businessId,
     });
     throw new Error(`Failed to check TFV status: ${error.message}`);
   }

@@ -1594,7 +1594,8 @@ export class DatabaseStorage implements IStorage {
         );
 
         const tfvStatus = await getTollFreeVerificationStatus(
-          subaccountData.tfvRequestId
+          subaccountData.tfvRequestId,
+          businessId
         );
 
         // Only update if status has changed
