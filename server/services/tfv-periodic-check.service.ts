@@ -1,6 +1,6 @@
 import { db } from "../config/db.config";
 import { businesses, twilioSubaccounts } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { storage } from "../db/storage";
 import { logInfo, logError } from "../utils/logger.util";
 
@@ -46,7 +46,10 @@ export class TFVPeriodicCheckService {
         )
         .where(
           and(
-            eq(twilioSubaccounts.tfvStatus, "PENDING_REVIEW"), // Check subaccount TFV status
+            or(
+              eq(twilioSubaccounts.tfvStatus, "PENDING_REVIEW"), // Check subaccount TFV status
+              eq(twilioSubaccounts.tfvStatus, "TWILIO_REJECTED") // Also check rejected TFVs for resubmissions
+            ),
             // Only check businesses with TFV request IDs
             sql`${twilioSubaccounts.tfvRequestId} IS NOT NULL`
           )

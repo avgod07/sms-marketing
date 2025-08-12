@@ -1536,7 +1536,8 @@ export class DatabaseStorage implements IStorage {
     if (
       subaccountData.tfvRequestId &&
       (subaccountData.tfvStatus === "PENDING_REVIEW" ||
-        subaccountData.tfvStatus === "IN_REVIEW")
+        subaccountData.tfvStatus === "IN_REVIEW" ||
+        subaccountData.tfvStatus === "TWILIO_REJECTED")
     ) {
       pendingTFVs.push({
         tfvSid: subaccountData.tfvRequestId,
@@ -1586,12 +1587,13 @@ export class DatabaseStorage implements IStorage {
 
     const subaccountData = subaccount[0];
 
-    // Only refresh if we have a TFV request ID and status is pending
+    // Only refresh if we have a TFV request ID and status is pending or rejected (for resubmissions)
     if (
       subaccountData.tfvRequestId &&
       (subaccountData.tfvStatus === "PENDING_REVIEW" ||
         subaccountData.tfvStatus === "IN_REVIEW" ||
-        subaccountData.tfvStatus === "pending")
+        subaccountData.tfvStatus === "pending" ||
+        subaccountData.tfvStatus === "TWILIO_REJECTED")
     ) {
       try {
         // Import getTollFreeVerificationStatus dynamically to avoid circular dependencies
