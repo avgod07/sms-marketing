@@ -485,9 +485,9 @@ export class TwilioSubaccountService {
           // ✅ VOLUME (Fixed format)
           messageVolume: volumeString,
 
-          // ✅ ADDITIONAL INFORMATION (Comprehensive system documentation - 482 chars)
+          // ✅ ADDITIONAL INFORMATION (Marketing-focused system documentation - under 500 chars)
           additionalInformation:
-            "Express written consent via dual-checkbox web form: separate service and marketing consents, both start unchecked. Welcome message sent with STOP/HELP instructions. Customers can text STOP (immediate removal) or HELP (support info). All responses instant and free per TCPA. Marketing consent covers sales alerts, offers, promotional content. Complete opt-in/opt-out infrastructure ensures full compliance.",
+            "Express written consent via web form with unchecked marketing checkbox. Customers explicitly agree to receive marketing messages and special offers. Welcome message sent with STOP/HELP instructions. Customers can text STOP (immediate removal) or HELP (support info). All responses instant and free per TCPA. Complete opt-in/opt-out infrastructure ensures full compliance.",
 
           // ✅ TRACKING (Compliant external reference)
           externalReferenceId: externalReferenceId,
