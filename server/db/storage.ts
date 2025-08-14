@@ -807,15 +807,16 @@ export class DatabaseStorage implements IStorage {
     const businessId = this.requireBusinessId();
     const contactsList = await this.getContacts();
 
-    // Only get messages that represent actual conversations (received or regular messages)
-    // Filter out initial/campaign messages that shouldn't create conversations
+    // Only get messages that represent actual conversations
+    // Include: received, regular, individual (outgoing inbox), and welcome messages
+    // Exclude: campaign, test, compliance messages (stop_response, help_response, etc.)
     const conversationMessages = await db
       .select()
       .from(messages)
       .where(
         and(
           eq(messages.businessId, businessId),
-          sql`${messages.messageType} IN ('received', 'regular')`,
+          sql`${messages.messageType} IN ('received', 'regular', 'individual', 'welcome')`,
           // Only include messages with valid contactId (exclude test messages)
           sql`${messages.contactId} IS NOT NULL`
         )
