@@ -186,11 +186,15 @@ export class TwilioService {
       };
 
       // Use messaging service if available, otherwise use the subaccount's phone number
-      if (subaccountCreds.messagingServiceSid) {
-        params.messagingServiceSid = subaccountCreds.messagingServiceSid;
-      } else {
-        params.from = smsData.from || subaccountCreds.phoneNumber;
-      }
+      // COMMENTED OUT: Messaging service logic causing 404 errors after messaging service deletion
+      // if (subaccountCreds.messagingServiceSid) {
+      //   params.messagingServiceSid = subaccountCreds.messagingServiceSid;
+      // } else {
+      //   params.from = smsData.from || subaccountCreds.phoneNumber;
+      // }
+
+      // TEMPORARY FIX: Always use direct phone number (bypassing messaging service)
+      params.from = smsData.from || subaccountCreds.phoneNumber;
 
       // Add media URL for MMS if provided
       if (smsData.mediaUrl) {
