@@ -891,7 +891,6 @@ export function registerTwilioRoutes(app: Express) {
             return res.json({
               phoneNumber: provisioningResult.phoneNumber,
               phoneNumberSid: provisioningResult.phoneNumberSid,
-              messagingServiceSid: provisioningResult.messagingServiceSid,
               tfvStatus: provisioningResult.tfvStatus,
               tfvRequestId: provisioningResult.tfvRequestId,
               verificationStatus: provisioningResult.tfvStatus,

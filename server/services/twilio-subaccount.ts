@@ -21,7 +21,6 @@ export interface ProvisioningResult {
   subaccountSid: string;
   phoneNumber: string;
   phoneNumberSid: string;
-  messagingServiceSid: string;
   tfvStatus: string;
   tfvRequestId?: string;
 }
@@ -34,10 +33,6 @@ export interface ApiKeyResult {
 export interface PhoneNumberResult {
   sid: string;
   phoneNumber: string;
-}
-
-export interface MessagingServiceResult {
-  sid: string;
 }
 
 export interface TFVResult {
@@ -130,15 +125,7 @@ export class TwilioSubaccountService {
         phoneNumber: phoneNumber.phoneNumber,
       });
 
-      // Step 4: Create messaging service in subaccount
-      const messagingService = await this.createMessagingService(
-        subaccount.sid,
-        apiKey,
-        phoneNumber.sid
-      );
-      logInfo("Messaging service created", {
-        messagingServiceSid: messagingService.sid,
-      });
+      // Step 4: Messaging service creation removed - using direct phone number routing
 
       // Step 5: Submit TFV (if business info is complete)
       let tfvResult: TFVResult | null = null;
@@ -167,7 +154,6 @@ export class TwilioSubaccountService {
         apiKeySecret: apiKey.secret,
         phoneNumber: phoneNumber.phoneNumber,
         phoneNumberSid: phoneNumber.sid,
-        messagingServiceSid: messagingService.sid,
         tfvRequestId: tfvResult?.requestId || null,
         tfvStatus: tfvResult?.status || "pending",
         status: "active",
@@ -186,7 +172,6 @@ export class TwilioSubaccountService {
         subaccountSid: subaccount.sid,
         phoneNumber: phoneNumber.phoneNumber,
         phoneNumberSid: phoneNumber.sid,
-        messagingServiceSid: messagingService.sid,
         tfvStatus: tfvResult?.status || "pending",
         tfvRequestId: tfvResult?.requestId,
       };
@@ -311,38 +296,6 @@ export class TwilioSubaccountService {
         }`
       );
     }
-  }
-
-  /**
-   * Create messaging service and add phone number to it
-   */
-  private static async createMessagingService(
-    subaccountSid: string,
-    apiKey: ApiKeyResult,
-    phoneNumberSid: string
-  ): Promise<MessagingServiceResult> {
-    const subaccountClient = getSubaccountClient(
-      apiKey.sid,
-      apiKey.secret,
-      subaccountSid
-    );
-
-    // Create messaging service
-    const messagingService =
-      await subaccountClient.messaging.v1.services.create({
-        friendlyName: "Business Messaging Service",
-      });
-
-    // Add phone number to messaging service
-    await subaccountClient.messaging.v1
-      .services(messagingService.sid)
-      .phoneNumbers.create({
-        phoneNumberSid: phoneNumberSid,
-      });
-
-    return {
-      sid: messagingService.sid,
-    };
   }
 
   /**

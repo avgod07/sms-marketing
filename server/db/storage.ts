@@ -116,7 +116,6 @@ export interface IStorage {
     apiKeySecret: string;
     phoneNumber: string;
     phoneNumberSid: string;
-    messagingServiceSid: string;
   } | null>;
 
   getPhoneNumbers(): Promise<BusinessPhoneNumber[]>;
@@ -1403,7 +1402,6 @@ export class DatabaseStorage implements IStorage {
     apiKeySecret: string;
     phoneNumber: string;
     phoneNumberSid: string;
-    messagingServiceSid: string;
   } | null> {
     const subaccount = await this.getTwilioSubaccount();
     if (!subaccount) {
@@ -1420,7 +1418,6 @@ export class DatabaseStorage implements IStorage {
       apiKeySecret: EncryptionService.decrypt(subaccount.apiKeySecret),
       phoneNumber: subaccount.phoneNumber,
       phoneNumberSid: subaccount.phoneNumberSid,
-      messagingServiceSid: subaccount.messagingServiceSid,
     };
   }
 
