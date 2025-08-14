@@ -77,6 +77,27 @@ export class MessageQueueService {
   }
 
   /**
+   * Get a specific queued message by ID
+   * @param queueId - The queue message ID
+   * @returns The queued message or undefined if not found
+   */
+  static async getQueuedMessage(
+    queueId: number
+  ): Promise<MessageQueue | undefined> {
+    try {
+      const [message] = await db
+        .select()
+        .from(messageQueue)
+        .where(eq(messageQueue.id, queueId));
+
+      return message || undefined;
+    } catch (error) {
+      logError("Failed to fetch queued message", { error, queueId });
+      throw error;
+    }
+  }
+
+  /**
    * Mark a message as successfully sent
    * @param messageId - ID of the message
    * @param messageSid - Optional Twilio message SID for tracking

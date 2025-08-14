@@ -128,27 +128,20 @@ export function registerContactRoutes(app: Express) {
               contactId: contact.id,
             });
 
+            // UniversalMessageService already created the message record
+            // Just log the result for monitoring
             if (result.status === "sent") {
-              // Record the immediately sent message
-              await biz.createMessage({
-                phoneNumber: contact.phoneNumber,
+              logInfo("Welcome message sent successfully", {
                 contactId: contact.id,
-                content: business.initialMessage,
-                status: "sent",
-                messageType: "welcome",
-                billingStatus: "success",
+                phoneNumber: contact.phoneNumber,
                 messageSid: result.messageId,
               });
             } else if (result.status === "queued") {
-              // Record the queued message
-              await biz.createMessage({
-                phoneNumber: contact.phoneNumber,
+              logInfo("Welcome message queued for business hours", {
                 contactId: contact.id,
-                content: business.initialMessage,
-                status: "pending",
-                messageType: "welcome",
-                billingStatus: "pending",
+                phoneNumber: contact.phoneNumber,
                 queueId: result.queueId,
+                scheduledFor: result.scheduledFor,
               });
             }
           }

@@ -153,28 +153,51 @@ export function registerMessageRoutes(app: Express) {
         });
 
         if (result.status === "sent") {
-          // Create message record for immediately sent message
-          const message = await biz.createMessage({
-            ...validatedData,
-            status: "sent",
-            messageType: "individual",
-            billingStatus: "success",
-            messageSid: result.messageId,
-          });
-
-          res.status(201).json(message);
+          // Retrieve the message record that UniversalMessageService created
+          if (result.messageId) {
+            const createdMessage = await biz.getMessageBySid(result.messageId);
+            if (createdMessage) {
+              res.status(201).json(createdMessage);
+            } else {
+              // This should never happen, but fallback just in case
+              throw new Error("Message sent but record not found");
+            }
+          } else {
+            throw new Error("Message sent but no messageId returned");
+          }
         } else if (result.status === "queued") {
-          // Create message record for queued message
-          const message = await biz.createMessage({
-            ...validatedData,
+          // Get the queue record that was created to build a proper response
+          const { MessageQueueService } = await import(
+            "../../services/message-queue.js"
+          );
+
+          if (!result.queueId) {
+            throw new Error("Message queued but no queueId returned");
+          }
+
+          const queueRecord = await MessageQueueService.getQueuedMessage(
+            result.queueId
+          );
+
+          // Create a response that matches the original message format
+          // but doesn't create a duplicate database record
+          res.status(201).json({
+            id: result.queueId, // Use queueId as the ID (matches original behavior)
+            businessId: (await biz.getBusiness()).id,
+            contactId: validatedData.contactId,
+            phoneNumber: validatedData.phoneNumber,
+            content: validatedData.content,
             status: "pending",
             messageType: "individual",
-            billingStatus: "pending",
+            billingStatus: "billed", // Changed to "billed" since credits were deducted upfront
+            messageSid: null,
             queueId: result.queueId,
-          });
-
-          res.status(201).json({
-            ...message,
+            campaignId: validatedData.campaignId || null,
+            errorCode: null,
+            sentAt: null,
+            deliveredAt: null,
+            createdAt:
+              queueRecord?.createdAt?.toString() || new Date().toISOString(),
             scheduledFor: result.scheduledFor,
             message: "Message queued for business hours compliance",
           });
