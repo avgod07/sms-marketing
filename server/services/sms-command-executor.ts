@@ -26,30 +26,50 @@ export class SMSCommandExecutor {
   /**
    * Validate phone configuration before processing SMS commands
    * Prevents credit deduction when responses can't be sent
+   * UPDATED: Subaccount-only validation (no legacy fallbacks)
    */
   private static async validatePhoneConfiguration(
     bizStore: IStorage
   ): Promise<{ isValid: boolean; error?: string }> {
     try {
       const business = await bizStore.getBusiness();
-      const numbers = await bizStore.getPhoneNumbers();
-      const from = numbers.find((n) => n.isDefault)?.phoneNumber;
-      const messagingServiceSid = await bizStore.getMessagingServiceSid();
 
-      if (!from && !messagingServiceSid) {
-        logError("SMS command blocked - no phone configuration", {
+      // Check if business has subaccount provisioning
+      if (!business.subaccountProvisioned) {
+        logError("SMS command blocked - no subaccount provisioning", {
           businessId: business.id,
-          hasPhoneNumbers: numbers.length > 0,
-          hasDefaultNumber: !!from,
-          hasMessagingService: !!messagingServiceSid,
+          subaccountProvisioned: false,
         });
 
         return {
           isValid: false,
           error:
-            "No phone number or messaging service configured. Please complete your phone setup before using SMS commands.",
+            "SMS commands require subaccount provisioning. Please complete your business setup to use SMS commands.",
         };
       }
+
+      // Check if subaccount has phone number configured
+      const subaccountCreds = await bizStore.getSubaccountCredentials();
+      if (!subaccountCreds?.phoneNumber) {
+        logError("SMS command blocked - no subaccount phone number", {
+          businessId: business.id,
+          subaccountProvisioned: true,
+          hasSubaccountCreds: !!subaccountCreds,
+          hasPhoneNumber: !!subaccountCreds?.phoneNumber,
+        });
+
+        return {
+          isValid: false,
+          error:
+            "No phone number configured in subaccount. Please complete your phone setup before using SMS commands.",
+        };
+      }
+
+      logInfo("SMS command phone validation passed", {
+        businessId: business.id,
+        phoneNumber: subaccountCreds.phoneNumber,
+        subaccountSid: subaccountCreds.subaccountSid,
+      });
 
       return { isValid: true };
     } catch (error) {
@@ -558,10 +578,14 @@ export class SMSCommandExecutor {
         return { isValid: false, errors, warnings };
       }
 
-      // Check if business has phone numbers configured
-      const phoneNumbers = await bizStore.getPhoneNumbers();
-      if (phoneNumbers.length === 0) {
-        errors.push("No phone numbers configured");
+      // Check if business has subaccount setup with phone numbers
+      if (!business.subaccountProvisioned) {
+        errors.push("Business requires subaccount provisioning");
+      } else {
+        const subaccountCreds = await bizStore.getSubaccountCredentials();
+        if (!subaccountCreds?.phoneNumber) {
+          errors.push("No phone number configured in subaccount");
+        }
       }
 
       // Check if business has active contacts

@@ -368,50 +368,10 @@ export class UniversalMessageService {
         );
       }
     } else {
-      // Fallback to legacy method for businesses without subaccounts
-      const messagingServiceSid = await bizStorage.getMessagingServiceSid();
-      const numbers = await bizStorage.getPhoneNumbers();
-      const defaultFrom = numbers.find((n) => n.isDefault)?.phoneNumber;
-
-      // Create credentials object
-      const tempCreds = {
-        businessId: business.id,
-        accountSid: process.env.TWILIO_ACCOUNT_SID!,
-        messagingServiceSid: messagingServiceSid || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        id: 0,
-      };
-
-      // Send directly via Twilio
-      const result = await TwilioService.sendSMS(
-        tempCreds,
-        {
-          to: params.phoneNumber,
-          message: params.messageContent,
-          from: params.from || defaultFrom,
-          messagingServiceSid:
-            params.messagingServiceSid || messagingServiceSid || undefined,
-          contactId: params.contactId,
-          mediaUrl: params.mediaUrl,
-        },
-        params.businessId
+      // No legacy fallback - require subaccount setup
+      throw new Error(
+        "Message sending requires subaccount provisioning. Please complete your business setup."
       );
-
-      if (result.success) {
-        logInfo("Message sent directly via legacy (no credits)", {
-          businessId: params.businessId,
-          messageType: params.messageType,
-          messageSid: result.messageSid,
-        });
-
-        return {
-          status: "sent",
-          messageId: result.messageSid,
-        };
-      } else {
-        throw new Error(result.error || "Failed to send message");
-      }
     }
   }
 
