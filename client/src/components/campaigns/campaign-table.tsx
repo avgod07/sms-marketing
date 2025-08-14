@@ -161,24 +161,24 @@ export default function CampaignTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
-        <thead className="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th className="text-left py-3 px-4 font-medium text-gray-900">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left py-3 px-4 font-medium text-gray-500">
               Campaign
             </th>
-            <th className="text-left py-3 px-4 font-medium text-gray-900">
+            <th className="text-left py-3 px-4 font-medium text-gray-500">
               Message Preview
             </th>
-            <th className="text-left py-3 px-4 font-medium text-gray-900">
+            <th className="text-left py-3 px-4 font-medium text-gray-500">
               Sent
             </th>
-            <th className="text-left py-3 px-4 font-medium text-gray-900">
+            <th className="text-left py-3 px-4 font-medium text-gray-500">
               Delivered
             </th>
-            <th className="text-left py-3 px-4 font-medium text-gray-900">
+            <th className="text-left py-3 px-4 font-medium text-gray-500">
               Status
             </th>
-            <th className="text-left py-3 px-4 font-medium text-gray-900">
+            <th className="text-left py-3 px-4 font-medium text-gray-500">
               Actions
             </th>
           </tr>
