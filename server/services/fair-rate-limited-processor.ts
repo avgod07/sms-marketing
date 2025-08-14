@@ -555,8 +555,8 @@ export class FairRateLimitedProcessor {
     let defaultFrom: string | undefined;
 
     if (subaccountCreds && business.subaccountProvisioned) {
-      // Use subaccount credentials
-      messagingServiceSid = subaccountCreds.messagingServiceSid;
+      // Use subaccount credentials - no messaging service needed for direct phone number routing
+      messagingServiceSid = undefined;
       defaultFrom = subaccountCreds.phoneNumber;
     } else {
       // Fallback to legacy credentials

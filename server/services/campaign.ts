@@ -57,8 +57,8 @@ export async function executeCampaign(
     let defaultNumber: string | undefined;
 
     if (subaccountCreds && business.subaccountProvisioned) {
-      // Use subaccount credentials
-      messagingServiceSid = subaccountCreds.messagingServiceSid;
+      // Use subaccount credentials - no messaging service needed for direct phone number routing
+      messagingServiceSid = undefined;
       defaultNumber = subaccountCreds.phoneNumber;
       logInfo("Using subaccount credentials for campaign", {
         campaignId,

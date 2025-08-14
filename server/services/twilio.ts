@@ -65,7 +65,6 @@ export interface SubaccountCredentials {
   apiKeySecret: string;
   phoneNumber: string;
   phoneNumberSid: string;
-  messagingServiceSid: string;
 }
 
 export interface SMSMessage {

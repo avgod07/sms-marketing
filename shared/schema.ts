@@ -543,9 +543,6 @@ export const twilioSubaccounts = pgTable(
     apiKeySecret: text("api_key_secret").notNull(), // encrypted
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     phoneNumberSid: varchar("phone_number_sid", { length: 34 }).notNull(),
-    messagingServiceSid: varchar("messaging_service_sid", {
-      length: 34,
-    }).notNull(),
     tfvRequestId: varchar("tfv_request_id", { length: 34 }),
     tfvStatus: varchar("tfv_status", { length: 20 })
       .default("pending")
