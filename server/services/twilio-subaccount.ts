@@ -122,7 +122,9 @@ export class TwilioSubaccountService {
       const phoneNumber = await this.purchaseTollFreeNumber(
         subaccount.sid,
         apiKey,
-        businessInfo.phoneNumber || "" // Pass the user's selected phone number
+        businessInfo.phoneNumber || "", // Pass the user's selected phone number
+        baseUrl,
+        businessId
       );
       logInfo("Phone number purchased", {
         phoneNumber: phoneNumber.phoneNumber,
@@ -241,7 +243,9 @@ export class TwilioSubaccountService {
   private static async purchaseTollFreeNumber(
     subaccountSid: string,
     apiKey: ApiKeyResult,
-    selectedPhoneNumber: string // ✅ User's exact choice from frontend
+    selectedPhoneNumber: string, // ✅ User's exact choice from frontend
+    baseUrl: string,
+    businessId: number
   ): Promise<PhoneNumberResult> {
     const subaccountClient = getSubaccountClient(
       apiKey.sid,
@@ -255,16 +259,33 @@ export class TwilioSubaccountService {
     });
 
     try {
-      // ✅ Purchase the EXACT number user selected
-      const phoneNumber = await subaccountClient.incomingPhoneNumbers.create({
-        phoneNumber: selectedPhoneNumber,
+      // ✅ Purchase the EXACT number user selected with webhook configuration
+      const webhookUrl = `${baseUrl}/webhooks/twilio-inbound/${businessId}`;
+      const statusCallbackUrl = `${baseUrl}/api/webhooks/twilio/status-callback/${businessId}`;
+
+      logInfo("Configuring webhook URLs for subaccount phone number", {
+        subaccountSid,
+        businessId,
+        webhookUrl,
+        statusCallbackUrl,
       });
 
-      logInfo("Successfully purchased selected phone number", {
-        phoneNumberSid: phoneNumber.sid,
-        phoneNumber: phoneNumber.phoneNumber,
-        subaccountSid,
+      const phoneNumber = await subaccountClient.incomingPhoneNumbers.create({
+        phoneNumber: selectedPhoneNumber,
+        smsUrl: webhookUrl,
+        statusCallback: statusCallbackUrl,
       });
+
+      logInfo(
+        "Successfully purchased selected phone number with webhook configuration",
+        {
+          phoneNumberSid: phoneNumber.sid,
+          phoneNumber: phoneNumber.phoneNumber,
+          subaccountSid,
+          webhookUrl,
+          statusCallbackUrl,
+        }
+      );
 
       return {
         phoneNumber: phoneNumber.phoneNumber,
