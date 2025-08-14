@@ -51,30 +51,30 @@ export async function executeCampaign(
 
     const business = await bizStorage.getBusiness();
 
-    // Try to get subaccount credentials first
-    const subaccountCreds = await bizStorage.getSubaccountCredentials();
-    let messagingServiceSid: string | undefined;
-    let defaultNumber: string | undefined;
-
-    if (subaccountCreds && business.subaccountProvisioned) {
-      // Use subaccount credentials - no messaging service needed for direct phone number routing
-      messagingServiceSid = undefined;
-      defaultNumber = subaccountCreds.phoneNumber;
-      logInfo("Using subaccount credentials for campaign", {
-        campaignId,
-        businessId: business.id,
-        subaccountSid: subaccountCreds.subaccountSid,
-      });
-    } else {
-      // Fallback to legacy credentials
-      messagingServiceSid = await bizStorage.getMessagingServiceSid();
-      const numbers = await bizStorage.getPhoneNumbers();
-      defaultNumber = numbers.find((n) => n.isDefault)?.phoneNumber;
-      logInfo("Using legacy credentials for campaign", {
-        campaignId,
-        businessId: business.id,
-      });
+    // Validate subaccount setup (subaccount-only, no legacy fallback)
+    if (!business.subaccountProvisioned) {
+      throw new Error(
+        "Campaign execution requires subaccount provisioning. Please complete your business setup."
+      );
     }
+
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
+    if (!subaccountCreds?.phoneNumber) {
+      throw new Error(
+        "No phone number configured in subaccount. Please complete your phone setup."
+      );
+    }
+
+    // Use subaccount credentials only - no messaging service needed for direct phone number routing
+    const messagingServiceSid: string | undefined = undefined;
+    const defaultNumber: string = subaccountCreds.phoneNumber;
+
+    logInfo("Using subaccount credentials for campaign", {
+      campaignId,
+      businessId: business.id,
+      subaccountSid: subaccountCreds.subaccountSid,
+      phoneNumber: subaccountCreds.phoneNumber,
+    });
 
     logInfo("Starting campaign execution with new system", {
       campaignId,

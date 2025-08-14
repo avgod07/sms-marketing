@@ -549,21 +549,23 @@ export class FairRateLimitedProcessor {
   ): Promise<any> {
     const business = await bizStorage.getBusiness();
 
-    // Try to get subaccount credentials first
-    const subaccountCreds = await bizStorage.getSubaccountCredentials();
-    let messagingServiceSid: string | undefined;
-    let defaultFrom: string | undefined;
-
-    if (subaccountCreds && business.subaccountProvisioned) {
-      // Use subaccount credentials - no messaging service needed for direct phone number routing
-      messagingServiceSid = undefined;
-      defaultFrom = subaccountCreds.phoneNumber;
-    } else {
-      // Fallback to legacy credentials
-      messagingServiceSid = await bizStorage.getMessagingServiceSid();
-      const numbers = await bizStorage.getPhoneNumbers();
-      defaultFrom = numbers.find((n: any) => n.isDefault)?.phoneNumber;
+    // Validate subaccount setup (subaccount-only, no legacy fallback)
+    if (!business.subaccountProvisioned) {
+      throw new Error(
+        "Message sending requires subaccount provisioning. Please complete your business setup."
+      );
     }
+
+    const subaccountCreds = await bizStorage.getSubaccountCredentials();
+    if (!subaccountCreds?.phoneNumber) {
+      throw new Error(
+        "No phone number configured in subaccount. Please complete your phone setup."
+      );
+    }
+
+    // Use subaccount credentials only - no messaging service needed for direct phone number routing
+    const messagingServiceSid: string | undefined = undefined;
+    const defaultFrom: string = subaccountCreds.phoneNumber;
 
     const shouldUseCredits = this.shouldUseCredits(message.messageType);
 
