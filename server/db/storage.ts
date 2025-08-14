@@ -70,6 +70,7 @@ import {
   type TwilioSubaccount,
   type InsertTwilioSubaccount,
 } from "@shared/schema";
+import { CampaignCompletionService } from "../services/campaign-completion.js";
 import type {
   ContactRedemption,
   CampaignWithQueue,
@@ -850,6 +851,17 @@ export class DatabaseStorage implements IStorage {
       .insert(messages)
       .values({ ...message, businessId })
       .returning();
+
+    // Check campaign completion for any campaign message creation
+    // This is crucial for Fair Processor V2 which creates messages directly with "sent" status
+    if (newMessage.campaignId) {
+      await CampaignCompletionService.checkCampaignCompletion(
+        this,
+        newMessage.campaignId,
+        businessId
+      );
+    }
+
     return newMessage;
   }
 
@@ -895,61 +907,15 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
 
+    // Check campaign completion for any campaign message status change
     if (existing && existing.campaignId) {
-      if (existing.status !== "sent" && status === "sent") {
-        await db
-          .update(campaigns)
-          .set({ sentCount: sql`${campaigns.sentCount} + 1` })
-          .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
-          );
-      }
-      if (existing.status !== "delivered" && status === "delivered") {
-        await db
-          .update(campaigns)
-          .set({ deliveredCount: sql`${campaigns.deliveredCount} + 1` })
-          .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
-          );
-      } else if (existing.status === "delivered" && status !== "delivered") {
-        await db
-          .update(campaigns)
-          .set({ deliveredCount: sql`${campaigns.deliveredCount} - 1` })
-          .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
-          );
-      }
-
-      const [total] = await db
-        .select({ count: count() })
-        .from(messages)
-        .where(
-          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId}`
-        );
-      const [terminal] = await db
-        .select({ count: count() })
-        .from(messages)
-        .where(
-          sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} IN ('sent','delivered','failed')`
-        );
-
-      if (total.count > 0 && terminal.count === total.count) {
-        const [failedCount] = await db
-          .select({ count: count() })
-          .from(messages)
-          .where(
-            sql`${messages.campaignId} = ${existing.campaignId} AND ${messages.businessId} = ${businessId} AND ${messages.status} = 'failed'`
-          );
-
-        const failureRate = failedCount.count / total.count;
-        const newStatus = failureRate >= 0.8 ? "failed" : "completed";
-        await db
-          .update(campaigns)
-          .set({ status: newStatus })
-          .where(
-            sql`${campaigns.id} = ${existing.campaignId} AND ${campaigns.businessId} = ${businessId}`
-          );
-      }
+      // Use the new CampaignCompletionService to handle completion detection
+      // This replaces the old logic and works for both status transitions and direct message creation
+      await CampaignCompletionService.checkCampaignCompletion(
+        this,
+        existing.campaignId,
+        businessId
+      );
     }
 
     return updatedMessage;

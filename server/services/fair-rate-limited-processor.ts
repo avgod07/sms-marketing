@@ -489,6 +489,7 @@ export class FairRateLimitedProcessor {
           messageType: queuedMessage.messageType,
           billingStatus: result.billingStatus,
           messageSid: result.messageSid,
+          campaignId: (metadata as any)?.campaignId, // Include campaignId from metadata for completion detection
         });
       } else {
         const tempCreds = {
@@ -599,6 +600,7 @@ export class FairRateLimitedProcessor {
             messageType: message.messageType,
             billingStatus: result.billingStatus,
             messageSid: result.messageSid,
+            campaignId: message.campaignId, // Include campaignId for completion detection
           });
         }
 
@@ -642,6 +644,7 @@ export class FairRateLimitedProcessor {
             messageType: message.messageType,
             billingStatus: result.billingStatus,
             messageSid: result.messageSid,
+            campaignId: message.campaignId, // Include campaignId for completion detection
           });
         }
 
