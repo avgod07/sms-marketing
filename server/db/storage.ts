@@ -208,6 +208,7 @@ export interface IStorage {
     status: string,
     errorCode?: number
   ): Promise<Message | undefined>;
+  getMessageBySid(sid: string): Promise<Message | undefined>;
 
   // Analytics
   getDashboardStats(): Promise<{
@@ -940,6 +941,17 @@ export class DatabaseStorage implements IStorage {
       status === "delivered" ? new Date() : undefined,
       errorCode
     );
+  }
+
+  async getMessageBySid(sid: string): Promise<Message | undefined> {
+    const businessId = this.requireBusinessId();
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(
+        sql`${messages.messageSid} = ${sid} AND ${messages.businessId} = ${businessId}`
+      );
+    return message || undefined;
   }
 
   // Analytics
