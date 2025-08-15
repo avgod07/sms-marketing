@@ -61,13 +61,13 @@ export function RecentInboxMessagesCard({ messages, isLoading }: RecentInboxMess
   }
 
   return (
-    <Card className="card-hover">
+    <Card className="card-hover h-80">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Inbox Messages</CardTitle>
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="space-y-1">
+        <div className="space-y-1 overflow-y-auto max-h-48">
           {messages.map((message) => (
             <div key={message.id} className="space-y-2">
               <ActivityItem
