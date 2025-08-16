@@ -7,18 +7,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatNumber, formatDate, formatCampaignStatus } from "@/lib/utils";
+import { formatNumber, formatBusinessDate, formatCampaignStatus } from "@/lib/utils";
+import { useBusinessTimezone } from "@/hooks/use-business-timezone";
 import type { CampaignWithQueue } from "@shared/api-types";
 import { MoreHorizontal, Trash2, X, Calendar, Edit, Send } from "lucide-react";
 
 // Get appropriate status badge with queue support
-function getStatusBadge(campaign: CampaignWithQueue) {
+function getStatusBadge(campaign: CampaignWithQueue, timezone: string) {
   // Handle ALL status types comprehensively
   switch (campaign.status) {
     case "scheduled":
       return (
         <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200">
-          📅 Scheduled for {campaign.scheduledSendTime ? formatDate(campaign.scheduledSendTime) : 'later'}
+          📅 Scheduled for {campaign.scheduledSendTime ? formatBusinessDate(campaign.scheduledSendTime, timezone) : 'later'}
         </Badge>
       );
       
@@ -123,6 +124,7 @@ export default function CampaignTable({
   onCancel,
   onReschedule,
 }: CampaignTableProps) {
+  const { timezone } = useBusinessTimezone();
   
   const handleAction = (campaign: CampaignWithQueue, actionId: string) => {
     switch (actionId) {
@@ -193,9 +195,9 @@ export default function CampaignTable({
                 <td className="py-4 px-4">
                   <div>
                     <span className="font-medium text-gray-900">{campaign.name}</span>
-                    <div className="text-sm text-gray-500">
-                      {formatDate(campaign.createdAt)}
-                    </div>
+                                          <div className="text-sm text-gray-500">
+                        {formatBusinessDate(campaign.createdAt, timezone)}
+                      </div>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -214,7 +216,7 @@ export default function CampaignTable({
                   <span className="text-gray-900">{formatNumber(campaign.deliveredCount || 0)}</span>
                 </td>
                 <td className="py-4 px-4 align-middle">
-                  {getStatusBadge(campaign)}
+                  {getStatusBadge(campaign, timezone)}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-2">
