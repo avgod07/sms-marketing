@@ -125,11 +125,20 @@ export function getCouponStatusColor(status: string): string {
   }
 }
 
-export function timeAgo(date: string | Date): string {
+export function timeAgo(
+  date: string | Date,
+  businessTimezone?: string
+): string {
+  // formatDistanceToNow works correctly with UTC dates
+  // The businessTimezone parameter is included for API consistency but isn't needed for relative time
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
-export function formatRelativeTime(dateString: string): string {
+export function formatRelativeTime(
+  dateString: string,
+  businessTimezone?: string
+): string {
+  // Relative time calculation - works correctly with UTC
   const date = new Date(dateString);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -165,4 +174,36 @@ export function formatRelativeTime(dateString: string): string {
 
   const diffInYears = Math.floor(diffInDays / 365);
   return `${diffInYears} year${diffInYears === 1 ? "" : "s"} ago`;
+}
+
+/**
+ * Format a timestamp to display time in business timezone
+ */
+export function formatBusinessTime(
+  date: string | Date,
+  businessTimezone: string = "America/New_York"
+): string {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleString("en-US", {
+    timeZone: businessTimezone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+/**
+ * Format a timestamp to display date in business timezone
+ */
+export function formatBusinessDate(
+  date: string | Date,
+  businessTimezone: string = "America/New_York"
+): string {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleString("en-US", {
+    timeZone: businessTimezone,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }

@@ -114,11 +114,9 @@ export const messages = pgTable(
     messageSid: varchar("message_sid", { length: 64 }),
     queueId: integer("queue_id").references(() => messageQueue.id),
     errorCode: integer("error_code"),
-    sentAt: timestamp("sent_at", { mode: "string" }),
-    deliveredAt: timestamp("delivered_at", { mode: "string" }),
-    createdAt: timestamp("created_at", { mode: "string" })
-      .defaultNow()
-      .notNull(),
+    sentAt: timestamp("sent_at"),
+    deliveredAt: timestamp("delivered_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("messages_delivered_at_idx").using(

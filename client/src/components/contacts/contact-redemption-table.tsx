@@ -1,4 +1,5 @@
-import { formatDate } from "@/lib/utils";
+import { formatBusinessDate } from "@/lib/utils";
+import { useBusinessTimezone } from "@/hooks/use-business-timezone";
 import type { ContactRedemption } from "@shared/api-types";
 
 interface ContactRedemptionTableProps {
@@ -10,6 +11,8 @@ export default function ContactRedemptionTable({
   redemptions,
   isLoading,
 }: ContactRedemptionTableProps) {
+  const { timezone } = useBusinessTimezone();
+  
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -43,7 +46,7 @@ export default function ContactRedemptionTable({
             <tr key={r.id} className="border-b border-gray-100">
               <td className="py-4 px-4 text-gray-900">{r.code}</td>
               <td className="py-4 px-4 text-gray-900">{r.note || "—"}</td>
-              <td className="py-4 px-4 text-gray-900">{formatDate(r.createdAt)}</td>
+              <td className="py-4 px-4 text-gray-900">{formatBusinessDate(r.createdAt, timezone)}</td>
             </tr>
           ))}
         </tbody>

@@ -11,6 +11,7 @@ import { useMessageSocket } from "@/hooks/use-message-socket";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useBusinessTimezone } from "@/hooks/use-business-timezone";
 import { handleApiError } from "@/lib/handleApiError";
 import type { Message as ApiMessage } from "@shared/schema";
 import type { Contact } from "@shared/schema";
@@ -58,6 +59,7 @@ export default function Inbox() {
     return target.includes(trimmedSearch);
   });
   const { data: setup } = useSetupStatus(!!user);
+  const { timezone } = useBusinessTimezone();
 
   // Handle pre-selected contact from URL parameters
   useEffect(() => {
@@ -446,7 +448,7 @@ export default function Inbox() {
                         </p>
                       </div>
                       <div className="ml-2 shrink-0 text-xs text-gray-400">
-                        {timeAgo(last.timestamp)}
+                        {timeAgo(last.timestamp, timezone)}
                       </div>
                       {conv.hasUnread && !isActive && (
                         <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full" />
@@ -482,7 +484,7 @@ export default function Inbox() {
                       key={msg.id}
                       message={msg.text}
                       incoming={msg.incoming}
-                      timestamp={timeAgo(msg.timestamp)}
+                      timestamp={timeAgo(msg.timestamp, timezone)}
                       status={msg.status}
                     />
                   ))}

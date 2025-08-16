@@ -1,4 +1,5 @@
-import { formatDate } from "@/lib/utils";
+import { formatBusinessDate } from "@/lib/utils";
+import { useBusinessTimezone } from "@/hooks/use-business-timezone";
 import type { CouponRedemption } from "@shared/schema";
 
 interface RedemptionTableProps {
@@ -7,6 +8,8 @@ interface RedemptionTableProps {
 }
 
 export default function RedemptionTable({ redemptions, isLoading }: RedemptionTableProps) {
+  const { timezone } = useBusinessTimezone();
+  
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -40,7 +43,7 @@ export default function RedemptionTable({ redemptions, isLoading }: RedemptionTa
             <tr key={r.id} className="border-b border-gray-100">
               <td className="py-4 px-4 text-gray-900">{r.phoneNumber || "—"}</td>
               <td className="py-4 px-4 text-gray-900">{r.note || "—"}</td>
-              <td className="py-4 px-4 text-gray-900">{formatDate(r.createdAt)}</td>
+              <td className="py-4 px-4 text-gray-900">{formatBusinessDate(r.createdAt, timezone)}</td>
             </tr>
           ))}
         </tbody>

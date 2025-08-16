@@ -1,5 +1,5 @@
 import { formatRelativeTime } from "@/lib/utils";
-// import { ExternalLink } from "lucide-react";
+import { useBusinessTimezone } from "@/hooks/use-business-timezone";
 
 interface ActivityItemProps {
   title: string;
@@ -18,6 +18,8 @@ export function ActivityItem({
   status,
   statusColor = "default",
 }: ActivityItemProps) {
+  const { timezone } = useBusinessTimezone();
+  
   const statusColors = {
     default: "bg-gray-100 text-gray-800",
     success: "bg-green-100 text-green-800",
@@ -42,7 +44,7 @@ export function ActivityItem({
           <p className="text-sm text-gray-500 truncate mt-1">{subtitle}</p>
         )}
         <p className="text-xs text-gray-400 mt-1">
-          {formatRelativeTime(timestamp)}
+          {formatRelativeTime(timestamp, timezone)}
         </p>
       </div>
       {/* Removed external link icon and anchor */}
