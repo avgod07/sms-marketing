@@ -181,7 +181,31 @@ export default function Inbox() {
       
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c.id === contactId || c.phone === phone);
-        if (idx === -1) return prev;
+        
+        if (idx === -1) {
+          // Create new conversation for first-time contact
+          const newConversation: Conversation = {
+            id: contactId,
+            contactName: undefined, // Will display phone number initially
+            phone: phone || '', // Fallback to empty string if phone is undefined
+            active: true, // New contacts are active by default
+            messages: [
+              {
+                id: data.id,
+                text: data.content,
+                timestamp: new Date((data as any).createdAt ?? Date.now()),
+                incoming: data.status === 'received',
+                status: data.status,
+              },
+            ],
+            hasUnread: true, // New conversations should be marked as unread
+          };
+          
+          // Add new conversation to the beginning of the list (most recent first)
+          return [newConversation, ...prev];
+        }
+        
+        // Existing logic for updating existing conversations
         const conv = prev[idx];
         const updated: Conversation = {
           ...conv,
