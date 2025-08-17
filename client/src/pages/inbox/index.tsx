@@ -173,15 +173,53 @@ export default function Inbox() {
     onMessage: (data) => {
       const contactId = (data as any).contactId as number | null | undefined;
       const phone = (data as any).phoneNumber as string | undefined;
+      const messageType = (data as any).messageType as string | undefined;
       
       // Skip messages without contactId (e.g., test messages) - they don't belong in conversations
       if (!contactId) {
         return;
       }
       
+      // Skip campaign, test, welcome, and compliance messages - they don't belong in conversations
+      // This creates a stricter filter than backend getConversationSummaries() for cleaner real-time experience
+      // Frontend includes: 'received', 'regular', 'individual' 
+      // Frontend excludes: 'campaign', 'test', 'welcome', compliance messages (stop_response, help_response, etc.)
+      if (messageType === 'campaign' || 
+          messageType === 'test' || 
+          messageType === 'welcome' ||
+          messageType === 'stop_response' || 
+          messageType === 'help_response' ||
+          messageType === 'sms_command_response') {
+        return;
+      }
+      
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c.id === contactId || c.phone === phone);
-        if (idx === -1) return prev;
+        
+        if (idx === -1) {
+          // Create new conversation for first-time contact
+          const newConversation: Conversation = {
+            id: contactId,
+            contactName: undefined, // Will display phone number initially
+            phone: phone || '', // Fallback to empty string if phone is undefined
+            active: true, // New contacts are active by default
+            messages: [
+              {
+                id: data.id,
+                text: data.content,
+                timestamp: new Date((data as any).createdAt ?? Date.now()),
+                incoming: data.status === 'received',
+                status: data.status,
+              },
+            ],
+            hasUnread: true, // New conversations should be marked as unread
+          };
+          
+          // Add new conversation to the beginning of the list (most recent first)
+          return [newConversation, ...prev];
+        }
+        
+        // Existing logic for updating existing conversations
         const conv = prev[idx];
         const updated: Conversation = {
           ...conv,
