@@ -173,9 +173,23 @@ export default function Inbox() {
     onMessage: (data) => {
       const contactId = (data as any).contactId as number | null | undefined;
       const phone = (data as any).phoneNumber as string | undefined;
+      const messageType = (data as any).messageType as string | undefined;
       
       // Skip messages without contactId (e.g., test messages) - they don't belong in conversations
       if (!contactId) {
+        return;
+      }
+      
+      // Skip campaign, test, welcome, and compliance messages - they don't belong in conversations
+      // This creates a stricter filter than backend getConversationSummaries() for cleaner real-time experience
+      // Frontend includes: 'received', 'regular', 'individual' 
+      // Frontend excludes: 'campaign', 'test', 'welcome', compliance messages (stop_response, help_response, etc.)
+      if (messageType === 'campaign' || 
+          messageType === 'test' || 
+          messageType === 'welcome' ||
+          messageType === 'stop_response' || 
+          messageType === 'help_response' ||
+          messageType === 'sms_command_response') {
         return;
       }
       
