@@ -79,7 +79,7 @@ export async function requirePublicSubscriptionVerification(
   next: NextFunction
 ): Promise<Response | void> {
   try {
-    const { businessId } = req.params;
+    const { businessId } = req.body;
 
     if (!businessId || isNaN(parseInt(businessId))) {
       return res.status(400).json({
