@@ -167,7 +167,10 @@ export function DateTimePicker({
                 disabled={(date) => {
                   if (minDate && date < minDate) return true;
                   if (maxDate && date > maxDate) return true;
-                  return date < new Date(new Date().setHours(0, 0, 0, 0));
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  yesterday.setHours(23, 59, 59, 999);
+                  return date < yesterday;
                 }}
                 initialFocus
               />
