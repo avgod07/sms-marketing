@@ -237,7 +237,7 @@ export function TimingControl({
                   onChange={handleScheduledTimeChange}
                   disabled={disabled}
                   timezone={timezone}
-                  minDate={new Date()}
+                  minDate={new Date(new Date().setHours(0, 0, 0, 0))}
                   placeholder="Select date and time"
                 />
               </div>
