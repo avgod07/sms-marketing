@@ -24,6 +24,7 @@ import ContactTable from "@/components/contacts/contact-table";
 import ContactForm, { type ContactFormValues } from "@/components/contacts/contact-form";
 import { Search, Plus } from "lucide-react";
 import QRCode from "react-qr-code";
+import QRious from "qrious";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { handleApiError } from "@/lib/handleApiError";
@@ -214,7 +215,6 @@ export default function Contacts() {
         qrCodeDiv.innerHTML = `<canvas id="qr-canvas"></canvas>`;
         const canvas = qrCodeDiv.querySelector("canvas") as HTMLCanvasElement;
         if (canvas) {
-          const QRious = (window as any).QRious;
           new QRious({
             element: canvas,
             value: joinUrl,
