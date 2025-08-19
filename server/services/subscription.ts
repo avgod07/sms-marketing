@@ -59,6 +59,13 @@ export async function createSubscriptionCheckout({
       planName,
       billingCycle,
     },
+    subscription_data: {
+      metadata: {
+        businessId: String(businessId),
+        planName,
+        billingCycle,
+      },
+    },
     success_url: successUrl,
     cancel_url: cancelUrl,
     allow_promotion_codes: true,
