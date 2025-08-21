@@ -46,7 +46,7 @@ setupAuth(app);
 // Apply requireAuth to /api routes, but exclude webhook endpoints
 app.use("/api", (req, res, next) => {
   // Skip authentication for webhook endpoints
-  if (req.path.startsWith("/api/webhooks/")) {
+  if (req.path.startsWith("/webhooks/")) {
     return next();
   }
   // Apply authentication to all other /api routes
