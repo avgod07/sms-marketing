@@ -43,8 +43,15 @@ app.get("/api/health", async (req, res) => {
 
 setupAuth(app);
 
-// Only apply requireAuth to /api routes
-app.use("/api", requireAuth());
+// Apply requireAuth to /api routes, but exclude webhook endpoints
+app.use("/api", (req, res, next) => {
+  // Skip authentication for webhook endpoints
+  if (req.path.startsWith("/api/webhooks/")) {
+    return next();
+  }
+  // Apply authentication to all other /api routes
+  return requireAuth()(req, res, next);
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
