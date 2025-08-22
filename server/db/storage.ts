@@ -1816,7 +1816,7 @@ export class DatabaseStorage implements IStorage {
     if (trialVoidedAt) {
       updateData.trialUsed = true;
       updateData.trialVoidedAt = trialVoidedAt;
-      updateData.trialEndsAt = trialVoidedAt; // Also end the trial period
+      updateData.trialEndsAt = null; // Clear trial period for paid plans
     }
 
     const [row] = await db
