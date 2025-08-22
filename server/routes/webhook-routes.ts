@@ -197,6 +197,7 @@ export function registerWebhookRoutes(app: Express) {
   // Business-specific Twilio status callback using message SID (unauthenticated - external Twilio calls)
   app.post(
     "/api/webhooks/twilio/status-callback/:businessId",
+    express.urlencoded({ extended: false }), // Twilio sends application/x-www-form-urlencoded data
     async (req, res) => {
       try {
         const { AccountSid, MessageSid, MessageStatus, To, ErrorCode } =
