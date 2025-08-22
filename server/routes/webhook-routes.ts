@@ -35,9 +35,32 @@ export function registerWebhookRoutes(app: Express) {
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as any;
         const businessId = Number(session.metadata?.businessId);
-        const credits = Number(session.metadata?.credits);
 
-        // Validate session data
+        // Check if this is a credit purchase (has credits metadata)
+        const credits = Number(session.metadata?.credits);
+        const isCreditspurchase = session.metadata?.credits;
+
+        // Check if this is a subscription purchase (has subscription object and planName)
+        const isSubscriptionPurchase =
+          session.subscription && session.metadata?.planName;
+
+        // Skip processing if this is a subscription purchase (handled by subscription webhooks)
+        if (isSubscriptionPurchase) {
+          logInfo(
+            "Checkout session for subscription - will be handled by subscription webhooks",
+            {
+              sessionId: session.id,
+              subscriptionId: session.subscription,
+              planName: session.metadata?.planName,
+            }
+          );
+          return res.json({
+            received: true,
+            message: "Subscription handled by subscription webhooks",
+          });
+        }
+
+        // Validate session data for credit purchases
         if (!businessId || !credits || !session.id) {
           logError("Invalid session metadata in Stripe webhook", { session });
           return res.status(400).json({ error: "Invalid session metadata" });
