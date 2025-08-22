@@ -45,12 +45,8 @@ export function registerCreditsRoutes(app: Express) {
           ? new Date(business.trialEndsAt) < new Date()
           : false;
 
-        // Block credit purchases for free trial, cancelled, or expired trial users
-        if (
-          business.plan === "free_trial" ||
-          business.plan === "cancelled" ||
-          isTrialExpired
-        ) {
+        // Block credit purchases for free trial or cancelled users
+        if (business.plan === "free_trial" || business.plan === "cancelled") {
           return res.status(403).json({
             message:
               "Credit purchases require a paid plan. Please upgrade to continue.",
