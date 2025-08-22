@@ -1,5 +1,5 @@
 import express from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, registerWebhookRoutesEarly } from "./routes";
 import { setupVite } from "./vite-dev-logic";
 import { logInfo } from "./utils/logger.util";
 import { setupSocket } from "./socket";
@@ -19,6 +19,9 @@ setupGlobalErrorHandling();
 
 // Apply security headers to all responses (before any routes)
 app.use(securityHeaders);
+
+// Register webhook routes BEFORE express.json() for raw body access
+registerWebhookRoutesEarly(app);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
