@@ -1,5 +1,5 @@
 import express from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, registerWebhookRoutesEarly } from "./routes";
 import { serveStatic } from "./static";
 import { logInfo } from "./utils/logger.util";
 import { setupSocket } from "./socket";
@@ -33,9 +33,6 @@ app.use(securityHeaders);
 // This ensures req.protocol correctly returns "https" when behind a load balancer
 app.set("trust proxy", true);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
 // Add health check route after security headers
 app.get("/api/health", async (req, res) => {
   try {
@@ -55,6 +52,12 @@ app.get("/api/health", async (req, res) => {
 });
 
 setupAuth(app);
+
+// Register webhook routes BEFORE express.json() for raw body access
+registerWebhookRoutesEarly(app);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // Apply requireAuth to /api routes, but exclude webhook endpoints
 app.use("/api", (req, res, next) => {

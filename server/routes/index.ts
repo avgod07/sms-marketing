@@ -14,6 +14,12 @@ import { registerCreditsRoutes } from "./modules/credits";
 import { registerSubscriptionRoutes } from "./modules/subscriptions";
 import { registerSMSCommandRoutes } from "./modules/sms-commands";
 import { registerAdminRoutes } from "./modules/admin";
+import { registerWebhookRoutes } from "./webhook-routes";
+
+export function registerWebhookRoutesEarly(app: Express) {
+  // Register webhook routes that need raw body parsing BEFORE express.json()
+  registerWebhookRoutes(app);
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   registerAuthRoutes(app);

@@ -79,47 +79,8 @@ export function registerSubscriptionRoutes(app: Express) {
     }
   );
 
-  // POST /api/webhooks/subscriptions - Handle Stripe subscription webhooks
-  // This must use express.raw() for Stripe signature verification
-  app.post(
-    "/api/webhooks/subscriptions",
-    express.raw({ type: "application/json" }),
-    async (req: Request, res: Response) => {
-      const signature = req.headers["stripe-signature"] as string;
-      const payload = req.body; // Buffer
-
-      if (!signature || !payload) {
-        return res.status(400).json({ error: "Missing signature or payload" });
-      }
-
-      try {
-        const { verifyWebhookSignature } = await import(
-          "../../services/stripe"
-        );
-        const event = verifyWebhookSignature(signature, payload);
-
-        if (!event) {
-          return res.status(400).json({ error: "Invalid webhook signature" });
-        }
-
-        // Handle subscription-related events
-        if (
-          event.type.startsWith("customer.subscription.") ||
-          event.type.startsWith("invoice.payment.")
-        ) {
-          const { handleSubscriptionWebhook } = await import(
-            "../../services/subscription"
-          );
-          await handleSubscriptionWebhook(event);
-        }
-
-        res.json({ received: true });
-      } catch (err) {
-        logError("Subscription webhook error", err);
-        res.status(400).json({ error: "Webhook processing failed" });
-      }
-    }
-  );
+  // Note: Subscription webhook route has been moved to webhook-routes.ts
+  // to ensure it runs before express.json() middleware for raw body access.
 
   // POST /api/subscriptions/cancel - Cancel the current subscription
   app.post(
