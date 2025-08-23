@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,23 @@ export default function Inbox() {
   });
   const { data: setup } = useSetupStatus(!!user);
   const { timezone } = useBusinessTimezone();
+
+  // Auto-scroll to bottom functionality
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Auto-scroll when messages change for selected conversation
+  // Only scroll when message count changes (new messages), not when status updates occur
+  useEffect(() => {
+    if (selected?.messages.length) {
+      scrollToBottom();
+    }
+  }, [selected?.messages.length]);
 
   // Handle pre-selected contact from URL parameters
   useEffect(() => {
@@ -516,7 +533,7 @@ export default function Inbox() {
                     <span className="rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs">Inactive</span>
                   )}
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                   {selected.messages.map((msg) => (
                     <ChatBubble
                       key={msg.id}
