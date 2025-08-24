@@ -274,7 +274,7 @@ export default function JoinPage({ params }: JoinPageProps) {
             <div className="bg-gray-50 rounded-lg p-4 space-y-4">
               <div className="text-sm font-medium text-gray-900 mb-3">
                 <Shield className="w-4 h-4 inline mr-2" />
-                Marketing Messages Consent (Required)
+                Text Message Consent (Required)
               </div>
 
               {/* Marketing Messages Consent - Only Checkbox */}
@@ -287,8 +287,9 @@ export default function JoinPage({ params }: JoinPageProps) {
                 />
                 <div className="text-sm leading-relaxed">
                   <Label htmlFor="marketingConsent" className="cursor-pointer">
-                    I agree to receive marketing messages and special offers from <strong>{businessName}</strong>. 
-                    Message and data rates may apply. Reply STOP to opt out.
+                    I agree to receive text messages from <strong>{businessName}</strong> including 
+                    promotional offers, account notifications, appointment reminders, and service updates. 
+                    Message and data rates may apply. Reply STOP to opt out or HELP for assistance.
                   </Label>
                 </div>
               </div>
