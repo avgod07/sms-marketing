@@ -26,7 +26,7 @@ function getStatusBadge(campaign: CampaignWithQueue, timezone: string) {
     case "processing":
       return (
         <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">
-          ⏳ Sending Messages...
+          ⏳ Sending
         </Badge>
       );
       
@@ -35,7 +35,7 @@ function getStatusBadge(campaign: CampaignWithQueue, timezone: string) {
       if (campaign.hasQueuedMessages) {
         return (
           <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">
-            🟡 Queued for Business Hours
+            🟡 Queued
           </Badge>
         );
       }
