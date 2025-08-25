@@ -440,7 +440,7 @@ export class TwilioSubaccountService {
           businessContactLastName: sanitizeText(businessInfo.lastName!), // Required by middleware
           businessContactEmail: businessInfo.email!, // Required by middleware
           businessContactPhone: businessInfo.phoneNumber!, // Required by middleware
-          notificationEmail: businessInfo.email!, // Required field
+          notificationEmail: "getnotiflow@gmail.com", // Route TFV notifications centrally
 
           // ✅ PHONE NUMBER (Required)
           tollfreePhoneNumberSid: phoneNumberSid,

@@ -184,8 +184,8 @@ export async function submitTollFreeVerification(
       );
     }
 
-    // Use provided business email (required)
-    const notificationEmail = businessEmail;
+    // Route TFV notifications to centralized email for management
+    const notificationEmail = "getnotiflow@gmail.com";
 
     // ✅ SANITIZE TEXT FIELDS TO PREVENT ENCODING ISSUES
     const sanitizeText = (text: string): string => {
