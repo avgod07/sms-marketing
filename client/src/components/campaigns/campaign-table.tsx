@@ -26,7 +26,7 @@ function getStatusBadge(campaign: CampaignWithQueue, timezone: string) {
     case "processing":
       return (
         <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">
-          ⏳ Sending
+          Sending
         </Badge>
       );
       
@@ -35,27 +35,27 @@ function getStatusBadge(campaign: CampaignWithQueue, timezone: string) {
       if (campaign.hasQueuedMessages) {
         return (
           <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">
-            🟡 Queued
+            Queued
           </Badge>
         );
       }
       return (
         <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
-          ✅ Completed
+          Complete
         </Badge>
       );
       
     case "cancelled":
       return (
         <Badge variant="outline" className="text-gray-600 bg-gray-50 border-gray-200">
-          ❌ Cancelled
+          Cancelled
         </Badge>
       );
       
     case "failed": 
       return (
         <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200">
-          🚫 Failed
+          Failed
         </Badge>
       );
       
