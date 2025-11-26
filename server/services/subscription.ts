@@ -137,28 +137,90 @@ async function handleSubscriptionChange(
 
   try {
     // Determine new plan based on subscription status
-    let newPlan: string;
+    // Initialize to current plan - will be overwritten if we need to change
+    let newPlan: string = currentBusiness.plan;
     let trialVoidedAt: Date | undefined;
+    let shouldUpdatePlan = true;
 
-    if (subscription.status === "active") {
-      newPlan = "starter";
-      // If upgrading from free trial, void it permanently
-      if (currentBusiness.plan === "free_trial" && !currentBusiness.trialUsed) {
-        trialVoidedAt = new Date();
-      }
-    } else {
-      // Any non-active status = cancelled (never back to trial)
-      newPlan = "cancelled";
+    // Log the incoming webhook for debugging
+    logInfo("Processing subscription webhook", {
+      businessId,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAt: subscription.cancel_at,
+      currentPlan: currentBusiness.plan,
+    });
+
+    switch (subscription.status) {
+      case "active":
+        // Subscription is active and being billed
+        newPlan = "starter";
+        // If upgrading from free trial, void it permanently
+        if (currentBusiness.plan === "free_trial" && !currentBusiness.trialUsed) {
+          trialVoidedAt = new Date();
+        }
+        break;
+
+      case "canceled":
+        // Subscription has been fully canceled (period ended or immediate cancel)
+        // This is the final state - mark as cancelled
+        newPlan = "cancelled";
+        break;
+
+      case "past_due":
+      case "unpaid":
+        // Payment failed - don't immediately cancel, give them a chance to fix it
+        // Keep current plan but log the issue
+        logInfo("Subscription payment issue", {
+          businessId,
+          subscriptionId: subscription.id,
+          status: subscription.status,
+        });
+        shouldUpdatePlan = false;
+        break;
+
+      case "incomplete":
+      case "incomplete_expired":
+        // Initial payment failed - mark as cancelled
+        newPlan = "cancelled";
+        break;
+
+      case "trialing":
+        // In Stripe trial (if using Stripe's trial feature)
+        newPlan = "starter";
+        break;
+
+      case "paused":
+        // Subscription paused - keep plan but log
+        logInfo("Subscription paused", {
+          businessId,
+          subscriptionId: subscription.id,
+        });
+        shouldUpdatePlan = false;
+        break;
+
+      default:
+        // Unknown status - log and don't change
+        logInfo("Unknown subscription status", {
+          businessId,
+          subscriptionId: subscription.id,
+          status: subscription.status,
+        });
+        shouldUpdatePlan = false;
+        break;
     }
 
-    await biz.updateBusinessPlan(
-      newPlan,
-      subscription.customer as string,
-      subscription.id,
-      trialVoidedAt // Pass voided timestamp if voiding trial
-    );
+    if (shouldUpdatePlan) {
+      await biz.updateBusinessPlan(
+        newPlan,
+        subscription.customer as string,
+        subscription.id,
+        trialVoidedAt
+      );
+    }
 
-    // Record the subscription event with trial voiding info
+    // Record the subscription event with detailed info
     await biz.recordSubscriptionEvent(
       `subscription_${subscription.status}`,
       subscription.id,
@@ -168,14 +230,20 @@ async function handleSubscriptionChange(
         billingCycle: subscription.metadata?.billingCycle,
         trialVoided: !!trialVoidedAt,
         previousPlan: currentBusiness.plan,
+        newPlan: shouldUpdatePlan ? newPlan : currentBusiness.plan,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        cancelAt: subscription.cancel_at 
+          ? new Date(subscription.cancel_at * 1000).toISOString() 
+          : null,
       }
     );
 
-    logInfo("Subscription updated", {
+    logInfo("Subscription webhook processed", {
       businessId,
       subscriptionId: subscription.id,
       status: subscription.status,
-      plan: newPlan,
+      planUpdated: shouldUpdatePlan,
+      newPlan: shouldUpdatePlan ? newPlan : currentBusiness.plan,
       previousPlan: currentBusiness.plan,
       trialVoided: !!trialVoidedAt,
     });

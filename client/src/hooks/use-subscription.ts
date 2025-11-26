@@ -6,6 +6,8 @@ interface SubscriptionResponse {
   trialEndsAt: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
 }
 
 export function useSubscription() {

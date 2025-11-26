@@ -31,11 +31,35 @@ export function registerSubscriptionRoutes(app: Express) {
         const { biz } = await getBizForRequest(req);
         const business = await biz.getBusiness();
 
+        let cancelAt: string | null = null;
+        let cancelAtPeriodEnd = false;
+
+        // If there's an active subscription, check if it's scheduled for cancellation
+        if (business.stripeSubscriptionId && business.plan === "starter") {
+          try {
+            const { getStripe } = await import("../../services/stripe");
+            const stripe = getStripe();
+            const subscription = await stripe.subscriptions.retrieve(
+              business.stripeSubscriptionId
+            );
+            
+            cancelAtPeriodEnd = subscription.cancel_at_period_end;
+            if (subscription.cancel_at) {
+              cancelAt = new Date(subscription.cancel_at * 1000).toISOString();
+            }
+          } catch (stripeErr) {
+            // If we can't fetch from Stripe, just continue without cancel info
+            logError("Failed to fetch subscription from Stripe", stripeErr);
+          }
+        }
+
         res.json({
           plan: business.plan,
           trialEndsAt: business.trialEndsAt,
           stripeCustomerId: business.stripeCustomerId,
           stripeSubscriptionId: business.stripeSubscriptionId,
+          cancelAtPeriodEnd,
+          cancelAt,
         });
       } catch (err) {
         logError("Failed to fetch current subscription", err);
@@ -96,23 +120,42 @@ export function registerSubscriptionRoutes(app: Express) {
             .status(400)
             .json({ message: "No active subscription to cancel." });
         }
-        // Cancel the subscription in Stripe
+        // Cancel the subscription in Stripe at the end of the billing period
         const { getStripe } = await import("../../services/stripe");
         const stripe = getStripe();
-        await stripe.subscriptions.update(stripeSubscriptionId, {
+        const updatedSubscription = await stripe.subscriptions.update(stripeSubscriptionId, {
           cancel_at_period_end: true,
         });
-        // Update business plan to 'cancelled' and clear subscription ID
-        await biz.updateBusinessPlan("cancelled", undefined, undefined);
+
+        // DON'T immediately mark as cancelled - let the Stripe webhook handle the actual
+        // transition when the subscription period ends. The user should retain access
+        // until the billing period is over.
+        
+        // Record that cancellation was requested (but subscription is still active)
         await biz.recordSubscriptionEvent(
-          "subscription_cancelled",
+          "subscription_cancel_requested",
           stripeSubscriptionId,
           {
             userId: user.id,
-            cancelledAt: new Date().toISOString(),
+            cancelRequestedAt: new Date().toISOString(),
+            cancelAt: updatedSubscription.cancel_at 
+              ? new Date(updatedSubscription.cancel_at * 1000).toISOString() 
+              : null,
           }
         );
-        res.json({ success: true });
+
+        logInfo("Subscription cancellation scheduled", {
+          businessId: business.id,
+          subscriptionId: stripeSubscriptionId,
+          cancelAt: updatedSubscription.cancel_at,
+        });
+
+        res.json({ 
+          success: true,
+          cancelAt: updatedSubscription.cancel_at 
+            ? new Date(updatedSubscription.cancel_at * 1000).toISOString() 
+            : null,
+        });
       } catch (err) {
         logError("Failed to cancel subscription", err);
         res.status(500).json({ message: "Failed to cancel subscription" });

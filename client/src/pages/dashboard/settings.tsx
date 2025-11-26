@@ -368,8 +368,13 @@ function BillingTab() {
   const [isCancelling, setIsCancelling] = useState(false);
 
   const isTrialUser = subscription?.plan === "free_trial";
+  const isCancelledUser = subscription?.plan === "cancelled";
+  const isPaidUser = subscription?.plan === "starter";
+  const isPendingCancellation = isPaidUser && subscription?.cancelAtPeriodEnd === true;
+  const cancellationDate = subscription?.cancelAt ? new Date(subscription.cancelAt) : null;
   const trialEnd = subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null;
   const daysLeft = trialEnd ? differenceInCalendarDays(trialEnd, new Date()) : 0;
+  const daysUntilCancellation = cancellationDate ? differenceInCalendarDays(cancellationDate, new Date()) : 0;
   
   // Check if trial has actually expired (trialEndsAt is in the past)
   const isTrialExpired = trialEnd ? trialEnd < new Date() : false;
@@ -541,8 +546,8 @@ function BillingTab() {
             <CreditCard className="w-5 h-5" />
             <span>Current Plan</span>
           </div>
-          {/* Cancel Subscription Button (only for paid users) */}
-          {!isTrialUser && (
+          {/* Cancel Subscription Button (only for active paid users, not pending cancellation) */}
+          {isPaidUser && !isPendingCancellation && (
             <Button
               variant="destructive"
               size="sm"
@@ -568,11 +573,51 @@ function BillingTab() {
               )}
               <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
             </>
-          ) : (
+          ) : isCancelledUser ? (
+            <>
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <p className="text-red-600 font-semibold">Subscription Cancelled</p>
+              </div>
+              <p className="text-sm text-gray-600">
+                Your subscription has ended. Resubscribe to continue sending campaigns and access all features.
+              </p>
+              <Button onClick={() => window.location.href = "/pricing"}>
+                <Crown className="w-4 h-4 mr-2" />
+                Resubscribe Now
+              </Button>
+            </>
+          ) : isPaidUser ? (
             <>
               <p className="text-gray-700 font-semibold">Starter Plan</p>
-              <p className="text-lg font-bold">$25/month <span className="text-gray-400 font-normal">or</span> $228/year <span className="text-xs text-gray-500">(billed annually)</span></p>
-              <p className="text-xs text-gray-500">Just $19/mo, billed annually</p>
+              {isPendingCancellation ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 my-2">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <p className="text-amber-800 text-sm font-medium">Cancellation Scheduled</p>
+                  </div>
+                  <p className="text-amber-700 text-sm mt-1">
+                    Your subscription will end on {cancellationDate ? format(cancellationDate, "MMMM d, yyyy") : "the end of your billing period"}.
+                    {daysUntilCancellation > 0 && ` (${daysUntilCancellation} days remaining)`}
+                  </p>
+                  <p className="text-amber-600 text-xs mt-1">
+                    You'll retain full access until then. Contact support to undo cancellation.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-lg font-bold">$25/month <span className="text-gray-400 font-normal">or</span> $228/year <span className="text-xs text-gray-500">(billed annually)</span></p>
+                  <p className="text-xs text-gray-500">Just $19/mo, billed annually</p>
+                </>
+              )}
+              <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-700 font-semibold">Unknown Plan</p>
+              <p className="text-sm text-gray-500">
+                Please contact support if you're seeing this message.
+              </p>
               <Button variant="outline" onClick={() => window.location.href = "/pricing"}>View Pricing & Plans</Button>
             </>
           )}
